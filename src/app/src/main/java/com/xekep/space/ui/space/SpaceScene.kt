@@ -3,6 +3,7 @@ package com.xekep.space.ui.space
 import com.xekep.space.R
 import com.xekep.space.audio.AmbientMusic
 import com.xekep.space.input.SpaceShake
+import com.xekep.space.input.SpaceTilt
 import android.os.SystemClock
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -47,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -65,6 +67,8 @@ import com.xekep.space.sim.toOffset
 import com.xekep.space.storage.SandboxStorage
 import com.xekep.space.storage.GameOptions
 import kotlin.math.max
+import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 
@@ -83,11 +87,20 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     SideEffect { music.setEnabled(musicEnabled) }
     val haptic = LocalHapticFeedback.current
     val shakeCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { impulse ->
-        if (game.shakeSandbox(impulse) && options.vibration) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (game.shakeSandbox(impulse,options.shakeMode,options.shakeIntensity.toDouble()) && options.vibration) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
     val shake = remember(context, game) { SpaceShake(context) { shakeCallback(it) } }
-    val shakeEnabled = options.shake && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false
-    SideEffect { shake.setEnabled(shakeEnabled) }
+    val controlledId by remember(game) { derivedStateOf { game.controlledVehicleId } }
+    val tiltCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { game.setSteeringInput(it) }
+    val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
+    val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && hasSession &&
+        (if (game.mode == AppMode.Sandbox) sandboxPaused == false else (game.arcade?.lives ?: 0) > 0)
+    val motionEnabled = options.motionControl && tilt.available
+    SideEffect { game.setMotionControlEnabled(motionEnabled); tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
+    LaunchedEffect(controlledId, game.mode) { tilt.recalibrate() }
+    val shakeMode = options.shakeMode
+    val shakeEnabled = controlledId == null && shakeMode != com.xekep.space.sim.ShakeMode.Off && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false
+    SideEffect { shake.setMode(shakeMode); shake.setEnabled(shakeEnabled) }
     val tone = remember(context) { runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 35) }.getOrNull() }
     DisposableEffect(tone) { onDispose { tone?.release() } }
     var summaries by remember { mutableStateOf(storage.summaries()) }
@@ -109,20 +122,20 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 String(bytes, Charsets.UTF_8)
             } ?: error("Cannot read file")
             game.loadSandbox(storage.decode(raw))
-            game.inform(R.string.scene_imported)
             context.getString(R.string.scene_imported)
         }.getOrElse { context.getString(R.string.import_failed) }
     }
     var frameNanos by remember { mutableLongStateOf(SystemClock.elapsedRealtimeNanos()) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, shake) {
+    DisposableEffect(lifecycleOwner, shake, tilt) {
         shake.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        tilt.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) shake.setForeground(true)
-            if (event == Lifecycle.Event.ON_PAUSE) shake.setForeground(false)
+            if (event == Lifecycle.Event.ON_RESUME) { shake.setForeground(true); tilt.setForeground(true) }
+            if (event == Lifecycle.Event.ON_PAUSE) { shake.setForeground(false); tilt.setForeground(false) }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); shake.close() }
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer); shake.close(); tilt.close() }
     }
 
     DisposableEffect(lifecycleOwner, music) {
@@ -169,6 +182,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         }
     }
 
+    val solarLabels = remember(game, game.sceneGeneration) { SolarLabelLayout() }
     val viewport = game.viewport
     val camera by remember(game) { derivedStateOf { game.camera } }
     val arcade = game.arcade
@@ -192,9 +206,9 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val previewMass = candidate?.mass
     val previewSpeed = candidate?.velocity?.magnitude()
     val prediction = remember(frameNanos / 80_000_000L, preview?.currentWorld, game.orbitSourceId, game.spawnKind) {
-        candidate?.let { SimulationEngine.predictPath(it, game.bodies.sortedByDescending { body -> body.mass }.take(24)) }.orEmpty()
+        candidate?.takeIf { it.waypoints.isEmpty() }?.let { SimulationEngine.predictPath(it, game.bodies.sortedByDescending { body -> body.mass }.take(24)) }.orEmpty()
     }
-    val previewCost = previewMass?.let(SimulationEngine::energyCostForMass)
+    val previewCost = candidate?.let(::launchCost)
     val canLaunch = candidate != null && (game.mode == AppMode.Sandbox ||
         (arcade != null && arcade.lives > 0 && (previewCost ?: 0.0) <= arcade.energy))
     val stars = remember(viewport) {
@@ -209,16 +223,27 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         Canvas(Modifier.fillMaxSize().testTag("space-scene").semantics { contentDescription = context.getString(R.string.space_scene) }
             .onSizeChanged(game::resize).spaceGestures(game, hasSession)) {
             drawRect(Brush.radialGradient(listOf(Color(0x221E3A8A), Color.Transparent), center, max(size.width, size.height) * 0.75f))
+            val bodies = game.bodies
+            rotate((game.cameraRotation*180/PI).toFloat()) {
             stars.forEach {
                 // A little parallax makes camera travel visible even far from a planet.
                 val x = ((it.position.x - camera.center.x * camera.zoom * 0.06) % size.width + size.width) % size.width
                 val y = ((it.position.y - camera.center.y * camera.zoom * 0.06) % size.height + size.height) % size.height
-                drawCircle(Color.White.copy(alpha = it.alpha), it.radius, Offset(x.toFloat(), y.toFloat()))
+                val tiles=if (abs(game.cameraRotation) > .001) -1..1 else 0..0
+                for (tileX in tiles) for (tileY in tiles) {
+                    drawCircle(Color.White.copy(alpha = it.alpha), it.radius, Offset(x.toFloat()+tileX*size.width, y.toFloat()+tileY*size.height))
+                }
             }
-            val bodies = game.bodies
-            bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60) }
-            bodies.forEach { drawBody(it, viewport, camera.center, camera.zoom) }
-            drawSpaceIndicators(game)
+            if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, camera.center, camera.zoom, game.hiddenSolarOrbits)
+            bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color) }
+            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent) }
+            bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60, cameraRotation=game.cameraRotation) }
+            visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId) }
+            drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, camera.center, camera.zoom, options.reducedFlashes)
+            arcade?.combat?.projectiles?.forEach { shot ->
+                val point = worldToScreen(shot.position, viewport, camera.center, camera.zoom)
+                drawLine(Color(0xFF9EF8FF), point - shot.velocity.normalized().toOffset() * 10.dp.toPx(), point, 2.dp.toPx())
+            }
             prediction.forEachIndexed { index, point ->
                 drawCircle(accent.copy(alpha = 0.8f - index * 0.02f), 2.dp.toPx(), worldToScreen(point, viewport, camera.center, camera.zoom))
             }
@@ -228,17 +253,20 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 val start = worldToScreen(it.startWorld, viewport, camera.center, camera.zoom)
                 val end = worldToScreen(it.currentWorld, viewport, camera.center, camera.zoom)
                 drawCircle(color.copy(alpha = 0.12f), radius * 2.6f, start)
-                if (candidate?.kind == com.xekep.space.sim.BodyKind.Ship || candidate?.kind == com.xekep.space.sim.BodyKind.Rocket)
-                    drawBody(candidate, viewport, camera.center, camera.zoom)
+                if (candidate != null && candidate.kind in listOf(com.xekep.space.sim.BodyKind.Ship,com.xekep.space.sim.BodyKind.Rocket,com.xekep.space.sim.BodyKind.Star,com.xekep.space.sim.BodyKind.BlackHole))
+                    drawBody(candidate, viewport, camera.center, camera.zoom, game.cameraRotation)
                 else drawCircle(color.copy(alpha = 0.88f), radius, start, style = Stroke(width = 2.5f))
                 if (distance(start, end) > 6f) { drawArrow(start, end, color); drawFingerDirection(end, end - start, color) }
             }
+            }
+            drawSolarLabels(bodies, viewport, camera.center, camera.zoom, context, solarLabels, game.presentationAge, game.cameraRotation)
+            drawSpaceIndicators(game)
             if (!options.reducedFlashes && game.mode == AppMode.Arcade && (arcade?.hitFlash ?: 0.0) > 0.0) {
                 drawRect(Color(0xFFFF6B6B).copy(alpha = (arcade!!.hitFlash * 0.16).toFloat()))
             }
         }
 
-        if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available)
+        if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available, tilt.available)
         if (hasSession && !game.menuOpen && game.mode == AppMode.Arcade) {
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
                 val compactHud = maxHeight < 420.dp
@@ -258,8 +286,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         if (compactHud && game.mode == AppMode.Arcade && arcade != null) Text(
                             context.getString(R.string.arcade_compact, arcade.lives, arcade.wave, arcade.score.toInt()),
                             style = MaterialTheme.typography.labelMedium, color = accent)
-                        if (game.mode == AppMode.Arcade && arcade != null) Text(
-                            if (arcade.resting) context.getString(R.string.rest) else context.getString(R.string.run_status, arcade.elapsed.toInt(), arcade.destroyed),
+                        if (arcade?.resting == true) Text(
+                            context.getString(R.string.rest),
                             style = MaterialTheme.typography.labelMedium, color = accent)
                     }
                     Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).verticalScroll(rememberScrollState()),
@@ -273,14 +301,17 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                             }
                         }
                         game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SpawnCycleButton(game, Modifier.weight(1f), tag = "arcade-cycle-spawn")
+                            ObjectCounter(game)
+                            MotionControlButton(options, tilt.available, "arcade-motion-control")
+                        }
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
-                        if (game.behind) Text(context.getString(R.string.catching_up), style = MaterialTheme.typography.labelSmall, color = accent)
                         PreviewHud(mode = game.mode, previewMass = previewMass, previewSpeed = previewSpeed, previewCost = previewCost)
                         if (game.mode == AppMode.Arcade && arcade != null) {
                             ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / MaxEnergy).toFloat(), arcade.energy)
                         }
-                        Text(context.getString(R.string.gesture_hint), modifier = Modifier.align(Alignment.CenterHorizontally),
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
+
                     }
                 }
             }
@@ -292,7 +323,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 onRetry = { game.startArcade(arcade.difficulty) }, onMenu = game::openMenu)
         }
         if (game.menuOpen) {
-            SpaceMenu(game, summaries, notice, options = options,
+            SpaceMenu(game, summaries, notice, options = options, motionAvailable = tilt.available,
                 onExport = { game.pendingExport = game.snapshot(System.currentTimeMillis()); exportScene.launch("${game.sandbox?.name?.replace(Regex("[^A-Za-z0-9_-]"), "_") ?: context.getString(R.string.space)}.space.json") },
                 onImport = { importScene.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onSaveSlot = { slot ->

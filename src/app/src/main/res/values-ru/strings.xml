@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="spawn_black_hole">Чёрная дыра</string>
+    <string name="shake_off">Выкл</string>
+    <string name="shake_classic">Прежний</string>
+    <string name="shake_inertial">Разброс</string>
+    <string name="shake_intensity">Сила: %1$d%%</string>
+    <string name="shake_intensity_label">Сила встряхивания</string>
+    <string name="focus_body">Приблизить объект</string>
+    <string name="motion_control">Управление наклоном</string>
+
+    <string name="object_count">Объекты: %1$d из %2$d</string>
     <string name="app_name">Space</string>
     <string name="arcade_compact">"Жизни: %1$d · Волна: %2$d · Очки: %3$d"</string>
     <string name="menu">"Меню"</string>
@@ -7,16 +17,16 @@
     <string name="fit_system">"Вся система"</string>
     <string name="skip">"Пропустить"</string>
     <string name="cancel_orbit">"Отмена орбиты"</string>
-    <string name="catching_up">"Симуляция догоняет время"</string>
+
     <string name="large_system">"Большая система · При задержках уменьшите скорость времени"</string>
     <string name="play">"Пуск"</string>
     <string name="pause">"Пауза"</string>
-    <string name="gesture_hint">"Палец: создать · Два: двигать и приближать"</string>
+
     <string name="rest">"Волна пройдена · Время подготовиться"</string>
     <string name="unsaved">" · Не сохранено"</string>
-    <string name="experiment_solar">"Эксперимент: выберите звезду и добавьте планету с помощью орбиты."</string>
-    <string name="experiment_binary">"Эксперимент: добавьте третье тело к двойной звезде."</string>
-    <string name="experiment_empty">"Эксперимент: удерживайте палец, чтобы создать звезду, затем добавьте спутник."</string>
+
+
+
     <string name="scene_exported">"Сцена экспортирована"</string>
     <string name="export_failed">"Не удалось экспортировать. Выберите другое место."</string>
     <string name="scene_imported">"Сцена импортирована"</string>
@@ -29,14 +39,13 @@
     <string name="two_modes">"Два способа исследовать космос"</string>
     <string name="next_run">"НОВАЯ ПОПЫТКА"</string>
     <string name="last_run">"Последняя попытка"</string>
-    <string name="arcade_help">"Защитите золотое ядро. Удерживайте палец для массы, затем проведите и отпустите для перехвата метеора. Перехваты дают энергию и комбо."</string>
     <string name="starting_scene">"НАЧАЛЬНАЯ СЦЕНА"</string>
     <string name="new_universe">"НОВЫЙ МИР"</string>
-    <string name="solar">"Солнце"</string>
+    <string name="solar">"Система"</string>
     <string name="binary">"Две звезды"</string>
     <string name="empty">"Пусто"</string>
     <string name="merge_impact">"Слияние при ударе"</string>
-    <string name="merge_off">"Выключено: тела проходят друг через друга"</string>
+
     <string name="current_universe">"ТЕКУЩИЙ МИР"</string>
     <string name="unsaved_changes">" · Есть изменения"</string>
     <string name="rename">"Название"</string>
@@ -45,7 +54,7 @@
     <string name="import_question">"Импортировать сцену?"</string>
     <string name="import_confirmation">"После выбора корректного файла текущая песочница будет заменена."</string>
     <string name="saved_universes">"СОХРАНЁННЫЕ МИРЫ"</string>
-    <string name="saves_help">"Сохраняются тела, камера, скорость времени и настройка столкновений."</string>
+
     <string name="replace_slot_confirmation">"Предыдущее сохранение в этом слоте будет заменено."</string>
     <string name="load_slot_confirmation">"Несохранённые изменения текущей песочницы будут заменены."</string>
     <string name="new_run_question">"Начать новую попытку?"</string>
@@ -53,8 +62,8 @@
     <string name="new_run_confirmation">"Текущая попытка завершится. Рекорд сохранится."</string>
     <string name="new_universe_confirmation">"Несохранённые изменения будут заменены. Сначала сохраните мир в слот."</string>
     <string name="new_arcade_run">"Новая попытка"</string>
-    <string name="flight_controls">"УПРАВЛЕНИЕ"</string>
-    <string name="flight_help">"Один палец · Удерживайте для массы, проведите для скорости\nДва пальца · Двигайте вместе для перемещения, разводите для зума"</string>
+
+
     <string name="feedback_options">"ОБРАТНАЯ СВЯЗЬ"</string>
     <string name="sound">"Звуки событий"</string>
     <string name="music">"Фоновая музыка"</string>
@@ -77,7 +86,7 @@
     <string name="undo">"Отмена"</string>
     <string name="checkpoint">"Снимок"</string>
     <string name="restore">"Вернуть"</string>
-    <string name="selected_body">"Выбранное тело"</string>
+
     <string name="edit">"Изменить"</string>
     <string name="delete">"Удалить"</string>
     <string name="orbit_helper">"Орбита"</string>
@@ -85,14 +94,14 @@
     <string name="follow">"Следить"</string>
     <string name="close">"Закрыть"</string>
     <string name="delete_body_question">"Удалить выбранное тело?"</string>
-    <string name="delete_body_confirmation">"Отмена вернёт тело и сцену до этого изменения."</string>
+
     <string name="restore_question">"Вернуть контрольный снимок?"</string>
     <string name="restore_confirmation">"Текущая сцена будет заменена. Это изменение можно отменить."</string>
     <string name="edit_body">"Изменить тело"</string>
     <string name="mass">"Масса"</string>
     <string name="velocity_x">"Скорость X"</string>
     <string name="velocity_y">"Скорость Y"</string>
-    <string name="numeric_limits">"Масса: 1–100000. Скорость: до 5000. Введите конечные числа."</string>
+    <string name="numeric_limits">Масса: 1e-8…1e8. Скорость: до 5000. Введите конечные числа.</string>
     <string name="apply">"Применить"</string>
     <string name="score">"Очки"</string>
     <string name="hull">"Жизни"</string>
@@ -111,7 +120,7 @@
     <string name="choose_mode">"Выбрать режим"</string>
     <string name="lag_paused">"Симуляция на паузе после долгой задержки. При необходимости уменьшите скорость времени."</string>
     <string name="practice_hit">"Учебный метеор достиг ядра. Попробуйте снова: жизни защищены."</string>
-    <string name="scene_full">"Сцена заполнена. Удалите тела перед созданием новых."</string>
+
     <string name="not_enough_energy">"Недостаточно энергии. Дождитесь восстановления."</string>
     <string name="satellite_farther">"Разместите спутник дальше от родительского тела."</string>
     <string name="practice_complete">"Обучение завершено. Началась попытка на лёгкой сложности."</string>
@@ -123,7 +132,7 @@
     <string name="tutorial_sandbox_create">"Создайте тело на паузе. Чем дольше удержание, тем больше масса."</string>
     <string name="tutorial_sandbox_play">"Нажмите «Пуск», чтобы запустить движение."</string>
     <string name="tutorial_sandbox_camera">"Переместитесь двумя пальцами, затем нажмите «Вся система» для возврата."</string>
-    <string name="run_status">"Время: %1$d с · Перехватов: %2$d"</string>
+
     <string name="saved_slot">"Сохранено в слот %1$d"</string>
     <string name="difficulty_details">"Жизни: %1$d · Очки ×%2$s · Волна: 24 с + отдых 4 с"</string>
     <string name="personal_best">"Рекорд · %1$s"</string>
@@ -135,7 +144,6 @@
     <string name="load_slot_bodies">"Слот %1$d · Тел: %2$d"</string>
     <string name="create_preset">"Создать: %1$s"</string>
     <string name="continue_mode">"Продолжить: %1$s"</string>
-    <string name="back_mode">"Вернуться: %1$s"</string>
     <string name="body_details">"Масса %1$d · Скорость %2$d"</string>
     <string name="game_over_intercepts">"Перехвачено: %1$d · Рекорд: %2$d"</string>
     <string name="game_over_details">"Время: %1$d с · Волна: %2$d · Точность: %3$d%%"</string>
@@ -147,24 +155,47 @@
     <string name="solar_system">"Солнечная система"</string>
     <string name="binary_stars">"Двойная звезда"</string>
     <string name="empty_space">"Пустой космос"</string>
-    <string name="solar_description">"Начните у звезды. Уменьшите масштаб для исследования восьми планет."</string>
+    <string name="solar_description">Солнце, восемь планет, Плутон и крупные спутники. Орбиты и массы близки к реальным, значки увеличены для наглядности.</string>
     <string name="binary_description">"Две звезды обращаются вокруг общего центра масс."</string>
     <string name="empty_description">"Пустой космос. Постройте собственную систему."</string>
     <string name="spawn_body">Небесное тело</string>
     <string name="spawn_ship">Корабль</string>
     <string name="spawn_rocket">Ракета</string>
     <string name="spawn_star">Звезда</string>
-    <string name="spawn_object">Создать объект</string>
     <string name="sandbox_tools">Инструменты</string>
     <string name="time_speed">Скорость времени</string>
-    <string name="spawn_gesture">Выбери тип, затем зажми палец в космосе, потяни в сторону полёта и отпусти. Дольше держишь — больше масса.</string>
     <string name="spawn_body_help">Создавай планеты и спутники. Масса определяет притяжение и размер.</string>
     <string name="spawn_ship_help">Лёгкий корабль. Летит по инерции с заданной скоростью и подчиняется гравитации.</string>
     <string name="spawn_rocket_help">Разгоняется в направлении запуска 3 секунды, затем летит по инерции. Без перетягивания стартует вверх.</string>
-    <string name="sandbox_panel_paused">Пока панель открыта, время остановлено. После закрытия вернётся прежний режим времени.</string>
-    <string name="vehicle_collision_help">При включённых столкновениях масса и импульс объединяются. Корабли и ракеты превращаются в обломки; двигатели гаснут.</string>
+
+
     <string name="shake_universe">Встряхнуть вселенную</string>
-    <string name="shake_help">Включи, закрой панель и встряхни телефон — все объекты получат толчок. Работает при запущенном времени; отмена вернёт сцену.</string>
+
     <string name="shake_unavailable">На этом устройстве нет подходящего датчика движения.</string>
-    <string name="shake_applied">Вселенная встряхнута · Отмена доступна в инструментах</string>
+
+    <string name="cycle_spawn">↻ %1$s</string>
+
+
+    <string name="solar_catalog_details">Радиус: %1$s км · масса: %2$s кг\nГод Земли ≈ 31 с при 1x</string>
+
+
+    <string name="sun">Солнце</string>
+    <string name="mercury">Меркурий</string>
+    <string name="venus">Венера</string>
+    <string name="earth">Земля</string>
+    <string name="mars">Марс</string>
+    <string name="jupiter">Юпитер</string>
+    <string name="saturn">Сатурн</string>
+    <string name="uranus">Уран</string>
+    <string name="neptune">Нептун</string>
+    <string name="pluto">Плутон</string>
+    <string name="moon">Луна</string>
+    <string name="io">Ио</string>
+    <string name="europa">Европа</string>
+    <string name="ganymede">Ганимед</string>
+    <string name="callisto">Каллисто</string>
+    <string name="titan">Титан</string>
+    <string name="triton">Тритон</string>
+    <string name="classic_orbits">Орбиты</string>
+    <string name="classic_orbits_description">Прежняя игровая система: звезда и восемь планет. Удобный масштаб для свободных экспериментов с гравитацией.</string>
 </resources>

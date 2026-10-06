@@ -134,15 +134,15 @@ class SpaceInteractionTest {
         }
     }
 
-    @Test fun modeSelectionStartsEmptySandboxAndKeepsItWhenSwitchingBack() {
+    @Test fun modeSelectionStartsSolarSystemAndKeepsItWhenSwitchingBack() {
         val game = SpaceGameState()
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.universe_awaits)).assertIsDisplayed()
         compose.onNodeWithTag("mode-Sandbox").performClick()
-        compose.onNodeWithTag("preset-Empty").performScrollTo().performClick()
+        compose.onNodeWithTag("preset-SolarSystem").performScrollTo().performClick()
         compose.onNodeWithTag("menu-primary").performClick()
         compose.onNodeWithTag("sandbox-pause").performClick()
-        compose.runOnIdle { assertTrue(game.bodies.isEmpty()); assertTrue(game.sandbox!!.paused) }
+        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarBody.entries.size, game.bodies.size); assertTrue(game.sandbox!!.paused) }
         compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
         val sandbox = game.sandbox!!
         compose.onNodeWithTag("open-menu").performClick()
@@ -158,12 +158,12 @@ class SpaceInteractionTest {
         val game = SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars); openMenu() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         val before = game.sandbox
-        compose.onNodeWithTag("preset-Empty").performScrollTo().performClick()
+        compose.onNodeWithTag("preset-SolarSystem").performScrollTo().performClick()
         compose.onNodeWithTag("new-session").performScrollTo().performClick()
         compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.keep_current)).performClick()
         compose.runOnIdle { assertEquals(before, game.sandbox) }
         compose.onNodeWithTag("new-session").performClick()
         compose.onNodeWithTag("confirm-action").performClick()
-        compose.runOnIdle { assertTrue(game.bodies.isEmpty()); assertEquals(SandboxPresetKind.Empty, game.sandbox!!.preset) }
+        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarBody.entries.size, game.bodies.size); assertEquals(SandboxPresetKind.SolarSystem, game.sandbox!!.preset) }
     }
 }

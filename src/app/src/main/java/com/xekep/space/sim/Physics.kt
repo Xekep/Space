@@ -43,6 +43,8 @@ enum class BodyKind {
     Ambient,
     Ship,
     Rocket,
+    Star,
+    BlackHole,
 }
 
 data class CelestialBody(
@@ -56,6 +58,12 @@ data class CelestialBody(
     val trail: List<Vec2> = listOf(position),
     val burnRemaining: Double = 0.0,
     val heading: Vec2 = Vec2(0.0, -1.0),
+    val solar: SolarBody? = null,
+    val physicalScale: Boolean = solar != null,
+    val waypoints: List<Vec2> = emptyList(),
+    val routeSpeed: Double = 0.0,
+    val routeTolerance: Double = 0.0,
+    val pilotThrottle: Double = 0.0,
 )
 
 data class CollisionEvent(
@@ -64,6 +72,9 @@ data class CollisionEvent(
     val position: Vec2,
     val meteorId: Long? = null,
     val defenderId: Long? = null,
+    val vehicleExplosion: Boolean = false,
+    val velocity: Vec2 = Vec2.Zero,
+    val seed: Int = 0,
 )
 
 data class StepResult(
@@ -81,11 +92,12 @@ data class SandboxPreset(
 enum class SandboxPresetKind(val title: String, val description: String) {
     SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
+    ClassicOrbits("Orbits", "The original star and eight planets in a playful gravity scale."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
 object SimulationEngine {
-    private const val gravitationalConstant = 400.0
+    internal const val gravitationalConstant = 400.0
     private const val softening = 18.0
     private const val maxSubstep = 1.0 / 120.0
     private const val sandboxSubstep = 1.0 / 240.0
@@ -158,30 +170,34 @@ object SimulationEngine {
             )
             return SandboxPreset(stars, Vec2.Zero, 0.8f, totalEnergy(stars))
         }
-        val sunMass = 12_000.0
-        val sun = body(Vec2.Zero, Vec2.Zero, sunMass, Color(0xFFFFD166), BodyKind.Core)
+        if (kind == SandboxPresetKind.ClassicOrbits) {
+            val sunMass = 12_000.0
+            val sun = body(Vec2.Zero, Vec2.Zero, sunMass, Color(0xFFFFD166), BodyKind.Core)
 
-        val planets = listOf(
-            orbitalBody(57.9, 20.0, sunMass, 2.5, Color(0xFFD9B08C)),
-            orbitalBody(108.2, 75.0, sunMass, 5.5, Color(0xFFF4C06A)),
-            orbitalBody(149.6, 145.0, sunMass, 6.0, Color(0xFF69B7FF)),
-            orbitalBody(227.9, 210.0, sunMass, 3.5, Color(0xFFFF8A5B)),
-            orbitalBody(778.5, 310.0, sunMass, 55.0, Color(0xFFE7C89A)),
-            orbitalBody(1433.5, 15.0, sunMass, 42.0, Color(0xFFF1D58A)),
-            orbitalBody(2872.5, 96.0, sunMass, 26.0, Color(0xFF9BE7FF)),
-            orbitalBody(4495.1, 262.0, sunMass, 28.0, Color(0xFF577CFF)),
-        )
+            val planets = listOf(
+                orbitalBody(57.9, 20.0, sunMass, 2.5, Color(0xFFD9B08C)),
+                orbitalBody(108.2, 75.0, sunMass, 5.5, Color(0xFFF4C06A)),
+                orbitalBody(149.6, 145.0, sunMass, 6.0, Color(0xFF69B7FF)),
+                orbitalBody(227.9, 210.0, sunMass, 3.5, Color(0xFFFF8A5B)),
+                orbitalBody(778.5, 310.0, sunMass, 55.0, Color(0xFFE7C89A)),
+                orbitalBody(1433.5, 15.0, sunMass, 42.0, Color(0xFFF1D58A)),
+                orbitalBody(2872.5, 96.0, sunMass, 26.0, Color(0xFF9BE7FF)),
+                orbitalBody(4495.1, 262.0, sunMass, 28.0, Color(0xFF577CFF)),
+            )
 
-        val bodies = buildList {
-            add(sun)
-            addAll(planets)
+            val bodies = buildList {
+                add(sun)
+                addAll(planets)
+            }
+            return SandboxPreset(
+                bodies = bodies,
+                cameraCenter = Vec2.Zero,
+                zoom = 1f,
+                referenceEnergy = totalEnergy(bodies),
+            )
         }
-        return SandboxPreset(
-            bodies = bodies,
-            cameraCenter = Vec2.Zero,
-            zoom = 1f,
-            referenceEnergy = totalEnergy(bodies),
-        )
+        val bodies = SolarSystem.create { idSource.getAndIncrement() }
+        return SandboxPreset(bodies, Vec2.Zero, .01f, totalEnergy(bodies))
     }
 
     fun arcadeBodies(viewport: Vec2): List<CelestialBody> {
@@ -277,13 +293,13 @@ object SimulationEngine {
     }
 
     /** Arcade contacts complete threats, while sandbox contacts retain mass merging. */
-    fun stepArcade(bodies: List<CelestialBody>, dt: Double): StepResult {
+    fun stepArcade(bodies: List<CelestialBody>, dt: Double, controlledId: Long? = null): StepResult {
         var current = bodies
         var remaining = dt
         val events = mutableListOf<CollisionEvent>()
         while (remaining > 1e-9) {
             val step = min(remaining, maxSubstep)
-            val moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true).toMutableList()
+            val moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true, alignRockets = false, controlledId=controlledId).toMutableList()
             val removed = mutableSetOf<Long>()
             // Core contact takes precedence, so a single threat has exactly one outcome.
             val core = moved.firstOrNull { it.kind == BodyKind.Core }
@@ -297,15 +313,21 @@ object SimulationEngine {
                 if (defenderIndex < 0) continue
                 val defender = moved[defenderIndex]
                 removed += meteor.id
-                events += CollisionEvent(meteor.kind, defender.kind, meteor.position, meteor.id, defender.id)
-                if (defender.kind != BodyKind.Core) {
+                events += CollisionEvent(meteor.kind, defender.kind, meteor.position, meteor.id, defender.id,
+                    vehicleExplosion = defender.isVehicle, velocity = defender.velocity * .12, seed = defender.id.toInt())
+                if (defender.isVehicle) removed += defender.id
+                else if (defender.kind != BodyKind.Core) {
                     val mass = defender.mass - meteor.mass * 0.6
                     if (mass < 35.0) removed += defender.id
                     else moved[defenderIndex] = defender.copy(mass = mass, radius = radiusForMass(mass),
                         velocity = (defender.velocity * defender.mass + meteor.velocity * meteor.mass) / (defender.mass + meteor.mass))
                 }
             }
-            current = moved.filter { it.id !in removed && (it.kind == BodyKind.Core || core == null ||
+            val survivors = moved.filter { it.id !in removed }
+            val prior = current.associateBy { it.id }
+            val impacts = vehicleCollisions(survivors, survivors.map { prior.getValue(it.id) }, arcade = true)
+            events += impacts.collisions
+            current = impacts.bodies.filter { it.id !in removed && (it.kind == BodyKind.Core || core == null ||
                 it.kind == BodyKind.Meteor || (it.position - core.position).magnitude() > it.radius + core.radius) }
             remaining -= step
         }
@@ -316,7 +338,7 @@ object SimulationEngine {
         val delta = point - center.position
         val radius = delta.magnitude().coerceAtLeast(1.0)
         val speed = sqrt(gravitationalConstant * center.mass * radius * radius /
-            (radius * radius + softening * softening).pow(1.5))
+            (radius * radius + (if (center.physicalScale) .0001 else softening * softening)).pow(1.5))
         return center.velocity + delta.perpendicular().normalized() * speed
     }
 
@@ -328,8 +350,9 @@ object SimulationEngine {
             attractors.forEach { other ->
                 if (other.id == body.id) return@forEach
                 val delta = other.position - point
-                val square = delta.x * delta.x + delta.y * delta.y + softening * softening
-                acceleration += delta * (gravitationalConstant * other.mass / (square * sqrt(square)))
+                val smoothing = forceSoftening(body, other)
+                val square = delta.x * delta.x + delta.y * delta.y + smoothing * smoothing
+                acceleration += delta * (gravitationalConstant * other.gravityMass / (square * sqrt(square)))
             }
             if (body.kind == BodyKind.Rocket) acceleration += body.heading *
                 (80.0 * ((body.burnRemaining - index * 0.06) / 0.06).coerceIn(0.0, 1.0))
@@ -344,14 +367,16 @@ object SimulationEngine {
         dt: Double,
         referenceEnergy: Double,
         collisionsEnabled: Boolean = false,
+        controlledId: Long? = null,
     ): StepResult {
         return stepInternal(
             bodies = bodies,
             dt = dt,
             collisionsEnabled = collisionsEnabled,
             // A powered scene is an open energy system; correcting to its launch energy cancels thrust.
-            energyReference = if (collisionsEnabled || bodies.any { it.kind == BodyKind.Rocket || it.kind == BodyKind.Ship }) null else referenceEnergy,
+            energyReference = if (collisionsEnabled || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale }) null else referenceEnergy,
             substepLimit = if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
+            controlledId = controlledId,
         )
     }
 
@@ -365,10 +390,11 @@ object SimulationEngine {
             for (j in i + 1 until bodies.size) {
                 val second = bodies[j]
                 val dx = second.position.x - first.position.x; val dy = second.position.y - first.position.y
-                val square = dx * dx + dy * dy + softening * softening
+                val smoothing = forceSoftening(first, second)
+                val square = dx * dx + dy * dy + smoothing * smoothing
                 val distance = sqrt(square)
                 val rate = gravitationalConstant / (square * distance)
-                rates[i] += rate * second.mass; rates[j] += rate * first.mass
+                rates[i] += rate * second.gravityMass; rates[j] += rate * first.gravityMass
                 val vx = second.velocity.x - first.velocity.x; val vy = second.velocity.y - first.velocity.y
                 val speedSquared = vx * vx + vy * vy
                 if (speedSquared > 1e-9) travelLimit = min(travelLimit, 0.1 * distance / sqrt(speedSquared))
@@ -393,13 +419,14 @@ object SimulationEngine {
         collisionsEnabled: Boolean,
         energyReference: Double?,
         substepLimit: Double,
+        controlledId: Long? = null,
     ): StepResult {
         if (bodies.isEmpty() || dt <= 0.0) {
             return StepResult(bodies = bodies, collisions = emptyList())
         }
 
-        if (!collisionsEnabled) {
-            var next = NumericIntegrator.advance(bodies, dt, substepLimit)
+        if (!collisionsEnabled && bodies.none { it.isVehicle || it.kind == BodyKind.BlackHole }) {
+            var next = NumericIntegrator.advance(bodies, dt, substepLimit, controlledId = controlledId)
             if (energyReference != null && hasLargeDistances(next)) next = stabilizeEnergy(next, energyReference)
             return StepResult(next, emptyList())
         }
@@ -409,12 +436,19 @@ object SimulationEngine {
         val collisions = mutableListOf<CollisionEvent>()
         while (remaining > 1e-6) {
             val substep = min(remaining, substepLimit)
-            current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false)
+            val previous = current
+            current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false, controlledId = controlledId)
             if (energyReference != null && hasLargeDistances(current)) {
                 current = stabilizeEnergy(current, energyReference)
             }
+            val absorption = absorbBlackHoles(previous,current)
+            current = absorption.bodies
+            collisions += absorption.collisions
+            val impacts = vehicleCollisions(current, previous)
+            current = impacts.bodies
+            collisions += impacts.collisions
             if (collisionsEnabled) {
-                val mergeResult = mergeCollisions(current)
+                val mergeResult = mergeCollisions(current, previous)
                 current = mergeResult.bodies
                 collisions += mergeResult.collisions
             }
@@ -426,11 +460,49 @@ object SimulationEngine {
         return StepResult(bodies = current.map { it.copy(trail = appendTrail(originalTrails[it.id].orEmpty(), it.position)) }, collisions = collisions)
     }
 
-    private fun mergeCollisions(bodies: List<CelestialBody>): StepResult {
+    /** Sweep relative motion so fast vehicles cannot tunnel through small targets.
+     * Impacts destroy vehicles; the celestial target remains a gravitational body. */
+    private fun vehicleCollisions(bodies: List<CelestialBody>, previous: List<CelestialBody>, arcade: Boolean = false): StepResult {
+        val before=previous.associateBy { it.id }
+        val removed = mutableSetOf<Long>()
+        val events = mutableListOf<CollisionEvent>()
+        val candidates = mutableListOf<Triple<Int, Int, BodyContact>>()
+        for (i in bodies.indices) {
+            val first = bodies[i]
+            if (!first.isVehicle) continue
+            for (j in bodies.indices) {
+                val second = bodies[j]
+                if (i == j || (second.isVehicle && j < i)) continue
+                val contact = bodyContact(before[first.id] ?: first, first, before[second.id] ?: second, second) ?: continue
+                candidates += Triple(i, j, contact)
+            }
+        }
+        for ((i, j, contact) in candidates.sortedBy { it.third.fraction }) {
+                val first = bodies[i]; val second = bodies[j]
+                if (first.id in removed || second.id in removed) continue
+                if (arcade && second.kind == BodyKind.Meteor) {
+                    if (second.id in removed) continue
+                    removed += second.id
+                }
+                removed += first.id
+                if (second.isVehicle) removed += second.id
+                events += CollisionEvent(if (arcade && second.kind == BodyKind.Meteor) second.kind else first.kind,
+                    if (arcade && second.kind == BodyKind.Meteor) first.kind else second.kind,
+                    contact.position,
+                    meteorId = if (arcade && second.kind == BodyKind.Meteor) second.id else null,
+                    defenderId = if (arcade && second.kind == BodyKind.Meteor) first.id else null,
+                    vehicleExplosion = true, velocity = (first.velocity + second.velocity) * .12,
+                    seed = (first.id xor second.id).toInt())
+        }
+        return StepResult(bodies.filter { it.id !in removed }, events)
+    }
+
+    private fun mergeCollisions(bodies: List<CelestialBody>, previous: List<CelestialBody>): StepResult {
         if (bodies.size < 2) {
             return StepResult(bodies = bodies, collisions = emptyList())
         }
 
+        val before = previous.associateBy { it.id }
         val merged = mutableListOf<CelestialBody>()
         val consumed = BooleanArray(bodies.size)
         val collisions = mutableListOf<CollisionEvent>()
@@ -447,15 +519,12 @@ object SimulationEngine {
                 }
 
                 val other = bodies[otherIndex]
-                val distance = (current.position - other.position).magnitude()
-                if (distance > current.radius + other.radius) {
-                    continue
-                }
+                val contact = bodyContact(before[current.id] ?: current, current, before[other.id] ?: other, other) ?: continue
 
                 collisions += CollisionEvent(
                     firstKind = current.kind,
                     secondKind = other.kind,
-                    position = (current.position + other.position) / 2.0,
+                    position = contact.position,
                 )
                 current = merge(current, other)
                 consumed[otherIndex] = true
@@ -469,12 +538,13 @@ object SimulationEngine {
 
     private fun merge(first: CelestialBody, second: CelestialBody): CelestialBody {
         val totalMass = first.mass + second.mass
-        val dominant = if (first.mass >= second.mass) first else second
+        val dominant = if (first.kind == BodyKind.BlackHole) first else if (second.kind == BodyKind.BlackHole) second else if (first.mass >= second.mass) first else second
         val nextPosition = ((first.position * first.mass) + (second.position * second.mass)) / totalMass
         val nextVelocity = ((first.velocity * first.mass) + (second.velocity * second.mass)) / totalMass
         val nextKind = mergedKind(first, second, dominant)
         val nextColor = when (nextKind) {
-            BodyKind.Core -> Color(0xFFFFD166)
+            BodyKind.Core, BodyKind.Star -> Color(0xFFFFD166)
+            BodyKind.BlackHole -> Color(0xFFCB9BFF)
             BodyKind.Meteor -> Color(0xFFFF8A5B)
             BodyKind.Player -> dominant.color
             BodyKind.Ambient -> dominant.color
@@ -485,10 +555,14 @@ object SimulationEngine {
             position = nextPosition,
             velocity = nextVelocity,
             mass = totalMass,
-            radius = radiusForMass(totalMass),
+            radius = if (nextKind == BodyKind.BlackHole) (dominant.radius*kotlin.math.cbrt(totalMass/dominant.mass)).toFloat()
+                else if (first.physicalScale && second.physicalScale)
+                kotlin.math.cbrt(first.radius.toDouble().pow(3) + second.radius.toDouble().pow(3)).toFloat()
+                else radiusForMass(totalMass),
             color = nextColor,
             kind = nextKind,
             burnRemaining = 0.0,
+            solar = null,
             trail = dominant.trail,
         )
     }
@@ -542,6 +616,8 @@ object SimulationEngine {
 
     private fun mergedKind(first: CelestialBody, second: CelestialBody, dominant: CelestialBody): BodyKind {
         return when {
+            first.kind == BodyKind.BlackHole || second.kind == BodyKind.BlackHole -> BodyKind.BlackHole
+            first.kind == BodyKind.Star || second.kind == BodyKind.Star -> BodyKind.Star
             first.kind == BodyKind.Core || second.kind == BodyKind.Core -> BodyKind.Core
             dominant.kind == BodyKind.Player -> BodyKind.Player
             dominant.kind == BodyKind.Meteor -> BodyKind.Meteor
@@ -566,7 +642,8 @@ object SimulationEngine {
         for (i in bodies.indices) {
             for (j in (i + 1) until bodies.size) {
                 val delta = bodies[j].position - bodies[i].position
-                val distance = sqrt((delta.x * delta.x) + (delta.y * delta.y) + (softening * softening))
+                val smoothing = forceSoftening(bodies[i], bodies[j])
+                val distance = sqrt((delta.x * delta.x) + (delta.y * delta.y) + (smoothing * smoothing))
                 potential -= gravitationalConstant * bodies[i].mass * bodies[j].mass / distance
             }
         }
@@ -640,3 +717,8 @@ object SimulationEngine {
 fun Vec2.toOffset(): Offset = Offset(x.toFloat(), y.toFloat())
 
 fun Offset.toVec2(): Vec2 = Vec2(x.toDouble(), y.toDouble())
+
+val CelestialBody.isVehicle: Boolean get() = kind == BodyKind.Ship || kind == BodyKind.Rocket
+
+// Spacecraft act as test particles; their hull mass is used for launch cost, not planetary gravity.
+val CelestialBody.gravityMass: Double get() = if (isVehicle) mass * 1e-9 else mass

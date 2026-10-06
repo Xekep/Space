@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -54,6 +57,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xekep.space.sim.SandboxPresetKind
@@ -72,14 +76,17 @@ fun SpaceMenu(
     onSaveSlot: (Int) -> Unit,
     onLoadSlot: (Int) -> Unit,
     options: GameOptions? = null,
+    motionAvailable: Boolean = true,
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val compactMenu = LocalConfiguration.current.screenHeightDp < 420
+    val configuration = LocalConfiguration.current
+    val compactMenu = configuration.screenHeightDp < 420 || (configuration.screenWidthDp < 360 && configuration.fontScale > 1.15f)
+    val compactPresets = configuration.screenWidthDp < 360 || configuration.fontScale > 1.15f
     var selectedMode by rememberSaveable(game.mode) { mutableStateOf(game.mode) }
     var difficulty by rememberSaveable { mutableStateOf(game.arcade?.difficulty ?: ArcadeDifficulty.Normal) }
-    var preset by rememberSaveable { mutableStateOf(game.sandbox?.preset ?: SandboxPresetKind.SolarSystem) }
+    var preset by rememberSaveable { mutableStateOf(game.sandbox?.preset?.takeUnless { it == SandboxPresetKind.Empty } ?: SandboxPresetKind.SolarSystem) }
     var collisions by rememberSaveable { mutableStateOf(game.sandbox?.collisionsEnabled ?: false) }
     var confirmation by remember { mutableStateOf<MenuConfirmation?>(null) }
     var naming by remember { mutableStateOf(false) }
@@ -129,24 +136,41 @@ fun SpaceMenu(
                                 game.arcade?.let { CompactHudValue(context.getString(R.string.last_run), it.score.roundToInt().toString()) }
                             }
                         }
-                        Text(context.getString(R.string.arcade_help),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
                         MenuLabel(if (game.sandbox == null) context.getString(R.string.starting_scene) else context.getString(R.string.new_universe))
-                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SandboxPresetKind.entries.forEach {
-                                val label = when (it) { SandboxPresetKind.SolarSystem -> context.getString(R.string.solar); SandboxPresetKind.BinaryStars -> context.getString(R.string.binary); SandboxPresetKind.Empty -> context.getString(R.string.empty) }
-                                FilterChip(selected = preset == it, onClick = { preset = it },
-                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.16f), selectedLabelColor = accent),
-                                    label = { Text(label, maxLines = 1) }, modifier = Modifier.widthIn(min = 72.dp).testTag("preset-${it.name}"))
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("preset-row"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(SandboxPresetKind.SolarSystem, SandboxPresetKind.BinaryStars, SandboxPresetKind.ClassicOrbits).forEach {
+                                val label = when (it) { SandboxPresetKind.SolarSystem -> context.getString(R.string.solar); SandboxPresetKind.BinaryStars -> context.getString(R.string.binary); SandboxPresetKind.ClassicOrbits -> context.getString(R.string.classic_orbits); SandboxPresetKind.Empty -> context.getString(R.string.empty) }
+                                val active = preset == it
+                                Surface(onClick = { preset = it }, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
+                                    .testTag("preset-${it.name}").semantics { selected = active; role = Role.RadioButton },
+                                    shape = RoundedCornerShape(12.dp), color = if (active) accent.copy(alpha = .16f) else Color.Transparent,
+                                    contentColor = if (active) accent else MaterialTheme.colorScheme.onSurface,
+                                    border = BorderStroke(1.dp, if (active) accent else Color.White.copy(alpha = .16f))) {
+                                    Box(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+                                        Text(label, maxLines = 2, textAlign = TextAlign.Center,
+                                            style = if (compactPresets) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge)
+                                    }
+                                }
+                            }
+                        }
+                        if (hasSelectedSession) {
+                            Button(onClick = {
+                                confirmation = MenuConfirmation(context.getString(R.string.new_universe_question), context.getString(R.string.new_universe_confirmation), startNew)
+                            }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("new-session"),
+                                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
+                                Text(context.getString(R.string.create_preset, context.getString(preset.labelId())), fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            Button(onClick = startNew, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("menu-primary"),
+                                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
+                                Text(context.getString(R.string.create_universe), fontWeight = FontWeight.SemiBold)
                             }
                         }
                         Text(context.getString(preset.descriptionId()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(context.getString(R.string.merge_impact), style = MaterialTheme.typography.titleSmall)
-                                Text(context.getString(R.string.merge_off), style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(checked = collisions, onCheckedChange = {
                                 collisions = it
@@ -164,8 +188,6 @@ fun SpaceMenu(
                                 }) { Text(context.getString(R.string.import_scene)) }
                             }
                             MenuLabel(context.getString(R.string.saved_universes))
-                            Text(context.getString(R.string.saves_help), style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                             (1..3).forEach { slot ->
                                 val summary = saveSummaries.getOrNull(slot - 1)
                                 SandboxSlotRow(slot, summary,
@@ -187,44 +209,40 @@ fun SpaceMenu(
                         }
                         if (game.sandbox == null) TextButton(onClick = onImport) { Text(context.getString(R.string.import_scene)) }
                     }
-                    if (hasSelectedSession) {
+                    if (hasSelectedSession && selectedMode == AppMode.Arcade) {
                         OutlinedButton(onClick = {
-                            confirmation = MenuConfirmation(if (selectedMode == AppMode.Arcade) context.getString(R.string.new_run_question) else context.getString(R.string.new_universe_question),
-                                if (selectedMode == AppMode.Arcade) context.getString(R.string.new_run_confirmation)
-                                else context.getString(R.string.new_universe_confirmation), startNew)
+                            confirmation = MenuConfirmation(context.getString(R.string.new_run_question), context.getString(R.string.new_run_confirmation), startNew)
                         }, modifier = Modifier.fillMaxWidth().testTag("new-session")) {
-                            Text(if (selectedMode == AppMode.Arcade) context.getString(R.string.new_arcade_run) else context.getString(R.string.create_preset, context.getString(preset.labelId())))
+                            Text(context.getString(R.string.new_arcade_run))
                         }
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    Text(context.getString(R.string.flight_controls), style = MaterialTheme.typography.labelSmall, letterSpacing = 2.sp, color = accent)
-                    Text(context.getString(R.string.flight_help),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (notice != null) Text(notice, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                     game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
                     options?.let {
                         MenuLabel(context.getString(R.string.feedback_options))
+                        OptionSwitch(context.getString(R.string.motion_control), it.motionControl, Modifier.testTag("motion-control-switch"), enabled = motionAvailable) { enabled -> it.motionControl = enabled; it.save() }
+                        if (!motionAvailable) Text(context.getString(R.string.shake_unavailable), style = MaterialTheme.typography.bodySmall)
                         OptionSwitch(context.getString(R.string.music), it.music, Modifier.testTag("ambient-music-switch")) { enabled -> it.music = enabled; it.save() }
                         OptionSwitch(context.getString(R.string.sound), it.sound) { enabled -> it.sound = enabled; it.save() }
                         OptionSwitch(context.getString(R.string.vibration), it.vibration) { enabled -> it.vibration = enabled; it.save() }
                         OptionSwitch(context.getString(R.string.reduced_flashes), it.reducedFlashes) { enabled -> it.reducedFlashes = enabled; it.save() }
                     }
                 }
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(onClick = { if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("menu-primary"),
-                        colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
-                        Text(if (hasSelectedSession) context.getString(R.string.continue_mode, context.getString(selectedMode.labelId())) else if (selectedMode == AppMode.Arcade) context.getString(R.string.launch_arcade) else context.getString(R.string.create_universe),
-                            fontWeight = FontWeight.SemiBold)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (hasSelectedSession || selectedMode == AppMode.Arcade) {
+                        Button(onClick = { if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("menu-primary"),
+                            colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
+                            Text(if (hasSelectedSession) context.getString(R.string.continue_mode, context.getString(selectedMode.labelId())) else context.getString(R.string.launch_arcade),
+                                fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     TextButton(onClick = {
                         val action = { game.beginTutorial(selectedMode, context.getString(R.string.empty_space)) }
                         if (hasSelectedSession) confirmation = MenuConfirmation(context.getString(R.string.practice_question), context.getString(R.string.practice_confirmation), action)
                         else action()
                     }, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("practice-controls")) { Text(context.getString(R.string.practice_controls)) }
-                    if (game.hasSession) {
-                        TextButton(onClick = game::closeMenu, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(context.getString(R.string.back_mode, context.getString(game.mode.labelId()))) }
-                    }
                 }
             }
         }
@@ -242,10 +260,10 @@ fun SpaceMenu(
 }
 
 @Composable
-private fun OptionSwitch(label: String, checked: Boolean, modifier: Modifier = Modifier, onChange: (Boolean) -> Unit) {
+private fun OptionSwitch(label: String, checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodySmall)
-        Switch(checked = checked, onCheckedChange = onChange, modifier = modifier)
+        Switch(checked = checked, onCheckedChange = onChange, modifier = modifier, enabled = enabled)
     }
 }
 

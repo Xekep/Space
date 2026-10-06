@@ -16,9 +16,9 @@ class ArcadeProgress(context: Context) {
     }
 
     val records: Map<ArcadeDifficulty, Double>
-        get() = ArcadeDifficulty.entries.associateWith { preferences.getString("v2_${it.name}", "0")?.toDoubleOrNull() ?: 0.0 }
+        get() = ArcadeDifficulty.entries.associateWith { preferences.getString("v3_${it.name}", "0")?.toDoubleOrNull() ?: 0.0 }
 
     fun saveBestScore(difficulty: ArcadeDifficulty, score: Double) {
-        if (score > (records[difficulty] ?: 0.0)) preferences.edit().putString("v2_${difficulty.name}", score.toString()).apply()
+        if (score > (records[difficulty] ?: 0.0)) preferences.edit().putString("v3_${difficulty.name}", score.toString()).apply()
     }
 }

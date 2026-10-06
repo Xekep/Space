@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.xekep.space.sim.SandboxPresetKind
 import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.isVehicle
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
@@ -22,6 +23,58 @@ class SandboxStorageTest {
     private val storage = SandboxStorage(context)
 
     @After fun cleanup() { target.deleteSharedPreferences(preferenceName) }
+
+    @Test fun shakeModesMigrateTheOldToggleAndPersistTheirIntensity() {
+        val prefs=context.getSharedPreferences("space_options",Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("shake",true).commit()
+        val migrated=GameOptions(context)
+        assertEquals(com.xekep.space.sim.ShakeMode.Inertial,migrated.shakeMode)
+        assertEquals(1f,migrated.shakeIntensity,0f)
+        migrated.shakeMode=com.xekep.space.sim.ShakeMode.Classic; migrated.shakeIntensity=2.25f; migrated.save()
+        assertEquals(com.xekep.space.sim.ShakeMode.Classic,GameOptions(context).shakeMode)
+        assertEquals(2.25f,GameOptions(context).shakeIntensity,0f)
+        migrated.shakeMode=com.xekep.space.sim.ShakeMode.Off; migrated.save()
+        assertFalse(GameOptions(context).shake)
+        assertEquals(2.25f,GameOptions(context).shakeIntensity,0f)
+    }
+
+    @Test fun starsBlackHolesAndPersistentPilotThrustRoundTripWithValidation() {
+        val game=com.xekep.space.ui.space.SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty) }
+        listOf(com.xekep.space.sim.BodyKind.Star,com.xekep.space.sim.BodyKind.BlackHole,com.xekep.space.sim.BodyKind.Ship).forEachIndexed { i,kind ->
+            game.chooseSpawnKind(kind)
+            val point=Vec2(i*2000.0,0.0)
+            game.launch(com.xekep.space.ui.space.TouchPreview(point,point,0),.5)
+        }
+        val initial=game.snapshot(123L)!!
+        val scene=initial.copy(bodies=initial.bodies.map { if (it.isVehicle) it.copy(pilotThrottle=.5) else it })
+        assertEquals(scene,storage.decode(storage.encode(scene)))
+        storage.save(1,scene); assertEquals(scene,storage.load(1))
+        val invalid=scene.copy(bodies=listOf(scene.bodies.last().copy(pilotThrottle=1.1)))
+        assertTrue(runCatching { storage.decode(storage.encode(invalid)) }.isFailure)
+    }
+
+    @Test fun tiltControlOptionPersistsAndDefaultsToOff() {
+        val options=GameOptions(context)
+        assertFalse(options.motionControl)
+        options.motionControl=true; options.save()
+        assertTrue(GameOptions(context).motionControl)
+        options.motionControl=false; options.save()
+        assertFalse(GameOptions(context).motionControl)
+    }
+
+    @Test fun authoredVehicleRoutesRoundTripAndRejectExcessiveOrInvalidPoints() {
+        val body=com.xekep.space.sim.CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,8f,androidx.compose.ui.graphics.Color.Cyan,
+            com.xekep.space.sim.BodyKind.Ship,waypoints=listOf(Vec2(100.0,0.0),Vec2(100.0,200.0)),routeSpeed=90.0,routeTolerance=3.0)
+        val scene=SandboxSnapshot(listOf(body),Vec2.Zero,1f,0.0,1L)
+        assertEquals(scene,storage.decode(storage.encode(scene)))
+        val root=org.json.JSONObject(storage.encode(scene))
+        val array=org.json.JSONArray()
+        repeat(33) { array.put(org.json.JSONObject().put("x",0.0).put("y",0.0)) }
+        root.getJSONArray("bodies").getJSONObject(0).put("waypoints",array)
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(root.toString()) }
+        root.getJSONArray("bodies").getJSONObject(0).put("waypoints",org.json.JSONArray().put(org.json.JSONObject().put("x",1e10).put("y",0.0)))
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(root.toString()) }
+    }
 
     @Test fun savedUniverseRestoresCameraAndSimulationControls() {
         val scene = SimulationEngine.sandboxPreset(SandboxPresetKind.BinaryStars)
@@ -110,4 +163,20 @@ class SandboxStorageTest {
             assertTrue(runCatching { storage.decode(storage.encode(snapshot.copy(bodies = listOf(body)))) }.isFailure)
         }
     }
+    @Test fun solarBodiesWithSmallPhysicalMassesAndRadiiRoundTrip() {
+        val scene = SimulationEngine.sandboxPreset()
+        val snapshot = SandboxSnapshot(scene.bodies, Vec2.Zero, .01f, scene.referenceEnergy, 123L)
+        assertEquals(snapshot, storage.decode(storage.encode(snapshot)))
+        storage.save(1, snapshot)
+        assertEquals(snapshot, storage.load(1))
+        val sun = snapshot.bodies.first().copy(mass = 100100.0, solar = null)
+        val merged = snapshot.copy(bodies = listOf(sun))
+        assertEquals(merged, storage.decode(storage.encode(merged)))
+    }
+
+    @Test fun newCombatBalanceDoesNotReusePreviousRulesRecords() {
+        context.getSharedPreferences("ignored", Context.MODE_PRIVATE).edit().putString("v2_Normal", "9999").commit()
+        assertEquals(0.0, ArcadeProgress(context).records.getValue(com.xekep.space.ui.space.ArcadeDifficulty.Normal), 0.0)
+    }
+
 }

@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="spawn_black_hole">Black hole</string>
+    <string name="shake_off">Off</string>
+    <string name="shake_classic">Classic</string>
+    <string name="shake_inertial">Scatter</string>
+    <string name="shake_intensity">Strength: %1$d%%</string>
+    <string name="shake_intensity_label">Shake strength</string>
+    <string name="focus_body">Zoom to object</string>
+    <string name="motion_control">Tilt steering</string>
+
+    <string name="object_count">Objects: %1$d of %2$d</string>
     <string name="app_name">Space</string>
     <string name="arcade_compact">"Hull: %1$d · Wave: %2$d · Score: %3$d"</string>
     <string name="menu">"Menu"</string>
@@ -7,16 +17,16 @@
     <string name="fit_system">"Fit system"</string>
     <string name="skip">"Skip"</string>
     <string name="cancel_orbit">"Cancel orbit"</string>
-    <string name="catching_up">"Simulation catching up"</string>
+
     <string name="large_system">"Large system · Reduce time speed if movement slows"</string>
     <string name="play">"Play"</string>
     <string name="pause">"Pause"</string>
-    <string name="gesture_hint">"One finger: create · Two fingers: move &amp; zoom"</string>
+
     <string name="rest">"Wave clear · Recharge and prepare"</string>
     <string name="unsaved">" · Unsaved"</string>
-    <string name="experiment_solar">"Experiment: select the star and add a planet with Orbit helper."</string>
-    <string name="experiment_binary">"Experiment: add a third body to the binary stars."</string>
-    <string name="experiment_empty">"Experiment: hold to create a star, then add an orbiting body."</string>
+
+
+
     <string name="scene_exported">"Scene exported"</string>
     <string name="export_failed">"Export failed. Try another destination."</string>
     <string name="scene_imported">"Scene imported"</string>
@@ -29,14 +39,13 @@
     <string name="two_modes">"Two ways to explore the cosmos"</string>
     <string name="next_run">"NEXT RUN"</string>
     <string name="last_run">"Last / current run"</string>
-    <string name="arcade_help">"Protect the golden core. Hold to grow a body, then drag and release to intercept meteors. Kills refill energy and build your combo."</string>
     <string name="starting_scene">"STARTING SCENE"</string>
     <string name="new_universe">"NEW UNIVERSE"</string>
-    <string name="solar">"Solar"</string>
+    <string name="solar">"System"</string>
     <string name="binary">"Binary"</string>
     <string name="empty">"Empty"</string>
     <string name="merge_impact">"Merge on impact"</string>
-    <string name="merge_off">"Off keeps orbital bodies separate"</string>
+
     <string name="current_universe">"CURRENT UNIVERSE"</string>
     <string name="unsaved_changes">" · Unsaved changes"</string>
     <string name="rename">"Rename"</string>
@@ -45,7 +54,7 @@
     <string name="import_question">"Import scene?"</string>
     <string name="import_confirmation">"The current sandbox will be replaced after choosing a valid scene file."</string>
     <string name="saved_universes">"SAVED UNIVERSES"</string>
-    <string name="saves_help">"Saves include the camera, time controls and collision setting."</string>
+
     <string name="replace_slot_confirmation">"The previous saved universe in this slot will be replaced."</string>
     <string name="load_slot_confirmation">"Unsaved changes to the current sandbox will be replaced."</string>
     <string name="new_run_question">"Start a new run?"</string>
@@ -53,8 +62,8 @@
     <string name="new_run_confirmation">"The current run will end. Your personal best is kept."</string>
     <string name="new_universe_confirmation">"Unsaved sandbox changes will be replaced. Save to a slot first to keep this universe."</string>
     <string name="new_arcade_run">"New arcade run"</string>
-    <string name="flight_controls">"FLIGHT CONTROLS"</string>
-    <string name="flight_help">"One finger  ·  Hold for mass, drag for velocity\nTwo fingers  ·  Move together to travel, pinch to zoom"</string>
+
+
     <string name="feedback_options">"FEEDBACK"</string>
     <string name="sound">"Sound effects"</string>
     <string name="music">"Ambient music"</string>
@@ -77,7 +86,7 @@
     <string name="undo">"Undo"</string>
     <string name="checkpoint">"Checkpoint"</string>
     <string name="restore">"Restore"</string>
-    <string name="selected_body">"Selected body"</string>
+
     <string name="edit">"Edit"</string>
     <string name="delete">"Delete"</string>
     <string name="orbit_helper">"Orbit helper"</string>
@@ -85,14 +94,14 @@
     <string name="follow">"Follow"</string>
     <string name="close">"Close"</string>
     <string name="delete_body_question">"Delete selected body?"</string>
-    <string name="delete_body_confirmation">"Undo can restore the body and the scene before this edit."</string>
+
     <string name="restore_question">"Restore checkpoint?"</string>
     <string name="restore_confirmation">"The current scene will be replaced. You can undo this change."</string>
     <string name="edit_body">"Edit body"</string>
     <string name="mass">"Mass"</string>
     <string name="velocity_x">"Velocity X"</string>
     <string name="velocity_y">"Velocity Y"</string>
-    <string name="numeric_limits">"Mass: 1–100000. Speed: up to 5000. Enter finite numbers."</string>
+    <string name="numeric_limits">Mass: 1e-8…1e8. Speed: up to 5000. Enter finite numbers.</string>
     <string name="apply">"Apply"</string>
     <string name="score">"Score"</string>
     <string name="hull">"Hull"</string>
@@ -111,7 +120,7 @@
     <string name="choose_mode">"Choose mode"</string>
     <string name="lag_paused">"Simulation paused after a long delay. Reduce time speed if needed."</string>
     <string name="practice_hit">"The practice meteor reached the core. Try again; lives are protected."</string>
-    <string name="scene_full">"The scene is full. Remove bodies before adding more."</string>
+
     <string name="not_enough_energy">"Not enough energy. Wait for recharge."</string>
     <string name="satellite_farther">"Place the satellite farther from its parent."</string>
     <string name="practice_complete">"Practice complete. Your Easy run has started."</string>
@@ -123,7 +132,7 @@
     <string name="tutorial_sandbox_create">"Place a body while time is paused. Hold longer for more mass."</string>
     <string name="tutorial_sandbox_play">"Tap Play to see your creation move."</string>
     <string name="tutorial_sandbox_camera">"Travel with two fingers, then tap Fit system to return."</string>
-    <string name="run_status">"Time: %1$ds · Intercepts: %2$d"</string>
+
     <string name="saved_slot">"Saved to slot %1$d"</string>
     <string name="difficulty_details">"Hull: %1$d · Score ×%2$s · Waves: 24s + 4s recharge"</string>
     <string name="personal_best">"Personal best · %1$s"</string>
@@ -135,7 +144,6 @@
     <string name="load_slot_bodies">"Load slot %1$d · Bodies: %2$d"</string>
     <string name="create_preset">"Create %1$s"</string>
     <string name="continue_mode">"Continue %1$s"</string>
-    <string name="back_mode">"Back to %1$s"</string>
     <string name="body_details">"Mass %1$d · Speed %2$d"</string>
     <string name="game_over_intercepts">"Intercepts: %1$d · Best: %2$d"</string>
     <string name="game_over_details">"Time: %1$ds · Wave: %2$d · Accuracy: %3$d%%"</string>
@@ -147,24 +155,47 @@
     <string name="solar_system">"Solar system"</string>
     <string name="binary_stars">"Binary stars"</string>
     <string name="empty_space">"Empty space"</string>
-    <string name="solar_description">"Start near the star. Pinch out to explore eight planets."</string>
+    <string name="solar_description">The Sun, eight planets, Pluto and major moons. Near-real orbital and mass ratios; enlarged symbols for visibility.</string>
     <string name="binary_description">"Two stars orbit a shared center of gravity."</string>
     <string name="empty_description">"A blank universe. Build your own system."</string>
     <string name="spawn_body">Celestial body</string>
     <string name="spawn_ship">Ship</string>
     <string name="spawn_rocket">Rocket</string>
     <string name="spawn_star">Star</string>
-    <string name="spawn_object">Create an object</string>
     <string name="sandbox_tools">Tools</string>
     <string name="time_speed">Time speed</string>
-    <string name="spawn_gesture">Choose a type, then hold in space, drag toward your destination and release. Hold longer for more mass.</string>
     <string name="spawn_body_help">Build planets and moons. Mass shapes their gravity and size.</string>
     <string name="spawn_ship_help">A light spacecraft. Coasts with its launch velocity and responds to gravity.</string>
     <string name="spawn_rocket_help">Accelerates along its launch direction for 3 seconds, then coasts. With no drag, launches upward.</string>
-    <string name="sandbox_panel_paused">Time stops while a panel is open. Close it to return to your previous time settings.</string>
-    <string name="vehicle_collision_help">With collisions enabled, impacts merge mass and momentum. Ships and rockets turn into debris; engines stop.</string>
+
+
     <string name="shake_universe">Shake the universe</string>
-    <string name="shake_help">Enable, close the panel and jolt the phone to give every object a push. Works while time is running; Undo restores the scene.</string>
+
     <string name="shake_unavailable">This device has no supported motion sensor.</string>
-    <string name="shake_applied">Universe nudged · Undo is available in Tools</string>
+
+    <string name="cycle_spawn">↻ %1$s</string>
+
+
+    <string name="solar_catalog_details">Radius: %1$s km · mass: %2$s kg\nOne Earth year ≈ 31 s at 1x</string>
+
+
+    <string name="sun">Sun</string>
+    <string name="mercury">Mercury</string>
+    <string name="venus">Venus</string>
+    <string name="earth">Earth</string>
+    <string name="mars">Mars</string>
+    <string name="jupiter">Jupiter</string>
+    <string name="saturn">Saturn</string>
+    <string name="uranus">Uranus</string>
+    <string name="neptune">Neptune</string>
+    <string name="pluto">Pluto</string>
+    <string name="moon">Moon</string>
+    <string name="io">Io</string>
+    <string name="europa">Europa</string>
+    <string name="ganymede">Ganymede</string>
+    <string name="callisto">Callisto</string>
+    <string name="titan">Titan</string>
+    <string name="triton">Triton</string>
+    <string name="classic_orbits">Orbits</string>
+    <string name="classic_orbits_description">The original playground: a star and eight planets. A playful scale for free gravity experiments.</string>
 </resources>

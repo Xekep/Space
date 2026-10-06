@@ -41,18 +41,21 @@ class SandboxVehiclesTest {
         }
         game.selectBody(game.bodies.last().id)
         game.prepareOrbit()
-        assertEquals(BodyKind.Ambient, game.spawnKind)
+        assertEquals(BodyKind.Rocket, game.spawnKind)
+        assertNull(game.orbitSource)
         game.clearSelection()
         game.undo()
         assertEquals(BodyKind.Ship, game.bodies.single().kind)
     }
 
-    @Test fun vehicleImpactsProduceUnpoweredDebrisAndPreserveMass() {
+    @Test fun vehicleImpactsExplodeEvenWhenMergingIsOff() {
         val ship = rocket().copy(id = 2, kind = BodyKind.Ship, burnRemaining = 0.0, mass = 24.0)
-        val merged = SimulationEngine.stepSandbox(listOf(rocket(), ship), 0.01, 0.0, true).bodies.single()
-        assertEquals(BodyKind.Ambient, merged.kind)
-        assertEquals(36.0, merged.mass, 0.0)
-        assertEquals(0.0, merged.burnRemaining, 0.0)
+        for (merging in listOf(false, true)) {
+            val impact = SimulationEngine.stepSandbox(listOf(rocket(), ship), 0.01, 0.0, merging)
+            assertTrue(impact.bodies.isEmpty())
+            assertEquals(1, impact.collisions.size)
+            assertTrue(impact.collisions.single().vehicleExplosion)
+        }
     }
 
     @Test fun acceleratedTimeConsumesFuelAndPanelsFreezeIt() {

@@ -69,13 +69,13 @@ class GameplayAnalysisTest {
     }
 
     @Test fun sandboxPresetsRemainFiniteAtEveryTimeScale() {
-        for (preset in listOf(SandboxPresetKind.SolarSystem, SandboxPresetKind.BinaryStars)) {
+        for (preset in listOf(SandboxPresetKind.SolarSystem, SandboxPresetKind.BinaryStars, SandboxPresetKind.ClassicOrbits)) {
             for (speed in listOf(0.25, 1.0, 3.0, 6.0)) {
                 val game = SpaceGameState().apply { resize(IntSize(1080, 1920)); startSandbox(preset); setTimeScale(speed) }
                 val initialEnergy = SimulationEngine.totalEnergy(game.bodies)
                 repeat(1200) { game.update(0.05) }
                 assertFinite(game.bodies)
-                assertEquals(if (preset == SandboxPresetKind.SolarSystem) 9 else 2, game.bodies.size)
+                assertEquals(if (preset == SandboxPresetKind.SolarSystem) com.xekep.space.sim.SolarBody.entries.size else if (preset == SandboxPresetKind.ClassicOrbits) 9 else 2, game.bodies.size)
                 val drift = abs(SimulationEngine.totalEnergy(game.bodies) - initialEnergy) / abs(initialEnergy)
                 println("SANDBOX,$preset,$speed,${60 * speed},${game.bodies.size},$drift")
                 assertTrue("Energy drift for $preset at $speed", drift < 0.02)
@@ -103,6 +103,39 @@ class GameplayAnalysisTest {
         }
         assertEquals(values[0], values[1], 1e-6)
         assertEquals(values[1], values[2], 1e-6)
+    }
+
+    @Test fun combatPoliciesStayBoundedAcrossDifficultiesAndSeeds() {
+        println("COMBAT,policy,difficulty,seed,seconds,score,intercepts,maxShots,maxCraft")
+        var intercepts = 0
+        for (difficulty in ArcadeDifficulty.entries) for (kind in listOf(BodyKind.Ship, BodyKind.Rocket)) repeat(6) { seed ->
+            val game = SpaceGameState(random = Random(seed)).apply {
+                resize(IntSize(1080, 1920)); startArcade(difficulty); chooseSpawnKind(kind)
+            }
+            var tick = 0; var maxShots = 0; var maxCraft = 0
+            while (game.arcade!!.lives > 0 && tick < 4800) {
+                if (tick % 40 == 0) {
+                    val core = game.bodies.first { it.kind == BodyKind.Core }
+                    val angle = tick / 40 * Math.PI / 3
+                    val radius = Vec2(cos(angle), sin(angle)) * 350.0
+                    val point = core.position + radius
+                    game.launch(TouchPreview(point, point + radius.perpendicular().normalized() * 100.0, 0), .1)
+                }
+                game.update(.05)
+                val run = game.arcade!!
+                maxShots = maxOf(maxShots, run.combat.projectiles.size)
+                maxCraft = maxOf(maxCraft, game.bodies.count { it.kind == kind })
+                assertTrue(run.combat.projectiles.size <= 48)
+                assertTrue(run.combat.projectiles.all { it.position.x.isFinite() && it.position.y.isFinite() && it.remaining <= 1.3 })
+                assertTrue(maxCraft <= if (kind == BodyKind.Ship) 3 else 10)
+                tick++
+            }
+            val run = game.arcade!!
+            intercepts += run.destroyed
+            assertFinite(game.bodies)
+            println("COMBAT,$kind,$difficulty,$seed,${run.elapsed},${run.score},${run.destroyed},$maxShots,$maxCraft")
+        }
+        assertTrue("Automatic weapons must intercept enemies in actual runs", intercepts > 30)
     }
 
     private fun assertFinite(bodies: List<CelestialBody>) {

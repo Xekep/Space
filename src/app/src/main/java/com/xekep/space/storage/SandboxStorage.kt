@@ -7,6 +7,7 @@ import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SandboxPresetKind
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.SolarBody
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -86,9 +87,15 @@ class SandboxStorage(context: Context) {
                     .put("radius", body.radius.toDouble())
                     .put("colorArgb", body.color.toArgb())
                     .put("kind", body.kind.name)
+                    .put("solar", body.solar?.name ?: "")
+                    .put("physicalScale", body.physicalScale)
                     .put("burnRemaining", body.burnRemaining)
                     .put("headingX", body.heading.x)
-                    .put("headingY", body.heading.y),
+                    .put("headingY", body.heading.y)
+                    .put("routeSpeed", body.routeSpeed)
+                    .put("routeTolerance", body.routeTolerance)
+                    .put("pilotThrottle", body.pilotThrottle)
+                    .put("waypoints", JSONArray().also { array -> body.waypoints.forEach { point -> array.put(JSONObject().put("x",point.x).put("y",point.y)) } }),
             )
         }
         root.put("bodies", bodyArray)
@@ -107,11 +114,25 @@ class SandboxStorage(context: Context) {
                 val velocity = Vec2(body.getDouble("vx"), body.getDouble("vy"))
                 val id = body.getLong("id")
                 require(id in 1..Long.MAX_VALUE - 1001)
-                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1.0..100000.0)
-                require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 0.1..10000.0)
+                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1e-8..100000000.0)
+                require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 1e-6..10000.0)
                 val burn = body.optDouble("burnRemaining", 0.0)
                 val heading = Vec2(body.optDouble("headingX", 0.0), body.optDouble("headingY", -1.0))
                 require(burn in 0.0..3.0 && heading.x.isFinite() && heading.y.isFinite() && kotlin.math.abs(heading.magnitude() - 1.0) < 1e-6)
+                val route=body.optJSONArray("waypoints") ?: JSONArray()
+                require(route.length() <= com.xekep.space.sim.MAX_WAYPOINTS)
+                val points=List(route.length()) { pointIndex ->
+                    val point=route.getJSONObject(pointIndex)
+                    val value=Vec2(point.getDouble("x"),point.getDouble("y"))
+                    require(value.x in -1e9..1e9 && value.y in -1e9..1e9)
+                    value
+                }
+                val routeSpeed=body.optDouble("routeSpeed",0.0)
+                require(routeSpeed in 0.0..450.0)
+                val routeTolerance=body.optDouble("routeTolerance",0.0)
+                require(routeTolerance in 0.0..1000000.0)
+                val pilotThrottle=body.optDouble("pilotThrottle",0.0)
+                require(pilotThrottle in 0.0..1.0)
                 add(
                     CelestialBody(
                         id = id,
@@ -124,6 +145,10 @@ class SandboxStorage(context: Context) {
                         trail = listOf(position),
                         burnRemaining = burn,
                         heading = heading,
+                        waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
+                        pilotThrottle = pilotThrottle,
+                        physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),
+                        solar = body.optString("solar", "").takeIf { it.isNotEmpty() }?.let(SolarBody::valueOf),
                     ),
                 )
             }

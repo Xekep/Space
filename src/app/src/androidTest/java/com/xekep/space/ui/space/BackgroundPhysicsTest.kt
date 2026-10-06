@@ -77,4 +77,28 @@ class BackgroundPhysicsTest {
             assertEquals(shaken, game.bodies)
         }
     }
+
+    @Test fun workerCapturesPilotInputAndChangingTheControlOptionRejectsItsResult() = runBlocking {
+        withContext(Dispatchers.Main) {
+            val game=scene()
+            game.chooseSpawnKind(com.xekep.space.sim.BodyKind.Rocket)
+            game.launch(TouchPreview(Vec2(5000.0,5000.0),Vec2(5000.0,4900.0),0),0.0)
+            game.setMotionControlEnabled(true); game.setSteeringInput(Vec2(1.0,0.0))
+            val id=game.controlledVehicleId!!
+            val current=game.sandbox!!
+            val control=com.xekep.space.sim.ManualFlightControl(id,1.0)
+            var expected=current.bodies
+            repeat(6) {
+                val steered=com.xekep.space.sim.steerManually(expected,control,current.timeScale/60)
+                expected=com.xekep.space.sim.SimulationEngine.stepSandbox(steered,current.timeScale/60,current.referenceEnergy,current.collisionsEnabled,id).bodies
+            }
+            val work=async(start=CoroutineStart.UNDISPATCHED) { game.updateSandboxAsync(.1) }
+            game.setSteeringInput(Vec2(-1.0,0.0))
+            work.await(); assertEquals(expected,game.bodies)
+            val before=game.bodies
+            val obsolete=async(start=CoroutineStart.UNDISPATCHED) { game.updateSandboxAsync(.1) }
+            game.setMotionControlEnabled(false)
+            obsolete.await(); assertEquals(before,game.bodies); assertNull(game.controlledVehicleId)
+        }
+    }
 }
