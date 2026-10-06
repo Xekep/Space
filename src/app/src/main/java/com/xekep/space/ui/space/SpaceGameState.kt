@@ -84,11 +84,13 @@ class SpaceGameState(
         val id = if (mode == AppMode.Sandbox) lastSandboxVehicleId else lastArcadeVehicleId
         return id?.takeIf { value -> bodies.any { it.id == value && it.isVehicle } }
     }
-    val spawnLimit: Int get() = if (mode == AppMode.Sandbox) 1000 else when (spawnKind) {
+    val spawnLimit: Int get() = spawnLimitFor(spawnKind)
+    val spawnCount: Int get() = spawnCountFor(spawnKind)
+    fun spawnLimitFor(kind: BodyKind): Int = if (mode == AppMode.Sandbox) 1000 else when (kind) {
         BodyKind.Ship -> 3; BodyKind.Rocket -> 10; else -> 30
     }
-    val spawnCount: Int get() = if (mode == AppMode.Sandbox) bodies.size else bodies.count {
-        it.kind == if (spawnKind == BodyKind.Ambient) BodyKind.Player else spawnKind
+    fun spawnCountFor(kind: BodyKind): Int = if (mode == AppMode.Sandbox) bodies.size else bodies.count {
+        it.kind == if (kind == BodyKind.Ambient) BodyKind.Player else kind
     }
     fun setMotionControlEnabled(value: Boolean) {
         if (motionSteeringEnabled != value) { sandboxRevision++; steeringInput = Vec2.Zero; pendingBoost = 0.0; motionSteeringEnabled = value; pilotCameraFollowing = value }
@@ -325,8 +327,15 @@ class SpaceGameState(
     }
     fun transformCamera(centroid: Offset, pan: Offset, zoomChange: Float) {
         if (menuOpen || !hasSession || viewport == IntSize.Zero) return
-        val previous = camera; val anchor = screenToWorld(centroid, viewport, previous.center, previous.zoom, cameraRotation)
+        val previous = camera
         val zoom = (previous.zoom * zoomChange).coerceIn(minimumZoom(mode), maximumZoom(mode))
+        val pilot = controlledVehicleId?.let { id -> bodies.firstOrNull { it.id == id } }
+        if (pilot != null) {
+            following = false; pilotCameraFollowing = true
+            setCamera(SpaceCamera(pilot.position, zoom))
+            return
+        }
+        val anchor = screenToWorld(centroid, viewport, previous.center, previous.zoom, cameraRotation)
         val after = screenToWorld(centroid + pan, viewport, previous.center, zoom, cameraRotation)
         following = false; pilotCameraFollowing = false; setCamera(SpaceCamera(previous.center + anchor - after, zoom))
         if (tutorialStep == 2 && mode == AppMode.Sandbox) movedCameraInTutorial = true

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="direction_to_core">核心方向</string>
     <string name="choose_language">"选择语言"</string>
     <string name="language_setting">"语言 · %1$s ▾"</string>
     <string name="spawn_black_hole">"黑洞"</string>
@@ -147,6 +148,7 @@
     <string name="binary_description">"两颗恒星围绕共同的质心运行。"</string>
     <string name="empty_description">"空白宇宙，创建你自己的星系。"</string>
     <string name="spawn_body">"天体"</string>
+    <string name="spawn_body_short">天体</string>
     <string name="spawn_ship">"飞船"</string>
     <string name="spawn_rocket">"火箭"</string>
     <string name="spawn_star">"恒星"</string>

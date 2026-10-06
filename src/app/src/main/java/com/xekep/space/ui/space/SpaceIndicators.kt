@@ -30,7 +30,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
     }
     val marginX = 24.dp.toPx(); val marginY = 160.dp.toPx().coerceAtMost(size.height * 0.28f)
     val center = Offset(size.width / 2, size.height / 2)
-    (game.bodies.filter { it.kind == BodyKind.Core || it.kind == BodyKind.Meteor } + game.arcade?.pending.orEmpty().map { it.body }).forEach { body ->
+    (game.bodies.filter { it.kind == BodyKind.Meteor } + game.arcade?.pending.orEmpty().map { it.body }).forEach { body ->
         val point = worldToScreen(body.position, game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val warning = game.arcade?.pending?.any { it.body.id == body.id } == true
         if (body.kind == BodyKind.Meteor) {
@@ -51,7 +51,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
             val factor = minOf((size.width / 2 - marginX) / abs(delta.x).coerceAtLeast(0.01f),
                 (size.height / 2 - marginY) / abs(delta.y).coerceAtLeast(0.01f)).coerceAtMost(1f)
             val edge = center + delta * factor
-            val color = if (body.kind == BodyKind.Core) Color(0xFFFFD166) else Color(0xFFFF8A5B)
+            val color = Color(0xFFFF8A5B)
             drawCircle(color.copy(alpha = 0.2f), 12.dp.toPx(), edge)
             drawArrow(edge - delta / delta.getDistance() * 16.dp.toPx(), edge, color)
         }

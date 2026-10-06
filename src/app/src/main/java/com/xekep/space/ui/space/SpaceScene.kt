@@ -314,12 +314,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         PilotHud(game)
                         if (candidate == null) ArcadeSelectionHud(game)
                         else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            SpawnCycleButton(game, Modifier.weight(1f), tag = "arcade-cycle-spawn")
-                            ObjectCounter(game)
-                            FlightLoopButton(game)
-                            MotionControlButton(options, tilt.available, "arcade-motion-control")
-                        }
+                        ArcadeSpawnControls(game, options, tilt.available)
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
                         if (game.mode == AppMode.Arcade && arcade != null) {
                             ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / MaxEnergy).toFloat(), arcade.energy)
@@ -329,6 +324,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 }
             }
         }
+
+        CoreDirectionIndicator(game)
 
         if (!game.menuOpen && game.mode == AppMode.Arcade && arcade != null && arcade.lives <= 0) {
             GameOverOverlay(Modifier.align(Alignment.Center), arcade.score, game.bestScore, arcade.destroyed,

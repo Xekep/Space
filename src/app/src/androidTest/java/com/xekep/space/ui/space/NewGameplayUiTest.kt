@@ -203,18 +203,37 @@ class NewGameplayUiTest {
         compose.runOnIdle { assertEquals(BodyKind.Ambient,game.spawnKind) }
     }
 
-    @Test fun arcadeButtonCyclesAndRealGesturesLaunchAllThreeObjectsWithoutMenus() {
+    @Test fun arcadeButtonsSelectDirectlyAndCountRealLaunchesOfAllThreeObjects() {
         compose.mainClock.autoAdvance = false
         val game = SpaceGameState().apply { resize(IntSize(1080, 2340)); startArcade() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.onNodeWithTag("arcade-spawn-Ambient").assertIsSelected()
+        compose.onNodeWithTag("arcade-spawn-Rocket").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("arcade-spawn-Rocket").assertIsSelected().performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.runOnIdle { assertEquals(BodyKind.Rocket,game.spawnKind); assertEquals(0,game.arcade!!.launches) }
         listOf(BodyKind.Ship, BodyKind.Rocket, BodyKind.Player).forEachIndexed { i, kind ->
-            compose.onNodeWithTag("arcade-cycle-spawn").performClick()
+            val spawn=if (kind == BodyKind.Player) BodyKind.Ambient else kind
+            compose.onNodeWithTag("arcade-spawn-${spawn.name}").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("arcade-spawn-${spawn.name}").assertIsSelected()
             compose.onNodeWithTag("close-sandbox-panel").assertDoesNotExist()
             compose.onNodeWithTag("space-scene").performTouchInput {
                 val start = Offset(center.x + (i - 1) * 100f, center.y - 160f)
                 down(start); moveTo(start + Offset(30f, -90f)); up()
             }
             compose.runOnIdle { assertEquals(kind, game.bodies.last().kind) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("arcade-count-${spawn.name}",useUnmergedTree=true)
+                .assertTextEquals("1/${game.spawnLimitFor(spawn)}")
+        }
+        compose.onNodeWithTag("arcade-spawn-Ship").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        compose.onNodeWithTag("arcade-selected-spawn").assertTextEquals(context.getString(com.xekep.space.R.string.spawn_ship))
+        java.io.File(context.externalCacheDir,"arcade-spawn-controls.png").outputStream().use {
+            assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
         }
         compose.runOnIdle { assertEquals(3, game.arcade!!.launches); assertTrue(game.arcade!!.energy >= 0) }
     }

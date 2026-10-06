@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="direction_to_core">Richtung zum Kern</string>
     <string name="choose_language">"Sprache auswählen"</string>
     <string name="language_setting">"Sprache · %1$s ▾"</string>
     <string name="spawn_black_hole">"Schwarzes Loch"</string>
@@ -147,6 +148,7 @@
     <string name="binary_description">"Zwei Sterne umkreisen einen gemeinsamen Schwerpunkt."</string>
     <string name="empty_description">"Ein leeres Universum. Baue dein eigenes System."</string>
     <string name="spawn_body">"Himmelskörper"</string>
+    <string name="spawn_body_short">Körper</string>
     <string name="spawn_ship">"Raumschiff"</string>
     <string name="spawn_rocket">"Rakete"</string>
     <string name="spawn_star">"Stern"</string>

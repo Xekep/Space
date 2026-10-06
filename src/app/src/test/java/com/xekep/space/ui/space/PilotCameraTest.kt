@@ -8,6 +8,38 @@ import org.junit.Test
 import kotlin.math.*
 
 class PilotCameraTest {
+    @Test fun offCenterPinchingKeepsBothVehicleTypesCenteredInBothModesAndDoesNotRetarget() {
+        listOf(AppMode.Sandbox,AppMode.Arcade).forEach { mode ->
+            listOf(BodyKind.Ship,BodyKind.Rocket).forEach { kind ->
+                val game=SpaceGameState().apply {
+                    resize(IntSize(1080,1920))
+                    if (mode == AppMode.Sandbox) startSandbox(SandboxPresetKind.Empty) else startArcade()
+                    setMotionControlEnabled(true); chooseSpawnKind(kind)
+                    val point=Vec2(5000.0,5000.0)
+                    launch(TouchPreview(point,point,0),0.0)
+                    setSteeringInput(Vec2(1.0,0.0)); repeat(20) { update(1.0/60) }; setSteeringInput(Vec2.Zero)
+                }
+                val id=game.controlledVehicleId!!
+                val zoom=game.camera.zoom; val rotation=game.cameraRotation
+                game.transformCamera(Offset(150f,350f),Offset(130f,-80f),1.7f)
+                assertEquals(zoom*1.7f,game.camera.zoom,.001f)
+                assertEquals(game.bodies.first { it.id == id }.position,game.camera.center)
+                assertEquals(rotation,game.cameraRotation,0.0)
+                val center=game.camera.center
+                repeat(90) { game.update(1.0/60) }
+                assertNotEquals(center,game.camera.center)
+                val body=game.bodies.first { it.id == id }
+                // Following remains smooth while moving, with a small speed-dependent camera lag.
+                assertTrue((body.position-game.camera.center).magnitude() < body.velocity.magnitude()*.18+1.0)
+                val heading=rotateVector(body.heading,game.cameraRotation)
+                assertEquals(0.0,heading.x,.01); assertTrue(heading.y < -.99)
+                game.chooseSpawnKind(BodyKind.Ambient)
+                val point=body.position+Vec2(800.0,800.0)
+                game.launch(TouchPreview(point,point,0),0.0)
+                assertEquals(id,game.controlledVehicleId)
+            }
+        }
+    }
     private fun pilot(): SpaceGameState = SpaceGameState().apply {
         resize(IntSize(1080,1920)); startSandbox(SandboxPresetKind.Empty); setMotionControlEnabled(true)
         chooseSpawnKind(BodyKind.Ship); launch(TouchPreview(Vec2.Zero,Vec2.Zero,0),0.0)

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="direction_to_core">Направление к ядру</string>
     <string name="choose_language">Выберите язык</string>
     <string name="language_setting">Язык · %1$s ▾</string>
     <string name="spawn_black_hole">Чёрная дыра</string>
@@ -161,6 +162,7 @@
     <string name="binary_description">"Две звезды обращаются вокруг общего центра масс."</string>
     <string name="empty_description">"Пустой космос. Постройте собственную систему."</string>
     <string name="spawn_body">Небесное тело</string>
+    <string name="spawn_body_short">Тело</string>
     <string name="spawn_ship">Корабль</string>
     <string name="spawn_rocket">Ракета</string>
     <string name="spawn_star">Звезда</string>

@@ -60,15 +60,19 @@ class MotionControlTest {
         game.startArcade(); game.chooseSpawnKind(BodyKind.Ship)
         assertEquals(3,game.spawnLimit)
     }
-    @Test fun cameraFollowsThePilotAndManualPanningCancelsAutomaticTracking() {
+    @Test fun panningWhilePilotingKeepsTrackingAndDisablingControlRestoresFreePanning() {
         val game=game(); game.launchAt(500.0,BodyKind.Ship)
         game.update(.1)
         assertTrue(game.camera.center.x > 150)
         game.transformCamera(androidx.compose.ui.geometry.Offset(500f,900f),androidx.compose.ui.geometry.Offset(100f,0f),1f)
+        assertEquals(game.bodies.single().position,game.camera.center)
         val camera=game.camera
         game.update(.1)
-        assertEquals(camera,game.camera)
-        game.setMotionControlEnabled(false); game.setMotionControlEnabled(true); game.update(.1)
-        assertTrue(game.camera.center.x > camera.center.x)
+        assertNotEquals(camera.center,game.camera.center)
+        game.setMotionControlEnabled(false)
+        game.transformCamera(androidx.compose.ui.geometry.Offset(500f,900f),androidx.compose.ui.geometry.Offset(100f,0f),1f)
+        val freeCamera=game.camera
+        game.update(.1)
+        assertEquals(freeCamera,game.camera)
     }
 }

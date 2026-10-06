@@ -37,7 +37,7 @@ fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier 
                 val primary=event.changes.firstOrNull { it.id == down.id }
                 if (!cameraGesture && !launched && pressed >= 2 && waypointTap == null) {
                     val secondary=event.changes.firstOrNull { it.id != down.id && it.pressed && !it.previousPressed && !it.isConsumed }
-                    if (vehicle && primary?.pressed == true && secondary != null && pressed == 2 &&
+                    if (vehicle && game.controlledVehicleId == null && primary?.pressed == true && secondary != null && pressed == 2 &&
                         secondary.uptimeMillis-down.uptimeMillis >= 250) {
                         waypointTap=WaypointTap(secondary.id,secondary.position,primary.position)
                     } else { cameraGesture=true; game.touchPreview=null }

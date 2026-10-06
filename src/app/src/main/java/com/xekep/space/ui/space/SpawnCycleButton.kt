@@ -27,8 +27,16 @@ fun SpawnCycleButton(game: SpaceGameState, modifier: Modifier = Modifier, tag: S
     BoxWithConstraints(modifier) {
     val compact=maxWidth < (140*fontScale).dp
     TextButton(onClick = game::cycleSpawnKind, modifier = Modifier.fillMaxWidth().testTag(tag).semantics { contentDescription=label }) {
-        Canvas(Modifier.size(28.dp)) {
-            val kind = game.spawnKind
+        SpawnKindIcon(game.spawnKind, Modifier.size(28.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(if (compact) "↻" else label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    }
+}
+
+@Composable
+internal fun SpawnKindIcon(kind: BodyKind, modifier: Modifier = Modifier) {
+        Canvas(modifier) {
             clipRect { scale(if (kind == BodyKind.Star || kind == BodyKind.BlackHole) .6f else 1f) {
             drawBody(CelestialBody(-1, Vec2.Zero, Vec2.Zero, 20.0, 8f,
                 when (kind) { BodyKind.Rocket -> Color(0xFFFFB36B); BodyKind.Star -> Color(0xFFFFD166); BodyKind.BlackHole -> Color(0xFFCB9BFF); else -> Color(0xFF8BD3FF) }, kind),
@@ -36,8 +44,4 @@ fun SpawnCycleButton(game: SpaceGameState, modifier: Modifier = Modifier, tag: S
                 if (kind == BodyKind.Ship || kind == BodyKind.Rocket) 9.dp.toPx()/8f else 1f)
             } }
         }
-        Spacer(Modifier.width(6.dp))
-        Text(if (compact) "↻" else label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-    }
 }

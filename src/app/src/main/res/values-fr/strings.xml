@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="direction_to_core">Direction du noyau</string>
     <string name="choose_language">"Choisissez la langue"</string>
     <string name="language_setting">"Langue · %1$s ▾"</string>
     <string name="spawn_black_hole">"Trou noir"</string>
@@ -147,6 +148,7 @@
     <string name="binary_description">"Deux étoiles orbitent autour d'un centre de gravité commun."</string>
     <string name="empty_description">"Un univers vide. Créez votre propre système."</string>
     <string name="spawn_body">"Astre"</string>
+    <string name="spawn_body_short">Astre</string>
     <string name="spawn_ship">"Vaisseau"</string>
     <string name="spawn_rocket">"Fusée"</string>
     <string name="spawn_star">"Étoile"</string>

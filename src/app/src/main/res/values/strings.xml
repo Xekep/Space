@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="direction_to_core">Direction to core</string>
     <string name="choose_language">Choose language</string>
     <string name="language_setting">Language · %1$s ▾</string>
     <string name="spawn_black_hole">Black hole</string>
@@ -161,6 +162,7 @@
     <string name="binary_description">"Two stars orbit a shared center of gravity."</string>
     <string name="empty_description">"A blank universe. Build your own system."</string>
     <string name="spawn_body">Celestial body</string>
+    <string name="spawn_body_short">Body</string>
     <string name="spawn_ship">Ship</string>
     <string name="spawn_rocket">Rocket</string>
     <string name="spawn_star">Star</string>
