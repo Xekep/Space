@@ -35,15 +35,20 @@ fun DrawScope.drawExplosions(effects: List<Explosion>, viewport: IntSize, camera
 
 private val labelPaint = ThreadLocal<Paint>()
 
-fun DrawScope.drawFlightRoute(start: Vec2, points: List<Vec2>, viewport: IntSize, camera: Vec2, zoom: Float, color: Color) {
-    var previous=worldToScreen(start,viewport,camera,zoom)
+fun DrawScope.drawFlightRoute(start: Vec2, points: List<Vec2>, viewport: IntSize, camera: Vec2, zoom: Float, color: Color,
+    route: FlightPath? = null, distance: Double = 0.0) {
+    val curve = route ?: FlightPath.through(start, points) ?: return
+    val path = Path()
+    curve.drawingPoints(distance).forEachIndexed { index, point ->
+        val screen=worldToScreen(point,viewport,camera,zoom)
+        if (index == 0) path.moveTo(screen.x, screen.y) else path.lineTo(screen.x, screen.y)
+    }
+    drawPath(path,color.copy(alpha=.45f),style=Stroke(1.5.dp.toPx(),
+        pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(),5.dp.toPx()))))
     points.forEach { point ->
         val screen=worldToScreen(point,viewport,camera,zoom)
-        drawLine(color.copy(alpha=.45f),previous,screen,1.5.dp.toPx(),
-            pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(),5.dp.toPx())))
         drawCircle(color.copy(alpha=.85f),5.dp.toPx(),screen,style=Stroke(1.5.dp.toPx()))
         drawCircle(color,1.5.dp.toPx(),screen)
-        previous=screen
     }
 }
 

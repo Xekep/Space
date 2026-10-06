@@ -4,9 +4,8 @@ import kotlin.math.*
 
 const val MAX_WAYPOINTS = 32
 
-fun routeCruiseSpeed(start: Vec2, points: List<Vec2>, launchSpeed: Double): Double {
-    val spacing=(listOf(start)+points).zipWithNext { a,b -> (b-a).magnitude() }.filter { it > 1e-6 }.minOrNull() ?: 1.0
-    return minOf(if (launchSpeed > 2) launchSpeed else 120.0,spacing*2).coerceIn(.1,260.0)
+fun routeCruiseSpeed(launchSpeed: Double): Double {
+    return (if (launchSpeed > 2) launchSpeed else 120.0).coerceIn(.1,260.0)
 }
 
 /** Wheel input overrides the route; neutral lets the navigator fly the authored path. */
@@ -15,15 +14,13 @@ fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightContro
     val manual=control?.takeIf { abs(it.steering) > .025 || it.boost > 0 }
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body
-        if (body.id == manual?.bodyId) return@map body.copy(waypoints=emptyList())
-        val offset=body.waypoints.first()-body.position
-        val distance=offset.magnitude()
-        val speed=body.routeSpeed.takeIf { it > 0 } ?: routeCruiseSpeed(body.position,body.waypoints,body.velocity.magnitude())
-        val desiredSpeed=if (body.waypoints.size == 1) speed else minOf(speed,sqrt(2*200*distance)*.7)
-        val desired=offset.normalized()*desiredSpeed
-        val correction=desired-body.velocity
-        body.copy(heading=turnHeading(body.heading,offset,seconds),
-            velocity=body.velocity+correction.normalized()*minOf(correction.magnitude(),240*seconds))
+        if (body.fuelRemaining <= 1e-9 || body.id == manual?.bodyId)
+            return@map body.copy(waypoints=emptyList(),routePath=null,routeDistance=0.0)
+        val path=body.routePath ?: FlightPath.through(body.position,body.waypoints)
+            ?: return@map body.copy(waypoints=emptyList())
+        val speed=body.routeSpeed.takeIf { it > 0 } ?: routeCruiseSpeed(body.velocity.magnitude())
+        val sample=path.sample(body.routeDistance)
+        body.copy(routePath=path,routeSpeed=speed,heading=sample.direction,velocity=sample.direction*speed)
     }
     val steering=control?.takeIf { candidate -> routed.none { it.id == candidate.bodyId && it.waypoints.isNotEmpty() } }
     return steerManually(routed,steering,seconds)
@@ -35,6 +32,11 @@ fun advanceWaypoints(before: List<CelestialBody>, after: List<CelestialBody>): L
     val previous=before.associateBy { it.id }
     return after.map { body ->
         if (body.waypoints.isEmpty()) return@map body
+        body.routePath?.let { path ->
+            val remaining=path.remainingPoints(body.routeDistance)
+            return@map body.copy(waypoints=remaining,routePath=path.takeIf { remaining.isNotEmpty() },
+                routeDistance=if (remaining.isEmpty()) 0.0 else body.routeDistance)
+        }
         val start=previous[body.id]?.position ?: body.position
         val radius=maxOf(body.radius*1.5,body.routeTolerance,.005)
         var passed=0; var lastFraction=0.0

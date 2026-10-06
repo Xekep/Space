@@ -21,7 +21,7 @@ class ShakeImpulseDetector {
         if (!magnitude.isFinite()) return null
         if (magnitude < 4.0) armed = true
         val classic=mode == ShakeMode.Classic
-        if (nanos - started < 250_000_000L || (lastImpulse >= 0L && nanos - lastImpulse < if (classic) 650_000_000L else 200_000_000L) || magnitude < if (classic) 12.0 else 8.0) return null
+        if (nanos - started < 250_000_000L || (lastImpulse >= 0L && nanos - lastImpulse < if (classic) 350_000_000L else 200_000_000L) || magnitude < if (classic) 12.0 else 8.0) return null
         var direction = when (rotation) {
             1 -> Vec2(y, x)
             2 -> Vec2(-x, y)
@@ -31,14 +31,14 @@ class ShakeImpulseDetector {
         // A forward/backward shake still gives a visible kick in the two-dimensional world.
         if (direction.magnitude() < magnitude * 0.25) direction = Vec2(z * 0.6, -z * 0.8)
         direction = direction.normalized()
-        if (classic) {
-            lastImpulse=nanos
-            return direction*(31.25+(magnitude-12)*6.25).coerceAtMost(125.0)
-        }
         val reversed = direction.x * previousDirection.x + direction.y * previousDirection.y < -0.35
         if (!armed && !reversed) return null
         armed = false
         previousDirection = direction
+        if (classic) {
+            lastImpulse=nanos
+            return direction*(31.25+(magnitude-12)*6.25).coerceAtMost(125.0)
+        }
         lastImpulse = nanos
         // Contents lag behind the phone, like loose balls in a shaken container.
         return direction * -(80.0 + (magnitude - 8.0) * 14.0).coerceAtMost(MAX_IMPULSE)

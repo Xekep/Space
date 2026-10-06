@@ -112,8 +112,8 @@ class ArcadeCombatTest {
 
     @Test fun craftAndShotsCannotAccumulateForever() {
         val ship = body(1, BodyKind.Ship, 100.0)
-        val expired = prepareCombat(listOf(ship), ArcadeCombat(craft = mapOf(1L to CraftStatus(17.99))), .02)
-        assertTrue(expired.bodies.isEmpty()); assertEquals(1, expired.events.size)
+        val expired = SimulationEngine.stepArcade(listOf(ship.copy(fuelRemaining=.01)),.02)
+        assertTrue(expired.bodies.isEmpty()); assertEquals(1, expired.collisions.size)
         val noEnemies = prepareCombat(listOf(ship), ArcadeCombat(), .1)
         assertTrue(noEnemies.combat.projectiles.isEmpty())
     }

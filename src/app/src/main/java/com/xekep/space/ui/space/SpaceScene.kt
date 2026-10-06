@@ -53,6 +53,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -78,10 +79,20 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val game = state ?: viewModel<SpaceViewModel>().game
     val hasSession by remember(game) { derivedStateOf { game.hasSession } }
     val sandboxPaused by remember(game) { derivedStateOf { game.sandbox?.paused } }
+    val view = LocalView.current
+    val keepScreenOn = hasSession && !game.menuOpen &&
+        (game.mode != AppMode.Arcade || (game.arcade?.lives ?: 0) > 0)
+    DisposableEffect(view, keepScreenOn) {
+        val previous = view.keepScreenOn
+        view.keepScreenOn = keepScreenOn
+        onDispose { view.keepScreenOn = previous }
+    }
     val density = LocalDensity.current.density
     SideEffect { game.updateDensity(density) }
     val storage = remember(context) { SandboxStorage(context) }
     val options = remember(context) { GameOptions(context) }
+    val largeVehicleIcons = options.largeVehicleIcons
+    SideEffect { game.largeVehicleIcons = largeVehicleIcons }
     val music = remember(context) { AmbientMusic(context.applicationContext) }
     val musicEnabled = options.music
     SideEffect { music.setEnabled(musicEnabled) }
@@ -235,10 +246,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 }
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, camera.center, camera.zoom, game.hiddenSolarOrbits)
-            bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color) }
+            bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent) }
             bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60, cameraRotation=game.cameraRotation) }
-            visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId) }
+            visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId, largeVehicleIcons) }
             drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, camera.center, camera.zoom, options.reducedFlashes)
             arcade?.combat?.projectiles?.forEach { shot ->
                 val point = worldToScreen(shot.position, viewport, camera.center, camera.zoom)
@@ -254,7 +265,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 val end = worldToScreen(it.currentWorld, viewport, camera.center, camera.zoom)
                 drawCircle(color.copy(alpha = 0.12f), radius * 2.6f, start)
                 if (candidate != null && candidate.kind in listOf(com.xekep.space.sim.BodyKind.Ship,com.xekep.space.sim.BodyKind.Rocket,com.xekep.space.sim.BodyKind.Star,com.xekep.space.sim.BodyKind.BlackHole))
-                    drawBody(candidate, viewport, camera.center, camera.zoom, game.cameraRotation)
+                    drawBody(candidate, viewport, camera.center, camera.zoom, game.cameraRotation, largeVehicleIcons=largeVehicleIcons)
                 else drawCircle(color.copy(alpha = 0.88f), radius, start, style = Stroke(width = 2.5f))
                 if (distance(start, end) > 6f) { drawArrow(start, end, color); drawFingerDirection(end, end - start, color) }
             }
@@ -301,6 +312,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                             }
                         }
                         game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
+                        PilotHud(game)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             SpawnCycleButton(game, Modifier.weight(1f), tag = "arcade-cycle-spawn")
                             ObjectCounter(game)

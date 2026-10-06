@@ -2,7 +2,9 @@
 <resources>
     <string name="spawn_black_hole">Black hole</string>
     <string name="shake_off">Off</string>
-    <string name="shake_classic">Classic</string>
+    <string name="shake_classic">Impulse</string>
+    <string name="pilot_speed">Speed · %1$d</string>
+    <string name="pilot_fuel">Fuel · %1$d%%</string>
     <string name="shake_inertial">Scatter</string>
     <string name="shake_intensity">Strength: %1$d%%</string>
     <string name="shake_intensity_label">Shake strength</string>
@@ -197,5 +199,7 @@
     <string name="titan">Titan</string>
     <string name="triton">Triton</string>
     <string name="classic_orbits">Orbits</string>
-    <string name="classic_orbits_description">The original playground: a star and eight planets. A playful scale for free gravity experiments.</string>
+    <string name="classic_orbits_description">A star and eight planets. A playful scale for free gravity experiments.</string>
+    <string name="large_vehicle_icons">Larger craft icons</string>
+    <string name="large_vehicle_icons_description">Enlarge ship and rocket icons</string>
 </resources>

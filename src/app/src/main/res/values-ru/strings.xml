@@ -2,7 +2,9 @@
 <resources>
     <string name="spawn_black_hole">Чёрная дыра</string>
     <string name="shake_off">Выкл</string>
-    <string name="shake_classic">Прежний</string>
+    <string name="shake_classic">Толчок</string>
+    <string name="pilot_speed">Скорость · %1$d</string>
+    <string name="pilot_fuel">Топливо · %1$d%%</string>
     <string name="shake_inertial">Разброс</string>
     <string name="shake_intensity">Сила: %1$d%%</string>
     <string name="shake_intensity_label">Сила встряхивания</string>
@@ -197,5 +199,7 @@
     <string name="titan">Титан</string>
     <string name="triton">Тритон</string>
     <string name="classic_orbits">Орбиты</string>
-    <string name="classic_orbits_description">Прежняя игровая система: звезда и восемь планет. Удобный масштаб для свободных экспериментов с гравитацией.</string>
+    <string name="classic_orbits_description">Звезда и восемь планет. Удобный масштаб для свободных экспериментов с гравитацией.</string>
+    <string name="large_vehicle_icons">Крупные значки</string>
+    <string name="large_vehicle_icons_description">Увеличивать значки кораблей и ракет</string>
 </resources>

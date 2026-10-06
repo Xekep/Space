@@ -56,7 +56,7 @@ data class CelestialBody(
     val color: Color,
     val kind: BodyKind = BodyKind.Ambient,
     val trail: List<Vec2> = listOf(position),
-    val burnRemaining: Double = 0.0,
+    val burnRemaining: Double = 0.0, // Legacy save field; fuelRemaining drives the engine and flame.
     val heading: Vec2 = Vec2(0.0, -1.0),
     val solar: SolarBody? = null,
     val physicalScale: Boolean = solar != null,
@@ -64,6 +64,10 @@ data class CelestialBody(
     val routeSpeed: Double = 0.0,
     val routeTolerance: Double = 0.0,
     val pilotThrottle: Double = 0.0,
+    val fuelRemaining: Double = vehicleFuelCapacity(kind),
+    val driftRemaining: Double = if (kind == BodyKind.Rocket) ROCKET_DRIFT_SECONDS else 0.0,
+    val routePath: FlightPath? = null,
+    val routeDistance: Double = 0.0,
 )
 
 data class CollisionEvent(
@@ -92,7 +96,7 @@ data class SandboxPreset(
 enum class SandboxPresetKind(val title: String, val description: String) {
     SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
-    ClassicOrbits("Orbits", "The original star and eight planets in a playful gravity scale."),
+    ClassicOrbits("Orbits", "A star and eight planets in a playful gravity scale."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
@@ -299,7 +303,9 @@ object SimulationEngine {
         val events = mutableListOf<CollisionEvent>()
         while (remaining > 1e-9) {
             val step = min(remaining, maxSubstep)
-            val moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true, alignRockets = false, controlledId=controlledId).toMutableList()
+            var moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true, alignRockets = false, controlledId=controlledId).toMutableList()
+            val fuel = expireVehicles(moved)
+            moved = fuel.bodies.toMutableList(); events += fuel.collisions
             val removed = mutableSetOf<Long>()
             // Core contact takes precedence, so a single threat has exactly one outcome.
             val core = moved.firstOrNull { it.kind == BodyKind.Core }
@@ -355,7 +361,7 @@ object SimulationEngine {
                 acceleration += delta * (gravitationalConstant * other.gravityMass / (square * sqrt(square)))
             }
             if (body.kind == BodyKind.Rocket) acceleration += body.heading *
-                (80.0 * ((body.burnRemaining - index * 0.06) / 0.06).coerceIn(0.0, 1.0))
+                (80.0 * ((body.fuelRemaining - index * 0.06) / 0.06).coerceIn(0.0, 1.0))
             velocity += acceleration * 0.06
             point += velocity * 0.06
             point
@@ -438,6 +444,8 @@ object SimulationEngine {
             val substep = min(remaining, substepLimit)
             val previous = current
             current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false, controlledId = controlledId)
+            val fuel = expireVehicles(current)
+            current = fuel.bodies; collisions += fuel.collisions
             if (energyReference != null && hasLargeDistances(current)) {
                 current = stabilizeEnergy(current, energyReference)
             }

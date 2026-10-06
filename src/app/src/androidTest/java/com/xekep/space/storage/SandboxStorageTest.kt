@@ -24,6 +24,52 @@ class SandboxStorageTest {
 
     @After fun cleanup() { target.deleteSharedPreferences(preferenceName) }
 
+    @Test fun largerVehicleIconsAreEnabledByDefaultAndTheChoicePersists() {
+        val options=GameOptions(context)
+        assertTrue(options.largeVehicleIcons)
+        options.largeVehicleIcons=false; options.save()
+        assertFalse(GameOptions(context).largeVehicleIcons)
+        options.largeVehicleIcons=true; options.save()
+        assertTrue(GameOptions(context).largeVehicleIcons)
+    }
+
+    @Test fun splineProgressAndRocketCoastRoundTripWithoutChangingThePath() {
+        val points=listOf(Vec2(150.0,0.0),Vec2(150.0,160.0),Vec2(300.0,160.0))
+        val path=com.xekep.space.sim.FlightPath.through(Vec2.Zero,points)!!
+        val sample=path.sample(200.0)
+        val ship=com.xekep.space.sim.CelestialBody(1,sample.position,sample.direction*100.0,24.0,8f,
+            androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,heading=sample.direction,
+            waypoints=path.remainingPoints(200.0),routeSpeed=100.0,routePath=path,routeDistance=200.0)
+        val rocket=com.xekep.space.sim.CelestialBody(2,Vec2(1000.0,0.0),Vec2(100.0,0.0),12.0,6f,
+            androidx.compose.ui.graphics.Color.White,com.xekep.space.sim.BodyKind.Rocket,fuelRemaining=0.0,driftRemaining=3.25)
+        val scene=SandboxSnapshot(listOf(ship,rocket),Vec2.Zero,1f,0.0,123L)
+        val restored=storage.decode(storage.encode(scene))
+        assertEquals(scene,restored)
+        val continued=com.xekep.space.sim.SimulationEngine.stepSandbox(restored.bodies,.1,0.0,false).bodies.first()
+        assertTrue((continued.position-path.sample(210.0).position).magnitude() < 1e-6)
+        val raw=org.json.JSONObject(storage.encode(scene))
+        raw.getJSONArray("bodies").getJSONObject(0).put("routeDistance",path.length+1)
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
+        listOf(-1.0,6.1).forEach { invalid ->
+            assertThrows(IllegalArgumentException::class.java) {
+                storage.decode(storage.encode(scene.copy(bodies=listOf(rocket.copy(driftRemaining=invalid)))))
+            }
+        }
+    }
+
+    @Test fun fuelReserveRoundTripsAndOlderVehicleSavesReceiveAFullTank() {
+        val body=com.xekep.space.sim.CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,8f,androidx.compose.ui.graphics.Color.Cyan,
+            com.xekep.space.sim.BodyKind.Ship,fuelRemaining=37.5)
+        val scene=SandboxSnapshot(listOf(body),Vec2.Zero,1f,0.0,123L)
+        assertEquals(scene,storage.decode(storage.encode(scene)))
+        val old=org.json.JSONObject(storage.encode(scene))
+        old.getJSONArray("bodies").getJSONObject(0).remove("fuelRemaining")
+        assertEquals(180.0,storage.decode(old.toString()).bodies.single().fuelRemaining,0.0)
+        listOf(-1.0,181.0).forEach { invalid ->
+            assertTrue(runCatching { storage.decode(storage.encode(scene.copy(bodies=listOf(body.copy(fuelRemaining=invalid))))) }.isFailure)
+        }
+    }
+
     @Test fun shakeModesMigrateTheOldToggleAndPersistTheirIntensity() {
         val prefs=context.getSharedPreferences("space_options",Context.MODE_PRIVATE)
         prefs.edit().putBoolean("shake",true).commit()

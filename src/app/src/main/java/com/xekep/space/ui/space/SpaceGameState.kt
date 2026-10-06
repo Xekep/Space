@@ -68,6 +68,7 @@ class SpaceGameState(
     var sandboxOverlayOpen by mutableStateOf(false)
     var pendingExport: SandboxSnapshot? = null
     var motionSteeringEnabled by mutableStateOf(false); private set
+    var largeVehicleIcons by mutableStateOf(true)
     private var lastArcadeVehicleId by mutableStateOf<Long?>(null)
     private var lastSandboxVehicleId by mutableStateOf<Long?>(null)
     private var steeringInput = Vec2.Zero
@@ -208,7 +209,7 @@ class SpaceGameState(
             } else {
                 val current = arcade ?: break
                 if (current.lives <= 0) { accumulator = 0.0; break }
-                val stepped = advanceArcade(current, seconds, random, flightControl())
+                val stepped = advanceArcade(current, seconds, random, flightControl(),ThreatView(viewport,cameraRotation))
                 val next = stepped.copy(camera = pilotCamera(stepped.bodies,stepped.camera)); arcade = next
                 val best = maxOf(recordFor(next.difficulty), next.score)
                 if (!next.practice) { records = records + (next.difficulty to best); bestScore = best }
@@ -316,7 +317,7 @@ class SpaceGameState(
             burnRemaining = if (kind == BodyKind.Rocket) 3.0 else 0.0,
             heading = if (velocity.magnitude() > 1e-6) velocity.normalized() else rotateVector(Vec2(0.0, -1.0),-cameraRotation),
             waypoints = if (kind == BodyKind.Ship || kind == BodyKind.Rocket) preview.waypoints.take(MAX_WAYPOINTS) else emptyList(),
-            routeSpeed = if (preview.waypoints.isEmpty()) 0.0 else routeCruiseSpeed(preview.startWorld,preview.waypoints,velocity.magnitude()),
+            routeSpeed = if (preview.waypoints.isEmpty()) 0.0 else routeCruiseSpeed(velocity.magnitude()),
             routeTolerance = if (preview.waypoints.isEmpty()) 0.0 else 3.0*density/camera.zoom)
     }
     fun transformCamera(centroid: Offset, pan: Offset, zoomChange: Float) {
@@ -348,7 +349,9 @@ class SpaceGameState(
     fun finishGesture(preview: TouchPreview, holdSeconds: Double) {
         if (mode == AppMode.Sandbox && holdSeconds < 0.3 && (preview.dragDp?.getDistance() ?: 0f) < 12f && orbitSourceId == null) {
             val body = visibleSolarBodies(bodies,camera.zoom,density).minByOrNull { (it.position - preview.startWorld).magnitude() }
-            if (body != null && (body.position - preview.startWorld).magnitude() <= maxOf(body.radius.toDouble(), 20.0 * density / camera.zoom)) {
+            val hitRadius = body?.let { if (it.isVehicle) bodyScreenRadius(it,camera.zoom,density,largeVehicleIcons)*1.35/camera.zoom
+                else maxOf(it.radius.toDouble(),20.0*density/camera.zoom) } ?: 0.0
+            if (body != null && (body.position - preview.startWorld).magnitude() <= hitRadius) {
                 selectedBodyId = body.id; feedback = null; return
             }
         }

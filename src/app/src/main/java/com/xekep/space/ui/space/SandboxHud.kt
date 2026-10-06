@@ -87,6 +87,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                 Text(context.getString(R.string.body_details, it.mass.roundToInt(), it.velocity.magnitude().roundToInt()),
                     Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.labelMedium, color = accent)
             }
+            PilotHud(game)
             selection?.let { body ->
                 Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = Color(0xEF14223A), contentColor = MaterialTheme.colorScheme.onSurface) {
                     Column(Modifier.padding(horizontal = 4.dp).testTag("body-toolbar")) {

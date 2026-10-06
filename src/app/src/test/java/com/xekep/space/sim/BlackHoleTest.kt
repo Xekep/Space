@@ -48,7 +48,7 @@ class BlackHoleTest {
     }
     @Test fun absorptionDoesNotCreatePhantomSweepsForSurvivingVehicles() {
         val swallowed=target().copy(position=Vec2.Zero,velocity=Vec2.Zero)
-        val ship=target().copy(id=3,position=Vec2(500.0,0.0),velocity=Vec2.Zero,kind=BodyKind.Ship,mass=1e-8)
+        val ship=target().copy(id=3,position=Vec2(500.0,0.0),velocity=Vec2.Zero,kind=BodyKind.Ship,mass=1e-8,fuelRemaining=180.0)
         val rocket=ship.copy(id=4,position=Vec2(800.0,0.0),kind=BodyKind.Rocket)
         val result=SimulationEngine.stepSandbox(listOf(hole(),swallowed,ship,rocket),.001,0.0,false)
         assertEquals(listOf(1L,3L,4L),result.bodies.map { it.id })

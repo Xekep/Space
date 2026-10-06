@@ -37,7 +37,8 @@ class CelestialCreationTest {
         val star=game.previewBody(TouchPreview(Vec2(9000.0,0.0),Vec2(9000.0,0.0),0),0.0)!!
         assertTrue(star.physicalScale); assertTrue(star.mass > SolarBody.Earth.worldMass*1000)
         for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
-            var craft=star.copy(kind=kind,mass=1e-8,radius=1f,heading=Vec2(0.0,-1.0),velocity=Vec2(0.0,-500.0),pilotThrottle=0.0)
+            var craft=star.copy(kind=kind,mass=1e-8,radius=1f,heading=Vec2(0.0,-1.0),velocity=Vec2(0.0,-500.0),pilotThrottle=0.0,
+                fuelRemaining=vehicleFuelCapacity(kind))
             repeat(25) { index -> craft=steerManually(listOf(craft),ManualFlightControl(craft.id,1.0,if (index==0) 1.0 else 0.0),.02).single() }
             repeat(30) { craft=steerManually(listOf(craft),ManualFlightControl(craft.id,0.0),.02).single() }
             assertEquals(.5,craft.pilotThrottle,0.0)

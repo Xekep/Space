@@ -95,6 +95,12 @@ class SandboxStorage(context: Context) {
                     .put("routeSpeed", body.routeSpeed)
                     .put("routeTolerance", body.routeTolerance)
                     .put("pilotThrottle", body.pilotThrottle)
+                    .put("fuelRemaining", body.fuelRemaining)
+                    .put("driftRemaining", body.driftRemaining)
+                    .put("routeDistance", body.routeDistance)
+                    .put("routeKnots", body.routePath?.let { path -> JSONArray().also { array ->
+                        path.knots.forEach { point -> array.put(JSONObject().put("x",point.x).put("y",point.y)) }
+                    } })
                     .put("waypoints", JSONArray().also { array -> body.waypoints.forEach { point -> array.put(JSONObject().put("x",point.x).put("y",point.y)) } }),
             )
         }
@@ -133,6 +139,28 @@ class SandboxStorage(context: Context) {
                 require(routeTolerance in 0.0..1000000.0)
                 val pilotThrottle=body.optDouble("pilotThrottle",0.0)
                 require(pilotThrottle in 0.0..1.0)
+                val kind=BodyKind.valueOf(body.getString("kind"))
+                val fuel=body.optDouble("fuelRemaining",com.xekep.space.sim.vehicleFuelCapacity(kind))
+                require(fuel in 0.0..com.xekep.space.sim.vehicleFuelCapacity(kind))
+                val drift=body.optDouble("driftRemaining",if (kind == BodyKind.Rocket) com.xekep.space.sim.ROCKET_DRIFT_SECONDS else 0.0)
+                require(drift in 0.0..com.xekep.space.sim.ROCKET_DRIFT_SECONDS)
+                val path=body.optJSONArray("routeKnots")?.let { knots ->
+                    require(knots.length() in 2..com.xekep.space.sim.MAX_WAYPOINTS+1)
+                    val values=List(knots.length()) { knotIndex ->
+                        val knot=knots.getJSONObject(knotIndex)
+                        Vec2(knot.getDouble("x"),knot.getDouble("y")).also {
+                            require(it.x in -1e9..1e9 && it.y in -1e9..1e9)
+                        }
+                    }
+                    require(values.zipWithNext().all { (a,b) -> (b-a).magnitude() > 1e-8 })
+                    com.xekep.space.sim.FlightPath(values)
+                }
+                val routeDistance=body.optDouble("routeDistance",0.0)
+                require(routeDistance in 0.0..(path?.length ?: 0.0))
+                if (path != null) {
+                    require(kind == BodyKind.Ship || kind == BodyKind.Rocket)
+                    require(path.remainingPoints(routeDistance) == points && routeSpeed > 0.0)
+                }
                 add(
                     CelestialBody(
                         id = id,
@@ -141,12 +169,14 @@ class SandboxStorage(context: Context) {
                         mass = body.getDouble("mass"),
                         radius = body.getDouble("radius").toFloat(),
                         color = Color(body.getInt("colorArgb")),
-                        kind = BodyKind.valueOf(body.getString("kind")),
+                        kind = kind,
                         trail = listOf(position),
                         burnRemaining = burn,
                         heading = heading,
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
+                        fuelRemaining = fuel,
+                        driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),
                         solar = body.optString("solar", "").takeIf { it.isNotEmpty() }?.let(SolarBody::valueOf),
                     ),

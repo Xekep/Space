@@ -5,7 +5,7 @@ import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.Vec2
 import kotlin.random.Random
 
-internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null): ArcadeSession {
+internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
     val routed=com.xekep.space.sim.applyFlightControls(current.bodies,control,dt)
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId)
     val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId)
@@ -13,9 +13,12 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
     val events = prepared.events + step.collisions + combatStep.events
     // Arena cleanup applies to spent threats. Player bodies belong to world space,
     // so a launch after camera travel must survive outside the initial arena.
-    var bodies = combatStep.bodies.filter { it.kind != BodyKind.Meteor ||
-        (it.position.x in -CullMargin..(current.arena.width + CullMargin) &&
-            it.position.y in -CullMargin..(current.arena.height + CullMargin)) }
+    val corePosition=combatStep.bodies.firstOrNull { it.kind == BodyKind.Core }?.position ?: Vec2(450.0,700.0)
+    var bodies = combatStep.bodies.filter {
+        val offset=it.position-corePosition
+        it.kind != BodyKind.Meteor || offset.x*it.velocity.x+offset.y*it.velocity.y < 0 ||
+            (it.position.x in -CullMargin..(current.arena.width + CullMargin) &&
+                it.position.y in -CullMargin..(current.arena.height + CullMargin)) }
     var immunity = (current.immunity - dt).coerceAtLeast(0.0)
     var lives = current.lives; var stopped = 0; var score = current.score
     var combo = if (current.elapsed - current.lastIntercept > 4.0) (current.combo - dt * 0.5).coerceAtLeast(1.0) else current.combo
@@ -48,8 +51,9 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
                     val mass = 500.0 + wave * 40.0
                     meteor = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), velocity = meteor.velocity * 0.65)
                 }
-                pending += PendingThreat(if (current.practice) meteor.copy(position = Vec2(964.0, 700.0), velocity = Vec2(-40.0, 0.0), mass = 90.0,
-                    radius = SimulationEngine.radiusForMass(90.0)) else meteor.copy(velocity = meteor.velocity * (0.60 + minOf(wave, 16) * 0.035)), current.difficulty.warningSeconds)
+                val incoming=if (current.practice) meteor.copy(position = Vec2(964.0, 700.0), velocity = Vec2(-40.0, 0.0), mass = 90.0,
+                    radius = SimulationEngine.radiusForMass(90.0)) else meteor.copy(velocity = meteor.velocity * (0.60 + minOf(wave, 16) * 0.035))
+                pending += PendingThreat(distantThreat(incoming,current,view),current.difficulty.warningSeconds)
             }
         }
         timer += (4.6 - wave * 0.25).coerceAtLeast(1.4) * current.difficulty.spawnDelay

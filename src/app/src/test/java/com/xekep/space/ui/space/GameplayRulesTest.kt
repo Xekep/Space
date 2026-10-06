@@ -10,9 +10,9 @@ import kotlin.random.Random
 
 class GameplayRulesTest {
     private fun game() = SpaceGameState(random = Random(17)).apply { resize(IntSize(1080, 1920)) }
-    @Test fun frameRateAndDisplaySizeDoNotChangeArcadeRules() {
+    @Test fun frameRateDoesNotChangeArcadeRulesOrDistantSpawnPositions() {
         val sessions = listOf(10, 30, 60, 120).map { fps ->
-            val game = game().apply { resize(IntSize(fps * 20 + 480, fps * 30 + 800)); startArcade() }
+            val game = game().apply { resize(IntSize(1080,1920)); startArcade() }
             repeat(fps * 20) { game.update(1.0 / fps) }
             game.arcade!!
         }
@@ -38,7 +38,7 @@ class GameplayRulesTest {
     @Test fun arenaCleanupRemovesDepartedMeteorsButKeepsRemoteDefenders() {
         val core = SimulationEngine.arcadeBodies(Vec2(900.0, 1400.0)).first()
         val defender = CelestialBody(99981, Vec2(-5000.0, 700.0), Vec2.Zero, 70.0, 8f, Color.Cyan, BodyKind.Player)
-        val meteor = defender.copy(id = 99982, position = Vec2(5000.0, 700.0), kind = BodyKind.Meteor)
+        val meteor = defender.copy(id = 99982, position = Vec2(5000.0, 700.0), velocity=Vec2(100.0,0.0), kind = BodyKind.Meteor)
         val run = ArcadeSession(listOf(core, defender, meteor), SpaceCamera(defender.position), IntSize(900, 1400), ArcadeDifficulty.Normal)
         val next = advanceArcade(run, 1.0 / 60, Random(0))
         assertEquals(setOf(core.id, defender.id), next.bodies.map { it.id }.toSet())

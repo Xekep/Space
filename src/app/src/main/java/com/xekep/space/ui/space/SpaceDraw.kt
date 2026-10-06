@@ -25,6 +25,7 @@ fun DrawScope.drawBody(
     zoom: Float,
     cameraRotation: Double = 0.0,
     piloted: Boolean = false,
+    largeVehicleIcons: Boolean = false,
 ) {
     val center = worldToScreen(body.position, viewport, cameraCenter, zoom)
     val margin = 120.dp.toPx()
@@ -33,7 +34,7 @@ fun DrawScope.drawBody(
         if (center.x < -margin || center.y < -margin || center.x > size.width + margin || center.y > size.height + margin) return
     } else if ((center-this.center).getDistance() > extent) return
     if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) {
-        drawVehicle(body, center, zoom, piloted)
+        drawVehicle(body, center, zoom, piloted, largeVehicleIcons)
         return
     }
     val screenRadius = bodyScreenRadius(body, zoom, density)
@@ -116,8 +117,8 @@ fun DrawScope.drawBody(
     )
 }
 
-private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean) {
-    val r = (body.radius * zoom).coerceIn(9.dp.toPx(), 18.dp.toPx())
+private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean) {
+    val r = bodyScreenRadius(body, zoom, density, largeVehicleIcons)
     val heading = body.heading
     val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
     drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
@@ -140,7 +141,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
             hull(listOf(Offset(0f, -1.35f), Offset(.32f, -.48f), Offset(.29f, .67f), Offset(0f, .9f), Offset(-.29f, .67f), Offset(-.32f, -.48f)), Color(0xFFD6EAF5))
             hull(listOf(Offset(0f, -.92f), Offset(.18f, -.4f), Offset(.15f, .05f), Offset(-.15f, .05f), Offset(-.18f, -.4f)), Color(0xFF1D5E87))
             drawLine(Color(0xFFB0FBFF), center + Offset(0f, -.72f * r), center + Offset(0f, -.25f * r), r * .07f, StrokeCap.Round)
-            if (piloted) listOf(-.78f,.78f).forEach { x ->
+            if (piloted && body.fuelRemaining > 1e-9) listOf(-.78f,.78f).forEach { x ->
                 hull(listOf(Offset(x-.1f,.85f),Offset(x,1.45f+body.pilotThrottle.toFloat()*.7f),Offset(x+.1f,.85f)),Color(0xFF9EF8FF))
             }
         } else {
@@ -148,7 +149,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
             hull(listOf(Offset(-.35f, .15f), Offset(-.75f, .9f), Offset(-.35f, .75f)), body.color)
             hull(listOf(Offset(.35f, .15f), Offset(.75f, .9f), Offset(.35f, .75f)), body.color)
             drawCircle(Color(0xFF276B95), r * .19f, center + Offset(0f, -r * .3f))
-            if (body.burnRemaining > 0.0 || piloted) {
+            if (body.fuelRemaining > 1e-9) {
                 hull(listOf(Offset(-.25f, .8f), Offset(0f, if (piloted) 1.6f+body.pilotThrottle.toFloat()*.8f else 1.9f), Offset(.25f, .8f)), Color(0xFFFF9851))
                 hull(listOf(Offset(-.13f, .8f), Offset(0f, 1.45f), Offset(.13f, .8f)), Color(0xFFFFE6A3))
             }
@@ -156,10 +157,11 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
     }
 }
 
-fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float): Float {
+fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehicleIcons: Boolean = false): Float {
     if (body.kind == BodyKind.Star) return (body.radius*zoom).coerceIn(14f*density,45f*density)
     if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn(9f*density,24f*density)
-    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return (body.radius * zoom).coerceIn(9f * density, 18f * density)
+    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return (body.radius * zoom).coerceIn(
+        (if (largeVehicleIcons) 14f else 9f)*density, (if (largeVehicleIcons) 24f else 18f)*density)
     val solar = body.solar ?: return (body.radius * zoom).coerceIn(4f, 38f)
     val symbolDp = if (solar == SolarBody.Sun) 22.0 else
         (6.0 * (solar.radiusKm / 6371.0).pow(.40)).coerceIn(3.0, 17.0)

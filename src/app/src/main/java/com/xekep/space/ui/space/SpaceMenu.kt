@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -176,6 +177,17 @@ fun SpaceMenu(
                                 collisions = it
                                 game.setCollisions(it)
                             }, modifier = Modifier.testTag("sandbox-collisions"))
+                        }
+                        options?.let { settings ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(context.getString(R.string.large_vehicle_icons), Modifier.weight(1f),
+                                    maxLines = 1, style = MaterialTheme.typography.titleSmall)
+                                Switch(checked = settings.largeVehicleIcons, onCheckedChange = {
+                                    settings.largeVehicleIcons = it; settings.save()
+                                }, modifier = Modifier.testTag("large-vehicle-icons").semantics {
+                                    contentDescription = context.getString(R.string.large_vehicle_icons_description)
+                                })
+                            }
                         }
                         if (game.sandbox != null) {
                             MenuLabel(context.getString(R.string.current_universe))

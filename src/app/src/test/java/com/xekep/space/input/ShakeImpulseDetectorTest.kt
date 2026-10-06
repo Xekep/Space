@@ -8,13 +8,16 @@ import org.junit.Test
 class ShakeImpulseDetectorTest {
     private fun detector() = ShakeImpulseDetector().apply { sample(0.0, 0.0, 0.0, 0L) }
 
-    @Test fun classicModeKeepsThePreviousThresholdDirectionAndCooldownWhileOffIgnoresMotion() {
+    @Test fun impulseModeKeepsItsStrengthButRearmsOnReleaseOrReversalAndOffIgnoresMotion() {
         val detector=detector()
         assertNull(detector.sample(11.99,0.0,0.0,500_000_000L,mode=ShakeMode.Classic))
         val first=detector.sample(20.0,0.0,0.0,600_000_000L,mode=ShakeMode.Classic)!!
         assertEquals(81.25,first.x,1e-9); assertEquals(0.0,first.y,1e-9)
-        assertNull(detector.sample(20.0,0.0,0.0,1_200_000_000L,mode=ShakeMode.Classic))
-        assertEquals(125.0,detector.sample(100.0,0.0,0.0,1_250_000_000L,mode=ShakeMode.Classic)!!.x,1e-9)
+        assertNull(detector.sample(-20.0,0.0,0.0,900_000_000L,mode=ShakeMode.Classic))
+        assertEquals(-81.25,detector.sample(-20.0,0.0,0.0,950_000_000L,mode=ShakeMode.Classic)!!.x,1e-9)
+        assertNull(detector.sample(-20.0,0.0,0.0,1_600_000_000L,mode=ShakeMode.Classic))
+        detector.sample(0.0,0.0,0.0,1_650_000_000L,mode=ShakeMode.Classic)
+        assertEquals(125.0,detector.sample(100.0,0.0,0.0,1_700_000_000L,mode=ShakeMode.Classic)!!.x,1e-9)
         assertNull(detector.sample(100.0,0.0,0.0,2_000_000_000L,mode=ShakeMode.Off))
         assertTrue(detector().sample(20.0,0.0,0.0,500_000_000L)!!.x < 0)
     }

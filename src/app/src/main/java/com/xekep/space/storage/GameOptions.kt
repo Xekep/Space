@@ -12,6 +12,7 @@ class GameOptions(context: Context) {
     var music by mutableStateOf(preferences.getBoolean("music", true))
     var vibration by mutableStateOf(preferences.getBoolean("vibration", true))
     var motionControl by mutableStateOf(preferences.getBoolean("motionControl", false))
+    var largeVehicleIcons by mutableStateOf(preferences.getBoolean("largeVehicleIcons", true))
     var shakeMode by mutableStateOf(runCatching { ShakeMode.valueOf(preferences.getString("shakeMode",null) ?: "") }
         .getOrElse { if (preferences.getBoolean("shake",false)) ShakeMode.Inertial else ShakeMode.Off })
     var shakeIntensity by mutableStateOf(preferences.getFloat("shakeIntensity",1f).takeIf { it.isFinite() }?.coerceIn(.25f,2.5f) ?: 1f)
@@ -21,5 +22,6 @@ class GameOptions(context: Context) {
     var reducedFlashes by mutableStateOf(preferences.getBoolean("reducedFlashes", false))
     fun save() { preferences.edit().putBoolean("sound", sound).putBoolean("music", music).putBoolean("vibration", vibration)
         .putBoolean("motionControl", motionControl).putBoolean("reducedFlashes", reducedFlashes).putBoolean("shake", shake)
+        .putBoolean("largeVehicleIcons", largeVehicleIcons)
         .putString("shakeMode",shakeMode.name).putFloat("shakeIntensity",shakeIntensity.takeIf { it.isFinite() }?.coerceIn(.25f,2.5f) ?: 1f).apply() }
 }

@@ -42,7 +42,8 @@ class MotionControlTest {
     }
     @Test fun arcadeManualPilotKeepsTurretAutomaticAndDoesNotExpireWhileControlled() {
         val scene=SimulationEngine.arcadeBodies(Vec2(900.0,1400.0))
-        val ship=scene[1].copy(id=99,kind=BodyKind.Ship,position=Vec2(700.0,200.0),velocity=Vec2(0.0,-100.0),heading=Vec2(0.0,-1.0))
+        val ship=scene[1].copy(id=99,kind=BodyKind.Ship,position=Vec2(700.0,200.0),velocity=Vec2(0.0,-100.0),heading=Vec2(0.0,-1.0),
+            fuelRemaining=vehicleFuelCapacity(BodyKind.Ship))
         val enemy=ship.copy(id=100,kind=BodyKind.Meteor,position=Vec2(900.0,200.0),velocity=Vec2.Zero)
         val combat=ArcadeCombat(craft=mapOf(99L to CraftStatus(age=20.0,cooldown=0.0)))
         val prepared=prepareCombat(listOf(ship,enemy),combat,.1,99)

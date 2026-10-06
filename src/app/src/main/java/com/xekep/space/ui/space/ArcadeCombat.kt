@@ -22,13 +22,10 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
     val events = mutableListOf<CollisionEvent>()
     val next = bodies.mapNotNull { body ->
         if (!body.isVehicle) return@mapNotNull body
+        if (body.fuelRemaining <= 1e-9) return@mapNotNull body
         val status = current.craft[body.id] ?: CraftStatus()
         val navigating=body.waypoints.isNotEmpty()
         val age = if (navigating) 0.0 else status.age + dt
-        if (body.id != controlledId && !navigating && age >= if (body.kind == BodyKind.Ship) 18.0 else 10.0) {
-            events += CollisionEvent(body.kind, body.kind, body.position, vehicleExplosion = true, seed = body.id.toInt())
-            return@mapNotNull null
-        }
         val target = bodies.filter { it.kind == BodyKind.Meteor }
             .minByOrNull { (it.position - body.position).magnitude() }
         var velocity = body.velocity
@@ -39,7 +36,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
             val intercept = offset + target.velocity * (offset.magnitude() / 650.0).coerceAtMost(.7)
             val aim = intercept.normalized().takeIf { it.magnitude() > .5 } ?: heading
             if (body.id != controlledId && !navigating) heading = turnHeading(heading,
-                if (body.kind == BodyKind.Rocket && body.burnRemaining <= 0.0) velocity else aim, dt,
+                aim, dt,
                 radiansPerSecond = if (body.kind == BodyKind.Rocket) 7.2 else 3.6)
             if (body.kind == BodyKind.Ship) {
                 // Bounded acceleration; launching in a useful direction still matters.
@@ -50,7 +47,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                     shots += SpaceProjectile(body.position + aim * (body.radius.toDouble() + 4.0), aim * 650.0 + velocity * .25, body.id)
                     cooldown = .9
                 }
-            } else if (body.burnRemaining > 0.0 && body.id != controlledId && !navigating) {
+            } else if (body.id != controlledId && !navigating) {
                 val correction = heading * 310.0 - velocity
                 velocity += correction.normalized() * minOf(correction.magnitude(), 240.0 * dt)
             }

@@ -8,17 +8,20 @@ import org.junit.Test
 
 class SandboxVehiclesTest {
     private fun rocket(burn: Double = 3.0) = CelestialBody(1, Vec2.Zero, Vec2.Zero, 12.0, 6f, Color.White,
-        BodyKind.Rocket, burnRemaining = burn, heading = Vec2(1.0, 0.0))
+        BodyKind.Rocket, burnRemaining = burn, heading = Vec2(1.0, 0.0), fuelRemaining = burn)
 
-    @Test fun rocketBurnsForThreeSecondsThenCoasts() {
+    @Test fun rocketBurnsItsRemainingFuelThenCoastsWithoutThrust() {
         var body = rocket()
         repeat(3) { body = SimulationEngine.stepSandbox(listOf(body), 1.0, 0.0).bodies.single() }
         assertEquals(240.0, body.velocity.x, 1e-7)
         assertEquals(360.0, body.position.x, 1e-7)
         assertEquals(0.0, body.burnRemaining, 1e-7)
+        assertEquals(0.0, body.fuelRemaining, 1e-7)
+        assertEquals(ROCKET_DRIFT_SECONDS, body.driftRemaining, 1e-7)
         body = SimulationEngine.stepSandbox(listOf(body), 1.0, 0.0).bodies.single()
         assertEquals(240.0, body.velocity.x, 1e-7)
         assertEquals(600.0, body.position.x, 1e-7)
+        assertEquals(ROCKET_DRIFT_SECONDS-1, body.driftRemaining, 1e-7)
     }
 
     @Test fun partialFuelAndTimePartitionsDeliverTheSameImpulse() {
@@ -68,6 +71,7 @@ class SandboxVehiclesTest {
         game.sandboxOverlayOpen = false
         repeat(30) { game.update(1.0 / 60.0) }
         assertEquals(0.0, game.bodies.single().burnRemaining, 1e-7)
+        assertEquals(117.0, game.bodies.single().fuelRemaining, 1e-7)
         assertEquals(-240.0, game.bodies.single().velocity.y, 1e-7)
     }
 

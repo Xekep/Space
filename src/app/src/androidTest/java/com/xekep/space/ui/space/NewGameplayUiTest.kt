@@ -15,6 +15,106 @@ import org.junit.Test
 class NewGameplayUiTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun exhaustedRocketHasNoFlameThenDriftsAndExplodes() {
+        compose.mainClock.autoAdvance=false
+        val powered=CelestialBody(1,Vec2(-160.0,0.0),Vec2(0.0,-100.0),12.0,6f,
+            androidx.compose.ui.graphics.Color.White,BodyKind.Rocket)
+        val empty=powered.copy(id=2,position=Vec2(160.0,0.0),velocity=Vec2(100.0,0.0),
+            fuelRemaining=0.0,driftRemaining=3.25,trail=listOf(Vec2(160.0,0.0)))
+        val game=SpaceGameState().apply {
+            loadSandbox(com.xekep.space.storage.SandboxSnapshot(listOf(powered,empty),Vec2.Zero,1f,0.0,123L,
+                paused=true,preset=SandboxPresetKind.Empty))
+        }
+        compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.mainClock.advanceTimeByFrame()
+        val bitmap=compose.onNodeWithTag("space-scene").captureToImage().asAndroidBitmap()
+        val radius=bodyScreenRadius(powered,1f,compose.density.density,game.largeVehicleIcons)
+        val y=(bitmap.height/2f+radius*1.4f).toInt()
+        val flame=bitmap.getPixel((bitmap.width/2f-160f).toInt(),y)
+        val dark=bitmap.getPixel((bitmap.width/2f+160f).toInt(),y)
+        assertTrue(android.graphics.Color.red(flame) > 230 && android.graphics.Color.green(flame) > 100)
+        assertTrue(android.graphics.Color.red(dark) < 100 && android.graphics.Color.green(dark) < 100)
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        java.io.File(context.externalCacheDir,"rocket-powered-coasting.png").outputStream().use {
+            assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
+        }
+        compose.runOnIdle {
+            game.toggleSandboxPause()
+            repeat(20) { game.update(.1) }
+            val coasting=game.bodies.first { it.id == 2L }
+            assertTrue((coasting.velocity-empty.velocity).magnitude() < 1e-6)
+            assertEquals(1.25,coasting.driftRemaining,1e-6)
+            repeat(13) { game.update(.1) }
+            assertTrue(game.bodies.none { it.id == 2L }); assertTrue(game.explosions.isNotEmpty())
+        }
+    }
+
+    @Test fun menuVehicleIconSwitchChangesBothCraftAndSavesTheChoice() {
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("space_options",android.content.Context.MODE_PRIVATE)
+        val prior=prefs.getBoolean("largeVehicleIcons",true)
+        prefs.edit().putBoolean("largeVehicleIcons",true).commit()
+        try {
+            val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.ClassicOrbits); toggleSandboxPause(); openMenu() }
+            compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOn().performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("large-vehicle-icons").assertIsOff()
+            compose.runOnIdle {
+                assertFalse(game.largeVehicleIcons)
+                assertFalse(com.xekep.space.storage.GameOptions(context).largeVehicleIcons)
+                for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+                    val body=CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,6f,androidx.compose.ui.graphics.Color.Cyan,kind)
+                    assertTrue(bodyScreenRadius(body,1f,2f,true) > bodyScreenRadius(body,1f,2f,false))
+                    assertEquals(6f,body.radius,0f)
+                }
+            }
+            compose.onNodeWithTag("large-vehicle-icons").performClick().assertIsOn()
+            compose.mainClock.advanceTimeByFrame()
+            compose.runOnIdle { assertTrue(game.largeVehicleIcons) }
+        } finally { prefs.edit().putBoolean("largeVehicleIcons",prior).commit() }
+    }
+
+    @Test fun pilotMetersShowSpeedAndSlowlyDrainingFuelInBothModesAndDisappearAfterExpiry() {
+        compose.mainClock.autoAdvance=false
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val prefs=context.getSharedPreferences("space_options",android.content.Context.MODE_PRIVATE)
+        val previous=prefs.getBoolean("motionControl",false)
+        prefs.edit().putBoolean("motionControl",true).commit()
+        try {
+            val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause() }
+            compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("pilot-hud").assertDoesNotExist()
+            compose.onNodeWithTag("sandbox-spawn").performClick()
+            compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("pilot-speed").assertIsDisplayed()
+            compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
+            compose.runOnIdle {
+                game.toggleSandboxPause(); repeat(600) { game.update(.1) }; game.toggleSandboxPause()
+                assertEquals(120.0,game.bodies.single().fuelRemaining,1e-4)
+            }
+            compose.mainClock.advanceTimeByFrame()
+            java.io.File(context.externalCacheDir,"pilot-fuel-speed.png").outputStream().use {
+                assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
+            }
+            compose.runOnIdle {
+                game.toggleSandboxPause()
+                var ticks=0
+                while (game.controlledVehicleId != null && ticks++<1300) game.update(.1)
+                assertTrue(game.bodies.isEmpty()); assertTrue(game.explosions.isNotEmpty())
+            }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("pilot-hud").assertDoesNotExist()
+            compose.runOnIdle { game.startArcade(); game.chooseSpawnKind(BodyKind.Rocket) }
+            compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(230f,-300f)) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("pilot-speed").assertIsDisplayed()
+            compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
+            compose.runOnIdle { assertTrue(game.bodies.last().fuelRemaining in 119.8..120.0) }
+        } finally { prefs.edit().putBoolean("motionControl",previous).commit() }
+    }
+
     @Test fun sandboxCycleCreatesStarsAndBlackHolesWithoutOpeningMenus() {
         compose.mainClock.autoAdvance=false
         val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause() }
