@@ -3,8 +3,12 @@ package com.xekep.space.ui.space
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
@@ -18,6 +22,12 @@ fun DrawScope.drawBody(
     zoom: Float,
 ) {
     val center = worldToScreen(body.position, viewport, cameraCenter, zoom)
+    val margin = 120.dp.toPx()
+    if (center.x < -margin || center.y < -margin || center.x > size.width + margin || center.y > size.height + margin) return
+    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) {
+        drawVehicle(body, center, zoom)
+        return
+    }
     val screenRadius = (body.radius * zoom).coerceIn(4f, 38f)
     val glowScale = when (body.kind) {
         BodyKind.Core -> 3.4f
@@ -66,15 +76,53 @@ fun DrawScope.drawBody(
     )
 }
 
+private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float) {
+    val r = (body.radius * zoom).coerceIn(9.dp.toPx(), 18.dp.toPx())
+    val heading = if (body.kind == BodyKind.Rocket || body.velocity.magnitude() < 1e-6) body.heading else body.velocity.normalized()
+    val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
+    drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
+    rotate(angle, center) {
+        fun hull(points: List<Offset>, color: Color) {
+            drawPath(Path().apply {
+                moveTo(center.x + points[0].x * r, center.y + points[0].y * r)
+                points.drop(1).forEach { lineTo(center.x + it.x * r, center.y + it.y * r) }
+                close()
+            }, color)
+        }
+        if (body.kind == BodyKind.Ship) {
+            hull(listOf(Offset(0f, -1.2f), Offset(.95f, .7f), Offset(.35f, .45f), Offset(0f, .7f), Offset(-.35f, .45f), Offset(-.95f, .7f)), body.color)
+            hull(listOf(Offset(0f, -.8f), Offset(.22f, .25f), Offset(-.22f, .25f)), Color(0xFF14334F))
+        } else {
+            hull(listOf(Offset(0f, -1.3f), Offset(.35f, -.55f), Offset(.35f, .8f), Offset(-.35f, .8f), Offset(-.35f, -.55f)), Color(0xFFEAF3FF))
+            hull(listOf(Offset(-.35f, .15f), Offset(-.75f, .9f), Offset(-.35f, .75f)), body.color)
+            hull(listOf(Offset(.35f, .15f), Offset(.75f, .9f), Offset(.35f, .75f)), body.color)
+            drawCircle(Color(0xFF276B95), r * .19f, center + Offset(0f, -r * .3f))
+            if (body.burnRemaining > 0.0) {
+                hull(listOf(Offset(-.25f, .8f), Offset(0f, 1.9f), Offset(.25f, .8f)), Color(0xFFFF9851))
+                hull(listOf(Offset(-.13f, .8f), Offset(0f, 1.45f), Offset(.13f, .8f)), Color(0xFFFFE6A3))
+            }
+        }
+    }
+}
+
 fun DrawScope.drawTrail(
     body: CelestialBody,
     viewport: IntSize,
     cameraCenter: com.xekep.space.sim.Vec2,
     zoom: Float,
+    detailed: Boolean = true,
 ) {
     if (body.trail.size < 2) {
         return
     }
+    var minX = Double.POSITIVE_INFINITY; var maxX = Double.NEGATIVE_INFINITY
+    var minY = Double.POSITIVE_INFINITY; var maxY = Double.NEGATIVE_INFINITY
+    for (point in body.trail) {
+        minX = minOf(minX, point.x); maxX = maxOf(maxX, point.x)
+        minY = minOf(minY, point.y); maxY = maxOf(maxY, point.y)
+    }
+    val left = cameraCenter.x - viewport.width / (2.0 * zoom); val top = cameraCenter.y - viewport.height / (2.0 * zoom)
+    if (maxX < left || maxY < top || minX > left + viewport.width / zoom || minY > top + viewport.height / zoom) return
 
     val trailBoost = when (body.kind) {
         BodyKind.Meteor -> 0.08f
@@ -82,18 +130,23 @@ fun DrawScope.drawTrail(
         else -> 0f
     }
 
-    body.trail.windowed(2).forEachIndexed { index, segment ->
-        val start = worldToScreen(segment[0], viewport, cameraCenter, zoom)
-        val end = worldToScreen(segment[1], viewport, cameraCenter, zoom)
-        val alpha = (index + 1).toFloat() / body.trail.size.toFloat()
-        drawLine(
-            color = body.color.copy(alpha = 0.04f + (alpha * (0.28f + trailBoost))),
-            start = start,
-            end = end,
-            strokeWidth = if (body.kind == BodyKind.Meteor) 2.6f else 2.0f,
-            cap = StrokeCap.Round,
-        )
+    val first = worldToScreen(body.trail.first(), viewport, cameraCenter, zoom)
+    val last = worldToScreen(body.trail.last(), viewport, cameraCenter, zoom)
+    val path = Path().apply {
+        moveTo(first.x, first.y)
+        for (index in 1 until body.trail.size step if (detailed) 1 else 2) {
+            val point = worldToScreen(body.trail[index], viewport, cameraCenter, zoom)
+            lineTo(point.x, point.y)
+        }
+        lineTo(last.x, last.y)
     }
+    if (!detailed) {
+        drawPath(path, body.color.copy(alpha = 0.24f + trailBoost), style = Stroke(2f, cap = StrokeCap.Round))
+        return
+    }
+    drawPath(path, Brush.linearGradient(listOf(body.color.copy(alpha = 0.04f), body.color.copy(alpha = 0.32f + trailBoost)),
+        first, if ((last - first).getDistance() > 0.01f) last else first + Offset(1f, 0f)),
+        style = Stroke(if (body.kind == BodyKind.Meteor) 2.6f else 2.0f, cap = StrokeCap.Round))
 }
 
 fun DrawScope.drawArrow(start: Offset, end: Offset, color: Color) {
@@ -153,17 +206,4 @@ fun DrawScope.drawFingerDirection(
 fun nextMeteorDelay(elapsed: Double, random: Random): Double {
     val baseDelay = (1.6 - (elapsed * 0.018)).coerceAtLeast(0.45)
     return baseDelay * random.nextDouble(0.82, 1.14)
-}
-
-fun shouldKeepBody(body: CelestialBody, viewport: IntSize): Boolean {
-    if (body.kind == BodyKind.Core) {
-        return true
-    }
-
-    val x = body.position.x
-    val y = body.position.y
-    return x >= -CullMargin &&
-        x <= viewport.width + CullMargin &&
-        y >= -CullMargin &&
-        y <= viewport.height + CullMargin
 }

@@ -6,13 +6,11 @@ import com.xekep.space.sim.Vec2
 import kotlin.math.hypot
 
 const val MaxEnergy = 120.0
-const val EnergyRegenPerSecond = 24.0
-const val ScorePerSecond = 8.0
+const val EnergyRegenPerSecond = 12.0
 const val StartingCoreLives = 4
 const val CullMargin = 260.0
-const val SandboxTimeScale = 6.0
-const val ArcadeMinZoom = 0.55f
-const val ArcadeMaxZoom = 3.0f
+const val ArcadeMinZoom = 0.15f
+const val ArcadeMaxZoom = 6.0f
 const val SandboxMinZoom = 0.03f
 const val SandboxMaxZoom = 12.0f
 
@@ -25,6 +23,7 @@ data class TouchPreview(
     val startWorld: Vec2,
     val currentWorld: Vec2,
     val startedAtNanos: Long,
+    val dragDp: Offset? = null,
 )
 
 data class BackgroundStar(

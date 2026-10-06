@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.PI
 import kotlin.math.roundToLong
 import kotlin.math.sin
@@ -40,6 +41,8 @@ enum class BodyKind {
     Player,
     Meteor,
     Ambient,
+    Ship,
+    Rocket,
 }
 
 data class CelestialBody(
@@ -51,12 +54,16 @@ data class CelestialBody(
     val color: Color,
     val kind: BodyKind = BodyKind.Ambient,
     val trail: List<Vec2> = listOf(position),
+    val burnRemaining: Double = 0.0,
+    val heading: Vec2 = Vec2(0.0, -1.0),
 )
 
 data class CollisionEvent(
     val firstKind: BodyKind,
     val secondKind: BodyKind,
     val position: Vec2,
+    val meteorId: Long? = null,
+    val defenderId: Long? = null,
 )
 
 data class StepResult(
@@ -71,10 +78,11 @@ data class SandboxPreset(
     val referenceEnergy: Double,
 )
 
-private data class Derivative(
-    val dPosition: Vec2,
-    val dVelocity: Vec2,
-)
+enum class SandboxPresetKind(val title: String, val description: String) {
+    SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
+    BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
+    Empty("Empty space", "A blank universe. Build your own system."),
+}
 
 object SimulationEngine {
     private const val gravitationalConstant = 400.0
@@ -138,7 +146,18 @@ object SimulationEngine {
         return listOf(sun, innerPlanet, outerPlanet, moon)
     }
 
-    fun sandboxPreset(): SandboxPreset {
+    fun sandboxPreset(kind: SandboxPresetKind = SandboxPresetKind.SolarSystem): SandboxPreset {
+        if (kind == SandboxPresetKind.Empty) {
+            return SandboxPreset(emptyList(), Vec2.Zero, 1f, 0.0)
+        }
+        if (kind == SandboxPresetKind.BinaryStars) {
+            val speed = sqrt(gravitationalConstant * 4000.0 / (4.0 * 180.0))
+            val stars = listOf(
+                body(Vec2(-180.0, 0.0), Vec2(0.0, -speed), 4000.0, Color(0xFFFFD166), BodyKind.Core),
+                body(Vec2(180.0, 0.0), Vec2(0.0, speed), 4000.0, Color(0xFF8BD3FF), BodyKind.Core),
+            )
+            return SandboxPreset(stars, Vec2.Zero, 0.8f, totalEnergy(stars))
+        }
         val sunMass = 12_000.0
         val sun = body(Vec2.Zero, Vec2.Zero, sunMass, Color(0xFFFFD166), BodyKind.Core)
 
@@ -160,7 +179,7 @@ object SimulationEngine {
         return SandboxPreset(
             bodies = bodies,
             cameraCenter = Vec2.Zero,
-            zoom = 0.11f,
+            zoom = 1f,
             referenceEnergy = totalEnergy(bodies),
         )
     }
@@ -212,8 +231,15 @@ object SimulationEngine {
         )
     }
 
-    fun spawnMeteor(viewport: Vec2, difficulty: Double, random: Random): CelestialBody {
-        val side = random.nextInt(4)
+    fun spawnMeteor(
+        viewport: Vec2,
+        difficulty: Double,
+        random: Random,
+        arenaCenter: Vec2 = viewport / 2.0,
+        entrySide: Int? = null,
+    ): CelestialBody {
+        val origin = arenaCenter - viewport / 2.0
+        val side = entrySide ?: random.nextInt(4)
         val position = when (side) {
             0 -> Vec2(random.nextDouble(0.0, viewport.x), -meteorSpawnInset)
             1 -> Vec2(viewport.x + meteorSpawnInset, random.nextDouble(0.0, viewport.y))
@@ -231,7 +257,7 @@ object SimulationEngine {
         val mass = 60.0 + random.nextDouble(110.0 + (difficulty * 18.0))
         return CelestialBody(
             id = idSource.getAndIncrement(),
-            position = position,
+            position = position + origin,
             velocity = velocity,
             mass = mass,
             radius = radiusForMass(mass),
@@ -250,18 +276,115 @@ object SimulationEngine {
         )
     }
 
-    fun stepSandbox(bodies: List<CelestialBody>, dt: Double, referenceEnergy: Double): StepResult {
+    /** Arcade contacts complete threats, while sandbox contacts retain mass merging. */
+    fun stepArcade(bodies: List<CelestialBody>, dt: Double): StepResult {
+        var current = bodies
+        var remaining = dt
+        val events = mutableListOf<CollisionEvent>()
+        while (remaining > 1e-9) {
+            val step = min(remaining, maxSubstep)
+            val moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true).toMutableList()
+            val removed = mutableSetOf<Long>()
+            // Core contact takes precedence, so a single threat has exactly one outcome.
+            val core = moved.firstOrNull { it.kind == BodyKind.Core }
+            for (i in moved.indices) {
+                val meteor = moved[i]
+                if (meteor.kind != BodyKind.Meteor || meteor.id in removed) continue
+                val defenderIndex = if (core != null && (meteor.position - core.position).magnitude() <= meteor.radius + core.radius)
+                    moved.indexOf(core)
+                else moved.indexOfFirst { it.id !in removed && (it.kind == BodyKind.Player || it.kind == BodyKind.Ambient) &&
+                    (it.position - meteor.position).magnitude() <= it.radius + meteor.radius }
+                if (defenderIndex < 0) continue
+                val defender = moved[defenderIndex]
+                removed += meteor.id
+                events += CollisionEvent(meteor.kind, defender.kind, meteor.position, meteor.id, defender.id)
+                if (defender.kind != BodyKind.Core) {
+                    val mass = defender.mass - meteor.mass * 0.6
+                    if (mass < 35.0) removed += defender.id
+                    else moved[defenderIndex] = defender.copy(mass = mass, radius = radiusForMass(mass),
+                        velocity = (defender.velocity * defender.mass + meteor.velocity * meteor.mass) / (defender.mass + meteor.mass))
+                }
+            }
+            current = moved.filter { it.id !in removed && (it.kind == BodyKind.Core || core == null ||
+                it.kind == BodyKind.Meteor || (it.position - core.position).magnitude() > it.radius + core.radius) }
+            remaining -= step
+        }
+        return StepResult(current, events)
+    }
+
+    fun orbitVelocity(center: CelestialBody, point: Vec2): Vec2 {
+        val delta = point - center.position
+        val radius = delta.magnitude().coerceAtLeast(1.0)
+        val speed = sqrt(gravitationalConstant * center.mass * radius * radius /
+            (radius * radius + softening * softening).pow(1.5))
+        return center.velocity + delta.perpendicular().normalized() * speed
+    }
+
+    fun predictPath(body: CelestialBody, attractors: List<CelestialBody>): List<Vec2> {
+        var point = body.position
+        var velocity = body.velocity
+        return List(24) { index ->
+            var acceleration = Vec2.Zero
+            attractors.forEach { other ->
+                if (other.id == body.id) return@forEach
+                val delta = other.position - point
+                val square = delta.x * delta.x + delta.y * delta.y + softening * softening
+                acceleration += delta * (gravitationalConstant * other.mass / (square * sqrt(square)))
+            }
+            if (body.kind == BodyKind.Rocket) acceleration += body.heading *
+                (80.0 * ((body.burnRemaining - index * 0.06) / 0.06).coerceIn(0.0, 1.0))
+            velocity += acceleration * 0.06
+            point += velocity * 0.06
+            point
+        }
+    }
+
+    fun stepSandbox(
+        bodies: List<CelestialBody>,
+        dt: Double,
+        referenceEnergy: Double,
+        collisionsEnabled: Boolean = false,
+    ): StepResult {
         return stepInternal(
             bodies = bodies,
             dt = dt,
-            collisionsEnabled = false,
-            energyReference = referenceEnergy,
-            substepLimit = sandboxSubstep,
+            collisionsEnabled = collisionsEnabled,
+            // A powered scene is an open energy system; correcting to its launch energy cancels thrust.
+            energyReference = if (collisionsEnabled || bodies.any { it.kind == BodyKind.Rocket || it.kind == BodyKind.Ship }) null else referenceEnergy,
+            substepLimit = if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
         )
+    }
+
+    /** Bound RK4 steps by local gravitational timescales and relative travel, keeping the
+     * original minimum precision during close encounters. All pair forces remain exact. */
+    internal fun sandboxStepLimit(bodies: List<CelestialBody>): Double {
+        val rates = DoubleArray(bodies.size)
+        var travelLimit = 1.0 / 30.0
+        for (i in bodies.indices) {
+            val first = bodies[i]
+            for (j in i + 1 until bodies.size) {
+                val second = bodies[j]
+                val dx = second.position.x - first.position.x; val dy = second.position.y - first.position.y
+                val square = dx * dx + dy * dy + softening * softening
+                val distance = sqrt(square)
+                val rate = gravitationalConstant / (square * distance)
+                rates[i] += rate * second.mass; rates[j] += rate * first.mass
+                val vx = second.velocity.x - first.velocity.x; val vy = second.velocity.y - first.velocity.y
+                val speedSquared = vx * vx + vy * vy
+                if (speedSquared > 1e-9) travelLimit = min(travelLimit, 0.1 * distance / sqrt(speedSquared))
+            }
+        }
+        val gravityLimit = 0.05 / sqrt(rates.maxOrNull()?.coerceAtLeast(1e-12) ?: 1e-12)
+        return min(travelLimit, gravityLimit).coerceIn(sandboxSubstep, 1.0 / 30.0)
     }
 
     fun totalEnergy(bodies: List<CelestialBody>): Double {
         return kineticEnergy(bodies) + potentialEnergy(bodies)
+    }
+
+    fun reserveBodyIds(bodies: List<CelestialBody>) {
+        val nextId = (bodies.maxOfOrNull { it.id } ?: 0L) + 1L
+        idSource.updateAndGet { maxOf(it, nextId) }
     }
 
     private fun stepInternal(
@@ -275,12 +398,18 @@ object SimulationEngine {
             return StepResult(bodies = bodies, collisions = emptyList())
         }
 
+        if (!collisionsEnabled) {
+            var next = NumericIntegrator.advance(bodies, dt, substepLimit)
+            if (energyReference != null && hasLargeDistances(next)) next = stabilizeEnergy(next, energyReference)
+            return StepResult(next, emptyList())
+        }
+
         var remaining = dt
         var current = bodies
         val collisions = mutableListOf<CollisionEvent>()
         while (remaining > 1e-6) {
             val substep = min(remaining, substepLimit)
-            current = integrate(current, substep)
+            current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false)
             if (energyReference != null && hasLargeDistances(current)) {
                 current = stabilizeEnergy(current, energyReference)
             }
@@ -292,87 +421,9 @@ object SimulationEngine {
             remaining -= substep
         }
 
-        return StepResult(bodies = current, collisions = collisions)
-    }
-
-    private fun integrate(bodies: List<CelestialBody>, dt: Double): List<CelestialBody> {
-        val positions = bodies.map { it.position }
-        val velocities = bodies.map { it.velocity }
-        val masses = bodies.map { it.mass }
-
-        val k1 = evaluate(positions, velocities, masses)
-        val k2 = evaluate(
-            advance(positions, k1.map { it.dPosition }, dt * 0.5),
-            advance(velocities, k1.map { it.dVelocity }, dt * 0.5),
-            masses,
-        )
-        val k3 = evaluate(
-            advance(positions, k2.map { it.dPosition }, dt * 0.5),
-            advance(velocities, k2.map { it.dVelocity }, dt * 0.5),
-            masses,
-        )
-        val k4 = evaluate(
-            advance(positions, k3.map { it.dPosition }, dt),
-            advance(velocities, k3.map { it.dVelocity }, dt),
-            masses,
-        )
-
-        return bodies.mapIndexed { index, body ->
-            val nextPosition = positions[index] + weightedSum(
-                k1[index].dPosition,
-                k2[index].dPosition,
-                k3[index].dPosition,
-                k4[index].dPosition,
-                dt,
-            )
-            val nextVelocity = velocities[index] + weightedSum(
-                k1[index].dVelocity,
-                k2[index].dVelocity,
-                k3[index].dVelocity,
-                k4[index].dVelocity,
-                dt,
-            )
-
-            body.copy(
-                position = nextPosition,
-                velocity = nextVelocity,
-                trail = appendTrail(body.trail, nextPosition),
-            )
-        }
-    }
-
-    private fun evaluate(
-        positions: List<Vec2>,
-        velocities: List<Vec2>,
-        masses: List<Double>,
-    ): List<Derivative> {
-        val accelerations = accelerations(positions, masses)
-        return positions.indices.map { index ->
-            Derivative(
-                dPosition = velocities[index],
-                dVelocity = accelerations[index],
-            )
-        }
-    }
-
-    private fun accelerations(positions: List<Vec2>, masses: List<Double>): List<Vec2> {
-        return positions.indices.map { index ->
-            var acceleration = Vec2.Zero
-            val origin = positions[index]
-            for (otherIndex in positions.indices) {
-                if (otherIndex == index) {
-                    continue
-                }
-
-                val delta = positions[otherIndex] - origin
-                val distanceSquared = (delta.x * delta.x) + (delta.y * delta.y) + (softening * softening)
-                val distance = sqrt(distanceSquared)
-                val inverseDistanceCubed = 1.0 / (distanceSquared * distance)
-                val strength = gravitationalConstant * masses[otherIndex] * inverseDistanceCubed
-                acceleration += delta * strength
-            }
-            acceleration
-        }
+        // Collision substeps must not allocate a 42-point trail for every intermediate state.
+        val originalTrails = bodies.associate { it.id to it.trail }
+        return StepResult(bodies = current.map { it.copy(trail = appendTrail(originalTrails[it.id].orEmpty(), it.position)) }, collisions = collisions)
     }
 
     private fun mergeCollisions(bodies: List<CelestialBody>): StepResult {
@@ -427,6 +478,7 @@ object SimulationEngine {
             BodyKind.Meteor -> Color(0xFFFF8A5B)
             BodyKind.Player -> dominant.color
             BodyKind.Ambient -> dominant.color
+            BodyKind.Ship, BodyKind.Rocket -> dominant.color
         }
 
         return dominant.copy(
@@ -436,7 +488,8 @@ object SimulationEngine {
             radius = radiusForMass(totalMass),
             color = nextColor,
             kind = nextKind,
-            trail = appendTrail(dominant.trail, nextPosition),
+            burnRemaining = 0.0,
+            trail = dominant.trail,
         )
     }
 
@@ -458,14 +511,6 @@ object SimulationEngine {
             color = color,
             kind = BodyKind.Ambient,
         )
-    }
-
-    private fun advance(values: List<Vec2>, delta: List<Vec2>, dt: Double): List<Vec2> {
-        return values.indices.map { index -> values[index] + (delta[index] * dt) }
-    }
-
-    private fun weightedSum(k1: Vec2, k2: Vec2, k3: Vec2, k4: Vec2, dt: Double): Vec2 {
-        return (k1 + (k2 * 2.0) + (k3 * 2.0) + k4) * (dt / 6.0)
     }
 
     private fun appendTrail(trail: List<Vec2>, point: Vec2): List<Vec2> {
@@ -584,6 +629,11 @@ object SimulationEngine {
         } else {
             raw * (maxLaunchSpeed / speed)
         }
+    }
+
+    fun velocityFromGesture(deltaDp: Offset): Vec2 {
+        val raw = Vec2(deltaDp.x * 3.0, deltaDp.y * 3.0)
+        return if (raw.magnitude() > maxLaunchSpeed) raw.normalized() * maxLaunchSpeed else raw
     }
 }
 
