@@ -24,6 +24,24 @@ class SandboxStorageTest {
 
     @After fun cleanup() { target.deleteSharedPreferences(preferenceName) }
 
+    @Test fun aSavedLoopContinuesTheSameCycleAfterReloadAndRejectsInvalidLoopIndices() {
+        val path=com.xekep.space.sim.FlightPath.through(Vec2.Zero,listOf(Vec2(100.0,0.0),Vec2(100.0,100.0)),true)!!
+        val sample=path.sample(path.length-5)
+        val ship=com.xekep.space.sim.CelestialBody(1,sample.position,sample.direction*100.0,24.0,8f,
+            androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,heading=sample.direction,
+            routePath=path,routeDistance=path.length-5,waypoints=path.remainingPoints(0.0),routeSpeed=100.0)
+        val scene=SandboxSnapshot(listOf(ship),Vec2.Zero,1f,0.0,123L)
+        val restored=storage.decode(storage.encode(scene))
+        assertEquals(scene,restored)
+        val next=SimulationEngine.stepSandbox(restored.bodies,.1,0.0,false).bodies.single()
+        assertTrue((next.position-path.sample(5.0).position).magnitude() < 1e-6)
+        assertNotNull(next.routePath); assertTrue(next.routePath!!.isLoop)
+        assertEquals(5.0,next.routeDistance,1e-6)
+        val raw=org.json.JSONObject(storage.encode(scene))
+        raw.getJSONArray("bodies").getJSONObject(0).put("routeLoopStart",2)
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
+    }
+
     @Test fun largerVehicleIconsAreEnabledByDefaultAndTheChoicePersists() {
         val options=GameOptions(context)
         assertTrue(options.largeVehicleIcons)

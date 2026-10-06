@@ -7,6 +7,50 @@ import org.junit.Test
 class FlightPathTest {
     private val points=listOf(Vec2(150.0,0.0),Vec2(150.0,160.0),Vec2(300.0,160.0))
 
+    @Test fun loopHasContinuousPositionAndHeadingAcrossTheSeam() {
+        for (path in listOf(FlightPath.through(Vec2.Zero,points,true)!!,
+            FlightPath.through(Vec2.Zero,points+points.first())!!)) {
+            assertTrue(path.isLoop)
+            val a=path.sample(path.length-.001)
+            val b=path.sample(path.length+.001)
+            assertTrue((a.position-b.position).magnitude() < .003)
+            assertTrue((a.direction-b.direction).magnitude() < .001)
+            val lap=path.length-path.loopStartDistance
+            assertTrue((path.sample(path.loopStartDistance+lap*10+.1).position-
+                path.sample(path.loopStartDistance+.1).position).magnitude() < 1e-8)
+        }
+    }
+
+    @Test fun returningNearLaunchOrFirstWaypointClosesTheCorrectLoop() {
+        val launch=FlightPath.through(Vec2.Zero,points+Vec2(1.0,-1.0),closureTolerance=3.0)!!
+        assertEquals(0,launch.loopStartIndex)
+        assertEquals(points,launch.remainingPoints(launch.length*4))
+        val first=FlightPath.through(Vec2.Zero,points+Vec2(151.0,1.0),closureTolerance=3.0)!!
+        assertEquals(1,first.loopStartIndex)
+        assertTrue(first.loopStartDistance > 0)
+        assertFalse(FlightPath.through(Vec2.Zero,points+Vec2(450.0,450.0),closureTolerance=3.0)!!.isLoop)
+    }
+
+    @Test fun shipsAndRocketsRepeatMultipleLapsInBothModesAndStillExhaustTheirFuel() {
+        val path=FlightPath.through(Vec2.Zero,points,true)!!
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (arcade in listOf(false,true)) {
+            val body=CelestialBody(1,Vec2.Zero,path.sample(0.0).direction*100.0,24.0,1f,Color.Cyan,kind,
+                routePath=path,waypoints=path.remainingPoints(0.0),routeSpeed=100.0)
+            val time=path.length*3/100.0
+            val result=if (arcade) SimulationEngine.stepArcade(listOf(body),time)
+                else SimulationEngine.stepSandbox(listOf(body),time,0.0,false)
+            val looped=advanceWaypoints(listOf(body),result.bodies).single()
+            assertSame(path,looped.routePath); assertFalse(looped.waypoints.isEmpty())
+            assertTrue(looped.position.magnitude() < 1e-6)
+            assertEquals(100.0,looped.velocity.magnitude(),1e-6)
+            assertEquals(vehicleFuelCapacity(kind)-time,looped.fuelRemaining,1e-6)
+            val finish=looped.fuelRemaining+(if (kind == BodyKind.Rocket) ROCKET_DRIFT_SECONDS else 0.0)+.1
+            val expired=if (arcade) SimulationEngine.stepArcade(listOf(looped),finish)
+                else SimulationEngine.stepSandbox(listOf(looped),finish,0.0,false)
+            assertTrue(expired.bodies.isEmpty()); assertTrue(expired.collisions.single().vehicleExplosion)
+        }
+    }
+
     @Test fun curveInterpolatesEveryKnotWithContinuousDirection() {
         val path=FlightPath.through(Vec2.Zero,points)!!
         points.forEachIndexed { i,point ->

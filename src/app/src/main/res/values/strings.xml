@@ -114,8 +114,6 @@
     <string name="space">"Space"</string>
     <string name="unlimited">"Unlimited"</string>
     <string name="launch_energy">"Launch energy"</string>
-    <string name="speed">"Speed"</string>
-    <string name="energy_cost">"Energy cost"</string>
     <string name="core_breached">"Core breached"</string>
     <string name="cause_meteor">"A meteor reached the core."</string>
     <string name="try_again">"Try again"</string>
@@ -201,5 +199,6 @@
     <string name="classic_orbits">Orbits</string>
     <string name="classic_orbits_description">A star and eight planets. A playful scale for free gravity experiments.</string>
     <string name="large_vehicle_icons">Larger craft icons</string>
+    <string name="loop_flight_route">Loop flight route</string>
     <string name="large_vehicle_icons_description">Enlarge ship and rocket icons</string>
 </resources>

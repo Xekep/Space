@@ -215,7 +215,6 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val preview = game.touchPreview
     val candidate = preview?.let { game.previewBody(it, (frameNanos - it.startedAtNanos).coerceAtLeast(0L) / 1_000_000_000.0) }
     val previewMass = candidate?.mass
-    val previewSpeed = candidate?.velocity?.magnitude()
     val prediction = remember(frameNanos / 80_000_000L, preview?.currentWorld, game.orbitSourceId, game.spawnKind) {
         candidate?.takeIf { it.waypoints.isEmpty() }?.let { SimulationEngine.predictPath(it, game.bodies.sortedByDescending { body -> body.mass }.take(24)) }.orEmpty()
     }
@@ -247,7 +246,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, camera.center, camera.zoom, game.hiddenSolarOrbits)
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color,it.routePath,it.routeDistance) }
-            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent) }
+            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent,it.routePath) }
             bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60, cameraRotation=game.cameraRotation) }
             visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId, largeVehicleIcons) }
             drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, camera.center, camera.zoom, options.reducedFlashes)
@@ -313,13 +312,15 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         }
                         game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
                         PilotHud(game)
+                        if (candidate == null) ArcadeSelectionHud(game)
+                        else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             SpawnCycleButton(game, Modifier.weight(1f), tag = "arcade-cycle-spawn")
                             ObjectCounter(game)
+                            FlightLoopButton(game)
                             MotionControlButton(options, tilt.available, "arcade-motion-control")
                         }
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
-                        PreviewHud(mode = game.mode, previewMass = previewMass, previewSpeed = previewSpeed, previewCost = previewCost)
                         if (game.mode == AppMode.Arcade && arcade != null) {
                             ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / MaxEnergy).toFloat(), arcade.energy)
                         }

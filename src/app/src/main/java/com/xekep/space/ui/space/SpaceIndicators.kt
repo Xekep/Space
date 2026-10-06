@@ -21,11 +21,11 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
                 style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
         }
     }
-    if (game.mode == AppMode.Sandbox) {
-        (game.selectedBody ?: game.orbitSource)?.let {
+    (game.selectedBody ?: game.orbitSource)?.let {
             drawCircle(Color(0xFF8BD3FF), bodyScreenRadius(it, camera.zoom, density, game.largeVehicleIcons).coerceAtLeast(12f) + 8f,
                 worldToScreen(it.position, game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
-        }
+    }
+    if (game.mode == AppMode.Sandbox) {
         return
     }
     val marginX = 24.dp.toPx(); val marginY = 160.dp.toPx().coerceAtMost(size.height * 0.28f)

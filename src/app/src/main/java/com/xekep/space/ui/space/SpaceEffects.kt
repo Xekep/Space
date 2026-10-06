@@ -43,12 +43,25 @@ fun DrawScope.drawFlightRoute(start: Vec2, points: List<Vec2>, viewport: IntSize
         val screen=worldToScreen(point,viewport,camera,zoom)
         if (index == 0) path.moveTo(screen.x, screen.y) else path.lineTo(screen.x, screen.y)
     }
-    drawPath(path,color.copy(alpha=.45f),style=Stroke(1.5.dp.toPx(),
+    val routeColor=if (curve.isLoop) Color(0xFF80FFDF) else color
+    drawPath(path,routeColor.copy(alpha=.45f),style=Stroke(1.5.dp.toPx(),
         pathEffect=androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(),5.dp.toPx()))))
     points.forEach { point ->
         val screen=worldToScreen(point,viewport,camera,zoom)
         drawCircle(color.copy(alpha=.85f),5.dp.toPx(),screen,style=Stroke(1.5.dp.toPx()))
         drawCircle(color,1.5.dp.toPx(),screen)
+    }
+    curve.loopStartIndex?.let { index ->
+        val center=worldToScreen(curve.knots[index],viewport,camera,zoom)-Offset(0f,22.dp.toPx())
+        val infinity=Path()
+        val radius=8.dp.toPx()
+        repeat(49) { step ->
+            val angle=step*2*PI/48
+            val x=center.x+radius*sin(angle).toFloat()
+            val y=center.y+radius*.45f*sin(2*angle).toFloat()
+            if (step == 0) infinity.moveTo(x,y) else infinity.lineTo(x,y)
+        }
+        drawPath(infinity,routeColor,style=Stroke(1.5.dp.toPx()))
     }
 }
 

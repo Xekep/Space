@@ -114,8 +114,6 @@
     <string name="space">"Космос"</string>
     <string name="unlimited">"Без границ"</string>
     <string name="launch_energy">"Энергия запуска"</string>
-    <string name="speed">"Скорость"</string>
-    <string name="energy_cost">"Цена запуска"</string>
     <string name="core_breached">"Ядро разрушено"</string>
     <string name="cause_meteor">"Метеор достиг ядра."</string>
     <string name="try_again">"Ещё раз"</string>
@@ -201,5 +199,6 @@
     <string name="classic_orbits">Орбиты</string>
     <string name="classic_orbits_description">Звезда и восемь планет. Удобный масштаб для свободных экспериментов с гравитацией.</string>
     <string name="large_vehicle_icons">Крупные значки</string>
+    <string name="loop_flight_route">Зациклить маршрут</string>
     <string name="large_vehicle_icons_description">Увеличивать значки кораблей и ракет</string>
 </resources>

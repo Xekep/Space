@@ -11,6 +11,7 @@ import com.xekep.space.ui.theme.SpaceTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import kotlin.math.roundToInt
 
 class NewGameplayUiTest {
     @get:Rule val compose = createComposeRule()
@@ -72,7 +73,70 @@ class NewGameplayUiTest {
             compose.onNodeWithTag("large-vehicle-icons").performClick().assertIsOn()
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle { assertTrue(game.largeVehicleIcons) }
+            compose.onNodeWithTag("mode-Arcade").performScrollTo().performClick()
+            compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOn().performClick()
+            compose.onNodeWithTag("large-vehicle-icons").assertIsOff()
+            compose.runOnIdle { assertFalse(game.largeVehicleIcons) }
+            compose.onNodeWithTag("mode-Sandbox").performScrollTo().performClick()
+            compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOff()
         } finally { prefs.edit().putBoolean("largeVehicleIcons",prior).commit() }
+    }
+
+    @Test fun loopButtonAuthorsRepeatingShipAndRocketRoutesInBothModes() {
+        compose.mainClock.autoAdvance=false
+        val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause(); chooseSpawnKind(BodyKind.Ship) }
+        compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        for (mode in AppMode.entries) {
+            compose.runOnIdle {
+                if (mode == AppMode.Arcade) { game.startArcade(); game.chooseSpawnKind(BodyKind.Rocket) }
+                else { game.startSandbox(SandboxPresetKind.Empty); game.toggleSandboxPause(); game.chooseSpawnKind(BodyKind.Ship) }
+                game.loopFlightRoutes=false
+            }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("route-loop").assertIsOff().performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("route-loop").assertIsOn()
+            compose.onNodeWithTag("space-scene").performTouchInput {
+                down(0,center+Offset(-180f,-350f)); advanceEventTime(300)
+                down(1,center+Offset(120f,-350f)); up(1)
+                down(1,center+Offset(120f,-100f)); up(1)
+            }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("body-details").assertIsDisplayed()
+            val context=InstrumentationRegistry.getInstrumentation().targetContext
+            java.io.File(context.externalCacheDir,"loop-preview-${mode.name}.png").outputStream().use {
+                assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
+            }
+            compose.onNodeWithTag("space-scene").performTouchInput { up(0) }
+            compose.runOnIdle {
+                val craft=game.bodies.last()
+                assertNotNull(craft.routePath); assertTrue(craft.routePath!!.isLoop)
+                val time=craft.routePath!!.length*2/craft.routeSpeed
+                val result=SimulationEngine.stepSandbox(listOf(craft),time,0.0,false).bodies.single()
+                assertTrue((result.position-craft.position).magnitude() < 1e-6)
+                assertTrue(result.fuelRemaining < craft.fuelRemaining)
+            }
+        }
+    }
+
+    @Test fun tappingAnArcadeObjectShowsItsNameAndMassAndCanBeDismissed() {
+        compose.mainClock.autoAdvance=false
+        val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
+        compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
+        compose.mainClock.advanceTimeByFrame()
+        val context=InstrumentationRegistry.getInstrumentation().targetContext
+        val core=game.bodies.first { it.kind == BodyKind.Core }
+        compose.onNodeWithTag("arcade-object-details").assertTextEquals(context.getString(core.labelId())).assertIsDisplayed()
+        val expected=context.getString(com.xekep.space.R.string.body_details,core.mass.roundToInt(),core.velocity.magnitude().roundToInt())
+        compose.onNodeWithTag("body-details").assertTextEquals(expected).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0,game.arcade!!.launches) }
+        java.io.File(context.externalCacheDir,"arcade-object-mass.png").outputStream().use {
+            assertTrue(compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
+        }
+        compose.onNodeWithTag("clear-arcade-selection").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        compose.onNodeWithTag("arcade-object-details").assertDoesNotExist()
     }
 
     @Test fun pilotMetersShowSpeedAndSlowlyDrainingFuelInBothModesAndDisappearAfterExpiry() {

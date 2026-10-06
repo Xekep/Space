@@ -69,6 +69,7 @@ class SpaceGameState(
     var pendingExport: SandboxSnapshot? = null
     var motionSteeringEnabled by mutableStateOf(false); private set
     var largeVehicleIcons by mutableStateOf(true)
+    var loopFlightRoutes by mutableStateOf(false)
     private var lastArcadeVehicleId by mutableStateOf<Long?>(null)
     private var lastSandboxVehicleId by mutableStateOf<Long?>(null)
     private var steeringInput = Vec2.Zero
@@ -134,7 +135,7 @@ class SpaceGameState(
     val camera: SpaceCamera get() = if (mode == AppMode.Arcade) arcade?.camera ?: SpaceCamera() else sandbox?.camera ?: SpaceCamera()
     val selectedBody: CelestialBody? get() {
         val id = selectedBodyId ?: return null
-        return if (mode == AppMode.Sandbox) bodies.firstOrNull { it.id == id } else null
+        return bodies.firstOrNull { it.id == id }
     }
     val orbitSource: CelestialBody? get() {
         val id = orbitSourceId ?: return null
@@ -220,7 +221,7 @@ class SpaceGameState(
             accumulator -= seconds; steps++
         }
         behind = accumulator >= seconds
-        if (selectedBodyId != null && sandbox?.bodies?.none { it.id == selectedBodyId } == true) { selectedBodyId = null; following = false }
+        if (selectedBodyId != null && bodies.none { it.id == selectedBodyId }) { selectedBodyId = null; following = false }
     }
 
     /** Called from the main thread. Only immutable body snapshots leave it; UI edits never wait
@@ -312,11 +313,13 @@ class SpaceGameState(
             else -> SolarBody.Earth.worldRadius * kotlin.math.cbrt(mass / SolarBody.Earth.worldMass).toFloat()
         } else when (kind) { BodyKind.Ship -> 8f; BodyKind.Rocket -> 6f
             BodyKind.BlackHole -> (10*cbrt(mass/12000)).toFloat(); else -> SimulationEngine.radiusForMass(mass) }
+        val route = if (kind == BodyKind.Ship || kind == BodyKind.Rocket)
+            FlightPath.through(preview.startWorld,preview.waypoints,loopFlightRoutes,18.0*density/camera.zoom) else null
         return CelestialBody(-1, preview.startWorld, velocity, mass,
             radius, color, kind, physicalScale = physicalScale,
             burnRemaining = if (kind == BodyKind.Rocket) 3.0 else 0.0,
             heading = if (velocity.magnitude() > 1e-6) velocity.normalized() else rotateVector(Vec2(0.0, -1.0),-cameraRotation),
-            waypoints = if (kind == BodyKind.Ship || kind == BodyKind.Rocket) preview.waypoints.take(MAX_WAYPOINTS) else emptyList(),
+            waypoints = route?.remainingPoints(0.0).orEmpty(), routePath = route,
             routeSpeed = if (preview.waypoints.isEmpty()) 0.0 else routeCruiseSpeed(velocity.magnitude()),
             routeTolerance = if (preview.waypoints.isEmpty()) 0.0 else 3.0*density/camera.zoom)
     }
@@ -347,9 +350,9 @@ class SpaceGameState(
         }
     }
     fun finishGesture(preview: TouchPreview, holdSeconds: Double) {
-        if (mode == AppMode.Sandbox && holdSeconds < 0.3 && (preview.dragDp?.getDistance() ?: 0f) < 12f && orbitSourceId == null) {
+        if (holdSeconds < 0.3 && (preview.dragDp?.getDistance() ?: 0f) < 12f && orbitSourceId == null && preview.waypoints.isEmpty()) {
             val body = visibleSolarBodies(bodies,camera.zoom,density).minByOrNull { (it.position - preview.startWorld).magnitude() }
-            val hitRadius = body?.let { if (it.isVehicle) bodyScreenRadius(it,camera.zoom,density,largeVehicleIcons)*1.35/camera.zoom
+            val hitRadius = body?.let { if (it.isVehicle) maxOf(20.0*density,bodyScreenRadius(it,camera.zoom,density,largeVehicleIcons)*1.35)/camera.zoom
                 else maxOf(it.radius.toDouble(),20.0*density/camera.zoom) } ?: 0.0
             if (body != null && (body.position - preview.startWorld).magnitude() <= hitRadius) {
                 selectedBodyId = body.id; feedback = null; return
@@ -374,6 +377,7 @@ class SpaceGameState(
         }
         if (mode == AppMode.Arcade) {
             val current = arcade ?: return
+            selectedBodyId = null
             arcade = current.copy(bodies = current.bodies + body, energy = (current.energy - launchCost(body)).coerceAtLeast(0.0), launches = current.launches + 1)
             if (tutorialStep == 0) tutorialStep = 1 else if (tutorialStep == 2) {
                 startArcade(ArcadeDifficulty.Easy)

@@ -83,7 +83,8 @@ internal object NumericIntegrator {
                 burnRemaining = (body.burnRemaining - seconds).coerceAtLeast(0.0),
                 fuelRemaining = fuel,
                 driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(seconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
-                routeDistance = if (body.routePath != null && fuel > 1e-9) body.routeDistance+body.routeSpeed*powered else 0.0,
+                routeDistance = if (body.routePath != null && fuel > 1e-9)
+                    body.routePath.normalizeDistance(body.routeDistance+body.routeSpeed*powered) else 0.0,
                 routePath = body.routePath.takeIf { fuel > 1e-9 },
                 waypoints = if (body.isVehicle && fuel <= 1e-9) emptyList() else body.waypoints,
                 trail = if (recordTrail) (body.trail.takeLast(41) + point) else body.trail)

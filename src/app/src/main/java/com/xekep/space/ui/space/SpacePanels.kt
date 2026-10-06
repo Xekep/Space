@@ -24,9 +24,35 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import com.xekep.space.sim.CelestialBody
+
+@Composable
+fun BodyDetailsText(body: CelestialBody, modifier: Modifier = Modifier) {
+    Text(LocalContext.current.getString(R.string.body_details, body.mass.roundToInt(), body.velocity.magnitude().roundToInt()),
+        modifier.testTag("body-details"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+}
+
+@Composable
+fun ArcadeSelectionHud(game: SpaceGameState) {
+    val body=game.selectedBody ?: return
+    val context=LocalContext.current
+    Row(Modifier.fillMaxWidth().blockWorldTouches(),verticalAlignment=Alignment.CenterVertically) {
+        Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally) {
+            Text(context.getString(body.labelId()), Modifier.testTag("arcade-object-details"),
+                style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
+            BodyDetailsText(body)
+        }
+        TextButton(onClick=game::clearSelection,modifier=Modifier.testTag("clear-arcade-selection").semantics {
+            contentDescription=context.getString(R.string.close)
+        }) { Text("×") }
+    }
+}
 
 @Composable
 fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLives: Int, wave: Int,
@@ -63,20 +89,6 @@ fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: D
                 Box(Modifier.fillMaxWidth(energyRatio.coerceIn(0f, 1f)).height(6.dp)
                     .background(Brush.horizontalGradient(listOf(Color(0xFF56E39F), Color(0xFF8BD3FF))), RoundedCornerShape(99.dp)))
             }
-        }
-    }
-}
-
-@Composable
-fun PreviewHud(modifier: Modifier = Modifier, mode: AppMode, previewMass: Double?, previewSpeed: Double?, previewCost: Double?) {
-    val context = LocalContext.current
-    if (previewMass == null || previewSpeed == null) return
-    Surface(modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-        contentColor = MaterialTheme.colorScheme.onSurface) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            CompactHudValue(context.getString(R.string.mass), previewMass.roundToInt().toString())
-            CompactHudValue(context.getString(R.string.speed), previewSpeed.roundToInt().toString())
-            if (mode == AppMode.Arcade && previewCost != null) CompactHudValue(context.getString(R.string.energy_cost), previewCost.roundToInt().toString())
         }
     }
 }

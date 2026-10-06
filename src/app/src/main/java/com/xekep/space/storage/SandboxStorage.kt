@@ -98,6 +98,7 @@ class SandboxStorage(context: Context) {
                     .put("fuelRemaining", body.fuelRemaining)
                     .put("driftRemaining", body.driftRemaining)
                     .put("routeDistance", body.routeDistance)
+                    .put("routeLoopStart", body.routePath?.loopStartIndex ?: -1)
                     .put("routeKnots", body.routePath?.let { path -> JSONArray().also { array ->
                         path.knots.forEach { point -> array.put(JSONObject().put("x",point.x).put("y",point.y)) }
                     } })
@@ -153,7 +154,9 @@ class SandboxStorage(context: Context) {
                         }
                     }
                     require(values.zipWithNext().all { (a,b) -> (b-a).magnitude() > 1e-8 })
-                    com.xekep.space.sim.FlightPath(values)
+                    val loopStart=body.optInt("routeLoopStart",-1)
+                    require(loopStart in -1..1)
+                    com.xekep.space.sim.FlightPath(values,loopStart.takeIf { it >= 0 })
                 }
                 val routeDistance=body.optDouble("routeDistance",0.0)
                 require(routeDistance in 0.0..(path?.length ?: 0.0))

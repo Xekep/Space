@@ -28,7 +28,7 @@ fun DrawScope.drawBody(
     largeVehicleIcons: Boolean = false,
 ) {
     val center = worldToScreen(body.position, viewport, cameraCenter, zoom)
-    val margin = 120.dp.toPx()
+    val margin = maxOf(120.dp.toPx(),bodyScreenRadius(body,zoom,density,largeVehicleIcons)*2f)
     val extent = hypot(size.width,size.height) / 2 + margin
     if (cameraRotation == 0.0) {
         if (center.x < -margin || center.y < -margin || center.x > size.width + margin || center.y > size.height + margin) return
@@ -160,8 +160,8 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
 fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehicleIcons: Boolean = false): Float {
     if (body.kind == BodyKind.Star) return (body.radius*zoom).coerceIn(14f*density,45f*density)
     if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn(9f*density,24f*density)
-    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return (body.radius * zoom).coerceIn(
-        (if (largeVehicleIcons) 14f else 9f)*density, (if (largeVehicleIcons) 24f else 18f)*density)
+    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return if (largeVehicleIcons)
+        (body.radius*zoom).coerceIn(14f*density,24f*density) else body.radius*zoom
     val solar = body.solar ?: return (body.radius * zoom).coerceIn(4f, 38f)
     val symbolDp = if (solar == SolarBody.Sun) 22.0 else
         (6.0 * (solar.radiusKm / 6371.0).pow(.40)).coerceIn(3.0, 17.0)

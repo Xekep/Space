@@ -137,6 +137,7 @@ fun SpaceMenu(
                                 game.arcade?.let { CompactHudValue(context.getString(R.string.last_run), it.score.roundToInt().toString()) }
                             }
                         }
+                        options?.let { LargeVehicleSwitch(it) }
                     } else {
                         MenuLabel(if (game.sandbox == null) context.getString(R.string.starting_scene) else context.getString(R.string.new_universe))
                         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("preset-row"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -178,17 +179,7 @@ fun SpaceMenu(
                                 game.setCollisions(it)
                             }, modifier = Modifier.testTag("sandbox-collisions"))
                         }
-                        options?.let { settings ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text(context.getString(R.string.large_vehicle_icons), Modifier.weight(1f),
-                                    maxLines = 1, style = MaterialTheme.typography.titleSmall)
-                                Switch(checked = settings.largeVehicleIcons, onCheckedChange = {
-                                    settings.largeVehicleIcons = it; settings.save()
-                                }, modifier = Modifier.testTag("large-vehicle-icons").semantics {
-                                    contentDescription = context.getString(R.string.large_vehicle_icons_description)
-                                })
-                            }
-                        }
+                        options?.let { LargeVehicleSwitch(it) }
                         if (game.sandbox != null) {
                             MenuLabel(context.getString(R.string.current_universe))
                             Text("${game.sandbox!!.name}${if (game.dirty) context.getString(R.string.unsaved_changes) else ""}", style = MaterialTheme.typography.bodySmall)
@@ -276,6 +267,18 @@ private fun OptionSwitch(label: String, checked: Boolean, modifier: Modifier = M
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MaterialTheme.typography.bodySmall)
         Switch(checked = checked, onCheckedChange = onChange, modifier = modifier, enabled = enabled)
+    }
+}
+
+@Composable
+private fun LargeVehicleSwitch(settings: GameOptions) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(context.getString(R.string.large_vehicle_icons), Modifier.weight(1f), maxLines=1, style=MaterialTheme.typography.titleSmall)
+        Switch(checked=settings.largeVehicleIcons,onCheckedChange={ settings.largeVehicleIcons=it; settings.save() },
+            modifier=Modifier.testTag("large-vehicle-icons").semantics {
+                contentDescription=context.getString(R.string.large_vehicle_icons_description)
+            })
     }
 }
 

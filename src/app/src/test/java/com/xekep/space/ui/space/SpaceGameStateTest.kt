@@ -1,4 +1,5 @@
 package com.xekep.space.ui.space
+import com.xekep.space.sim.BodyKind
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
@@ -10,6 +11,17 @@ import org.junit.Test
 import kotlin.random.Random
 
 class SpaceGameStateTest {
+    @Test fun tappingAnArcadeObjectSelectsItsActualMassWithoutSpendingEnergyOrLaunching() {
+        val game=SpaceGameState().apply { resize(androidx.compose.ui.unit.IntSize(1080,1920)); startArcade() }
+        val core=game.bodies.first { it.kind == BodyKind.Core }
+        val before=game.arcade!!
+        game.finishGesture(TouchPreview(core.position,core.position,0),0.0)
+        assertEquals(core,game.selectedBody)
+        assertEquals(core.mass,game.selectedBody!!.mass,0.0)
+        assertEquals(before.energy,game.arcade!!.energy,0.0)
+        assertEquals(before.launches,game.arcade!!.launches)
+        game.clearSelection(); assertNull(game.selectedBody)
+    }
     private fun game() = SpaceGameState(random = Random(73)).apply { resize(IntSize(1080, 1920)) }
 
     @Test fun switchingModesKeepsBothWorldsAndTheirCameras() {

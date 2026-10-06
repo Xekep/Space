@@ -84,8 +84,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                 }
             } else game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.labelSmall, color = accent) }
             candidate?.let {
-                Text(context.getString(R.string.body_details, it.mass.roundToInt(), it.velocity.magnitude().roundToInt()),
-                    Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.labelMedium, color = accent)
+                BodyDetailsText(it, Modifier.align(Alignment.CenterHorizontally))
             }
             PilotHud(game)
             selection?.let { body ->
@@ -113,6 +112,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                         "sandbox-pause", game::toggleSandboxPause)
                     Text(speedLabel(scene.timeScale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SpawnCycleButton(game, Modifier.weight(1f), "sandbox-spawn")
+                    FlightLoopButton(game)
                     MotionControlButton(options, motionAvailable, "sandbox-motion-control")
                     HudButton("tools", context.getString(R.string.sandbox_tools), "sandbox-tools", { panel = SandboxPanel.Tools })
                 }
@@ -180,7 +180,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
 
 private fun speedLabel(speed: Double) = if (speed == 0.25) "¼x" else "${speed.toInt()}x"
 
-private fun Modifier.blockWorldTouches(): Modifier = pointerInput(Unit) {
+internal fun Modifier.blockWorldTouches(): Modifier = pointerInput(Unit) {
     awaitEachGesture {
         awaitFirstDown(requireUnconsumed = false)
         do {
