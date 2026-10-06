@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="choose_language">Choose language</string>
+    <string name="language_setting">Language · %1$s ▾</string>
     <string name="spawn_black_hole">Black hole</string>
     <string name="shake_off">Off</string>
     <string name="shake_classic">Impulse</string>
@@ -166,7 +168,7 @@
     <string name="time_speed">Time speed</string>
     <string name="spawn_body_help">Build planets and moons. Mass shapes their gravity and size.</string>
     <string name="spawn_ship_help">A light spacecraft. Coasts with its launch velocity and responds to gravity.</string>
-    <string name="spawn_rocket_help">Accelerates along its launch direction for 3 seconds, then coasts. With no drag, launches upward.</string>
+    <string name="spawn_rocket_help">Accelerates along its launch direction until fuel runs out, then coasts for 6 seconds and explodes. With no drag, launches upward.</string>
 
 
     <string name="shake_universe">Shake the universe</string>

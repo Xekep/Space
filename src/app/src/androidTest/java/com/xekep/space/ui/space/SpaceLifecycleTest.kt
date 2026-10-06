@@ -12,9 +12,19 @@ import com.xekep.space.MainActivity
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Before
+import androidx.compose.ui.test.onAllNodesWithTag
+
 
 class SpaceLifecycleTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Before fun chooseLanguageOnFirstLaunch() {
+        if (compose.onAllNodesWithTag("first-language-screen").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("language-en").performClick()
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("mode-Sandbox").fetchSemanticsNodes().isNotEmpty() }
+        }
+    }
 
     @Test fun menuChoicesSurviveActivityRecreation() {
         compose.onNodeWithTag("mode-Sandbox").performClick()

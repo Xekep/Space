@@ -8,6 +8,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import com.xekep.space.sim.SandboxPresetKind
 import com.xekep.space.storage.SandboxSlotSummary
 import com.xekep.space.storage.GameOptions
+import com.xekep.space.ui.LanguageMenuButton
 import kotlin.math.roundToInt
 
 private data class MenuConfirmation(val title: String, val message: String, val action: () -> Unit)
@@ -99,7 +101,8 @@ fun SpaceMenu(
         else { game.startSandbox(preset, context.getString(preset.labelId())); game.setCollisions(collisions) }
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xF202040B)).safeDrawingPadding().padding(16.dp), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xF202040B)).safeDrawingPadding().padding(16.dp), contentAlignment = Alignment.Center) {
+        val horizontalFooter = maxHeight < 420.dp
         Surface(Modifier.widthIn(max = 520.dp).fillMaxWidth(), shape = RoundedCornerShape(28.dp),
             color = Color(0xFF0B1425), contentColor = MaterialTheme.colorScheme.onSurface,
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f))) {
@@ -241,11 +244,24 @@ fun SpaceMenu(
                                 fontWeight = FontWeight.SemiBold)
                         }
                     }
-                    TextButton(onClick = {
+                    val practiceClick = {
                         val action = { game.beginTutorial(selectedMode, context.getString(R.string.empty_space)) }
                         if (hasSelectedSession) confirmation = MenuConfirmation(context.getString(R.string.practice_question), context.getString(R.string.practice_confirmation), action)
                         else action()
-                    }, modifier = Modifier.align(Alignment.CenterHorizontally).testTag("practice-controls")) { Text(context.getString(R.string.practice_controls)) }
+                    }
+                    if (horizontalFooter) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = practiceClick, modifier = Modifier.weight(1f).testTag("practice-controls")) {
+                                Text(context.getString(R.string.practice_controls))
+                            }
+                            LanguageMenuButton(Modifier.weight(1f))
+                        }
+                    } else {
+                        TextButton(onClick = practiceClick, modifier = Modifier.fillMaxWidth().testTag("practice-controls")) {
+                            Text(context.getString(R.string.practice_controls))
+                        }
+                        LanguageMenuButton()
+                    }
                 }
             }
         }

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="choose_language">Выберите язык</string>
+    <string name="language_setting">Язык · %1$s ▾</string>
     <string name="spawn_black_hole">Чёрная дыра</string>
     <string name="shake_off">Выкл</string>
     <string name="shake_classic">Толчок</string>
@@ -166,7 +168,7 @@
     <string name="time_speed">Скорость времени</string>
     <string name="spawn_body_help">Создавай планеты и спутники. Масса определяет притяжение и размер.</string>
     <string name="spawn_ship_help">Лёгкий корабль. Летит по инерции с заданной скоростью и подчиняется гравитации.</string>
-    <string name="spawn_rocket_help">Разгоняется в направлении запуска 3 секунды, затем летит по инерции. Без перетягивания стартует вверх.</string>
+    <string name="spawn_rocket_help">Разгоняется в направлении запуска до исчерпания топлива, затем дрейфует 6 секунд и взрывается. Без перетягивания стартует вверх.</string>
 
 
     <string name="shake_universe">Встряхнуть вселенную</string>

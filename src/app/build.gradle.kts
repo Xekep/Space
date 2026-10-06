@@ -21,6 +21,7 @@ android {
         applicationId = "com.xekep.space"
         minSdk = 26
         targetSdk = 35
+        resourceConfigurations += listOf("en", "ru", "fr", "de", "b+zh+Hans")
         versionCode = providers.gradleProperty("versionCode").orElse("1000000").get().toInt()
         versionName = providers.gradleProperty("versionName").orElse("1.0.0").get()
 
@@ -84,6 +85,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
     implementation("androidx.compose.ui:ui:1.7.8")
     implementation("androidx.compose.ui:ui-graphics:1.7.8")

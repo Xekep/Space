@@ -33,7 +33,9 @@ jobs:
             sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
           fi
       - name: Check and build
-        run: bash ./gradlew --no-daemon --stacktrace :app:check :app:assembleDebug :app:assembleRelease
+        run: |
+          python3 scripts/check-localizations.py
+          bash ./gradlew --no-daemon --stacktrace :app:check :app:assembleDebug :app:assembleRelease
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
         with:
