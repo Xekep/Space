@@ -25,8 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +62,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xekep.space.sim.SimulationEngine
+import com.xekep.space.sim.SatellitePlacement
+import com.xekep.space.sim.satellitePlacement
 import com.xekep.space.sim.toOffset
 import com.xekep.space.storage.SandboxStorage
 import com.xekep.space.storage.GameOptions
@@ -216,10 +216,16 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val candidate = preview?.let { game.previewBody(it, (frameNanos - it.startedAtNanos).coerceAtLeast(0L) / 1_000_000_000.0) }
     val previewMass = candidate?.mass
     val prediction = remember(frameNanos / 80_000_000L, preview?.currentWorld, game.orbitSourceId, game.spawnKind) {
-        candidate?.takeIf { it.waypoints.isEmpty() }?.let { SimulationEngine.predictPath(it, game.bodies.sortedByDescending { body -> body.mass }.take(24)) }.orEmpty()
+        candidate?.takeIf { it.waypoints.isEmpty() }?.let { body ->
+            game.orbitSource?.let { parent ->
+                val offset=body.position-parent.position
+                List(24) { index -> parent.position+rotateVector(offset,index*2*PI/24) }
+            } ?: SimulationEngine.predictPath(body, game.bodies.sortedByDescending { it.mass }.take(24))
+        }.orEmpty()
     }
     val previewCost = candidate?.let(::launchCost)
-    val canLaunch = candidate != null && (game.mode == AppMode.Sandbox ||
+    val orbitPlacement=candidate?.let { body -> game.orbitSource?.let { satellitePlacement(it,body,game.bodies) } }
+    val canLaunch = candidate != null && (orbitPlacement == null || orbitPlacement == SatellitePlacement.Clear) && (game.mode == AppMode.Sandbox ||
         (arcade != null && arcade.lives > 0 && (previewCost ?: 0.0) <= arcade.energy))
     val stars = remember(viewport) {
         val random = Random(73)
@@ -246,7 +252,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, camera.center, camera.zoom, game.hiddenSolarOrbits)
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color,it.routePath,it.routeDistance) }
-            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent,it.routePath) }
+            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent,it.routePath,showMarkers=true) }
             bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60, cameraRotation=game.cameraRotation) }
             visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId, largeVehicleIcons) }
             drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, camera.center, camera.zoom, options.reducedFlashes)
@@ -255,7 +261,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 drawLine(Color(0xFF9EF8FF), point - shot.velocity.normalized().toOffset() * 10.dp.toPx(), point, 2.dp.toPx())
             }
             prediction.forEachIndexed { index, point ->
-                drawCircle(accent.copy(alpha = 0.8f - index * 0.02f), 2.dp.toPx(), worldToScreen(point, viewport, camera.center, camera.zoom))
+                drawCircle((if (canLaunch) accent else Color(0xFFFF7A6B)).copy(alpha = 0.8f - index * 0.02f), 2.dp.toPx(), worldToScreen(point, viewport, camera.center, camera.zoom))
             }
             preview?.let {
                 val radius = (SimulationEngine.radiusForMass(previewMass ?: 70.0) * camera.zoom).coerceIn(6f, 42f)
@@ -279,23 +285,11 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available, tilt.available)
         if (hasSession && !game.menuOpen && game.mode == AppMode.Arcade) {
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
-                val compactHud = maxHeight < 420.dp
                 val toolsHeight = maxHeight * 0.60f
                 Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            FilledTonalButton(onClick = game::openMenu, modifier = Modifier.testTag("open-menu"),
-                                colors = ButtonDefaults.filledTonalButtonColors(containerColor = accent.copy(alpha = 0.16f), contentColor = accent)) { Text(context.getString(R.string.menu)) }
-                            Text(context.getString(game.mode.labelId()).uppercase(), style = MaterialTheme.typography.labelMedium,
-                                color = if (game.mode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary)
-                            TextButton(onClick = game::fitCamera) { Text(if (game.mode == AppMode.Arcade) context.getString(R.string.find_core) else context.getString(R.string.fit_system)) }
-                        }
-                        if (!compactHud) ModeHud(Modifier.fillMaxWidth(), game.mode, arcade?.score ?: 0.0, arcade?.lives ?: 0,
-                            arcade?.wave ?: 1, arcade?.combo ?: 1.0, game.bodies.size, camera.zoom)
-                        if (compactHud && game.mode == AppMode.Arcade && arcade != null) Text(
-                            context.getString(R.string.arcade_compact, arcade.lives, arcade.wave, arcade.score.toInt()),
-                            style = MaterialTheme.typography.labelMedium, color = accent)
+                        ArcadeTopHud(game)
                         if (arcade?.resting == true) Text(
                             context.getString(R.string.rest),
                             style = MaterialTheme.typography.labelMedium, color = accent)

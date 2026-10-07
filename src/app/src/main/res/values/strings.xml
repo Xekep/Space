@@ -16,7 +16,6 @@
 
     <string name="object_count">Objects: %1$d of %2$d</string>
     <string name="app_name">Space</string>
-    <string name="arcade_compact">"Hull: %1$d · Wave: %2$d · Score: %3$d"</string>
     <string name="menu">"Menu"</string>
     <string name="find_core">"Find core"</string>
     <string name="fit_system">"Fit system"</string>
@@ -125,7 +124,9 @@
     <string name="practice_hit">"The practice meteor reached the core. Try again; lives are protected."</string>
 
     <string name="not_enough_energy">"Not enough energy. Wait for recharge."</string>
-    <string name="satellite_farther">"Place the satellite farther from its parent."</string>
+    <string name="satellite_farther">"Place the satellite away from nearby bodies."</string>
+    <string name="satellite_unstable">Strong nearby gravity. Place the satellite closer to its parent.</string>
+    <string name="satellite_parent_lost">The parent body is gone. Select another one.</string>
     <string name="practice_complete">"Practice complete. Your Easy run has started."</string>
     <string name="checkpoint_stored">"Checkpoint stored"</string>
     <string name="place_satellite">"Place a satellite around the selected body. Velocity is set automatically."</string>

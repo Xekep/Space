@@ -15,7 +15,6 @@
     <string name="motion_control">"Neigungssteuerung"</string>
     <string name="object_count">"Objekte: %1$d von %2$d"</string>
     <string name="app_name">"Space"</string>
-    <string name="arcade_compact">"Hülle: %1$d · Welle: %2$d · Punkte: %3$d"</string>
     <string name="menu">"Menü"</string>
     <string name="find_core">"Zum Kern"</string>
     <string name="fit_system">"Gesamtansicht"</string>
@@ -112,7 +111,9 @@
     <string name="lag_paused">"Simulation nach längerer Verzögerung pausiert. Bei Bedarf das Spieltempo senken."</string>
     <string name="practice_hit">"Der Übungsmeteor hat den Kern erreicht. Versuch es erneut; du verlierst kein Leben."</string>
     <string name="not_enough_energy">"Nicht genug Energie. Warte auf die Aufladung."</string>
-    <string name="satellite_farther">"Platziere den Satelliten weiter von seinem Zentralkörper entfernt."</string>
+    <string name="satellite_farther">"Platziere den Satelliten weiter von benachbarten Körpern entfernt."</string>
+    <string name="satellite_unstable">Die Nachbargravitation ist zu stark. Platziere den Satelliten näher am Zentralkörper.</string>
+    <string name="satellite_parent_lost">Der Zentralkörper ist verschwunden. Wähle einen anderen.</string>
     <string name="practice_complete">"Übung abgeschlossen. Deine Runde auf Leicht hat begonnen."</string>
     <string name="checkpoint_stored">"Kontrollpunkt gespeichert"</string>
     <string name="place_satellite">"Platziere einen Satelliten um das ausgewählte Objekt. Seine Geschwindigkeit wird automatisch eingestellt."</string>

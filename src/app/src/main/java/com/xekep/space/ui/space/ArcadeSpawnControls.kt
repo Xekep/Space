@@ -21,12 +21,14 @@ import com.xekep.space.storage.GameOptions
 @Composable
 fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailable: Boolean) {
     Row(Modifier.fillMaxWidth().heightIn(min=64.dp), verticalAlignment=Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(end=4.dp), verticalArrangement=Arrangement.Center) {
+        Column(Modifier.width(80.dp).padding(end=4.dp), verticalArrangement=Arrangement.Center) {
             Text(stringResource(if (game.spawnKind == BodyKind.Ambient) R.string.spawn_body_short else game.spawnKind.labelId()),
                 Modifier.testTag("arcade-selected-spawn"), style=MaterialTheme.typography.labelMedium,
                 color=MaterialTheme.colorScheme.secondary, maxLines=2, overflow=TextOverflow.Ellipsis)
             FlightLoopButton(game)
         }
+        Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.65f)) {
+        Row {
         for (kind in listOf(BodyKind.Ambient,BodyKind.Rocket,BodyKind.Ship)) {
             val count by remember(game,kind) { derivedStateOf { game.spawnCountFor(kind) } }
             val maximum=game.spawnLimitFor(kind)
@@ -47,6 +49,9 @@ fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailabl
                 }
             }
         }
+        }
+        }
+        Spacer(Modifier.weight(1f))
         MotionControlButton(options,tiltAvailable,"arcade-motion-control")
     }
 }

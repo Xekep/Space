@@ -340,11 +340,14 @@ object SimulationEngine {
         return StepResult(current, events)
     }
 
-    fun orbitVelocity(center: CelestialBody, point: Vec2): Vec2 {
+    fun orbitVelocity(center: CelestialBody, point: Vec2, satelliteMass: Double = 0.0,
+        physicalScale: Boolean = center.physicalScale): Vec2 {
         val delta = point - center.position
-        val radius = delta.magnitude().coerceAtLeast(1.0)
-        val speed = sqrt(gravitationalConstant * center.mass * radius * radius /
-            (radius * radius + (if (center.physicalScale) .0001 else softening * softening)).pow(1.5))
+        val radius = delta.magnitude()
+        if (radius <= 1e-9 || !radius.isFinite()) return center.velocity
+        val smoothing = if (center.physicalScale || physicalScale) .01 else softening
+        val speed = sqrt(gravitationalConstant * (center.gravityMass + satelliteMass.coerceAtLeast(0.0)) * radius * radius /
+            (radius * radius + smoothing * smoothing).pow(1.5))
         return center.velocity + delta.perpendicular().normalized() * speed
     }
 
@@ -381,7 +384,9 @@ object SimulationEngine {
             collisionsEnabled = collisionsEnabled,
             // A powered scene is an open energy system; correcting to its launch energy cancels thrust.
             energyReference = if (collisionsEnabled || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale }) null else referenceEnergy,
-            substepLimit = if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
+            substepLimit = if (bodies.any { it.physicalScale }) min(
+                if (collisionsEnabled || bodies.size < 40) sandboxSubstep else 1.0/30.0,sandboxStepLimit(bodies))
+                else if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
             controlledId = controlledId,
         )
     }
@@ -389,6 +394,8 @@ object SimulationEngine {
     /** Bound RK4 steps by local gravitational timescales and relative travel, keeping the
      * original minimum precision during close encounters. All pair forces remain exact. */
     internal fun sandboxStepLimit(bodies: List<CelestialBody>): Double {
+        val physical = bodies.any { it.physicalScale }
+        val fraction = if (physical) .2 else .05
         val rates = DoubleArray(bodies.size)
         var travelLimit = 1.0 / 30.0
         for (i in bodies.indices) {
@@ -403,11 +410,11 @@ object SimulationEngine {
                 rates[i] += rate * second.gravityMass; rates[j] += rate * first.gravityMass
                 val vx = second.velocity.x - first.velocity.x; val vy = second.velocity.y - first.velocity.y
                 val speedSquared = vx * vx + vy * vy
-                if (speedSquared > 1e-9) travelLimit = min(travelLimit, 0.1 * distance / sqrt(speedSquared))
+                if (speedSquared > 1e-9) travelLimit = min(travelLimit, (if (physical) .2 else .1) * distance / sqrt(speedSquared))
             }
         }
-        val gravityLimit = 0.05 / sqrt(rates.maxOrNull()?.coerceAtLeast(1e-12) ?: 1e-12)
-        return min(travelLimit, gravityLimit).coerceIn(sandboxSubstep, 1.0 / 30.0)
+        val gravityLimit = fraction / sqrt(rates.maxOrNull()?.coerceAtLeast(1e-12) ?: 1e-12)
+        return min(travelLimit, gravityLimit).coerceIn(if (physical) 1.0/20000 else sandboxSubstep, 1.0 / 30.0)
     }
 
     fun totalEnergy(bodies: List<CelestialBody>): Double {

@@ -15,7 +15,6 @@
     <string name="motion_control">"Pilotage par inclinaison"</string>
     <string name="object_count">"Objets : %1$d sur %2$d"</string>
     <string name="app_name">"Space"</string>
-    <string name="arcade_compact">"Coque : %1$d · Vague : %2$d · Score : %3$d"</string>
     <string name="menu">"Menu"</string>
     <string name="find_core">"Vers le noyau"</string>
     <string name="fit_system">"Vue d'ensemble"</string>
@@ -112,7 +111,9 @@
     <string name="lag_paused">"Simulation mise en pause après un long délai. Ralentissez le temps si nécessaire."</string>
     <string name="practice_hit">"Le météore d'entraînement a atteint le noyau. Réessayez ; vos vies sont protégées."</string>
     <string name="not_enough_energy">"Énergie insuffisante. Attendez la recharge."</string>
-    <string name="satellite_farther">"Placez le satellite plus loin de son astre parent."</string>
+    <string name="satellite_farther">"Éloignez le satellite des astres voisins."</string>
+    <string name="satellite_unstable">"La gravité des voisins est trop forte. Rapprochez le satellite de son astre parent."</string>
+    <string name="satellite_parent_lost">"L’astre parent a disparu. Choisissez-en un autre."</string>
     <string name="practice_complete">"Entraînement terminé. Votre partie en mode Facile a commencé."</string>
     <string name="checkpoint_stored">"Point de sauvegarde créé"</string>
     <string name="place_satellite">"Placez un satellite autour de l'objet sélectionné. Sa vitesse est réglée automatiquement."</string>

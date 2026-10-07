@@ -58,6 +58,20 @@ class PilotZoomUiTest {
                     assertEquals(count,game.bodies.size)
                     assertPilotCentered(game,id)
                     assertTrue(game.bodies.first { it.id == id }.waypoints.isEmpty())
+                    val normalZoom=game.camera.zoom
+                    game.transformCamera(Offset(130f,300f),Offset(80f,40f),maximumZoom(mode)/normalZoom)
+                    if (mode == AppMode.Sandbox) game.toggleSandboxPause()
+                    game.setSteeringInput(Vec2(.6,1.0))
+                    repeat(60) {
+                        game.update(1.0/60)
+                        val body=game.bodies.first { it.id == id }
+                        val screen=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+                        assertEquals(game.viewport.width/2f,screen.x,.001f)
+                        assertEquals(game.viewport.height/2f,screen.y,.001f)
+                    }
+                    game.setSteeringInput(Vec2.Zero)
+                    if (mode == AppMode.Sandbox) game.toggleSandboxPause()
+                    game.transformCamera(Offset.Zero,Offset.Zero,normalZoom/game.camera.zoom)
                     game.chooseSpawnKind(BodyKind.Ambient)
                 }
                 compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(-220f,-260f)) }
@@ -78,7 +92,8 @@ class PilotZoomUiTest {
 
     private fun assertPilotCentered(game: SpaceGameState,id: Long) {
         val body=game.bodies.first { it.id == id }
-        // One animation frame can advance flight after the gesture; camera following is smoothed.
-        assertTrue((body.position-game.camera.center).magnitude()*game.camera.zoom < 8*compose.density.density)
+        val screen=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+        assertEquals(game.viewport.width/2f,screen.x,.001f)
+        assertEquals(game.viewport.height/2f,screen.y,.001f)
     }
 }

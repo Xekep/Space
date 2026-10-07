@@ -269,7 +269,7 @@ class SpaceGameState(
         if (!pilotCameraFollowing || touchPreview != null) return current
         val id=controlledVehicleId ?: return current
         val target=next.firstOrNull { it.id == id } ?: return current
-        return current.copy(center=current.center+(target.position-current.center)*.10)
+        return current.copy(center=target.position)
     }
     private fun publishSandboxBodies(next: List<CelestialBody>) {
         val current = sandbox ?: return
@@ -303,10 +303,10 @@ class SpaceGameState(
         // Keep an assisted satellite small enough that its parent remains dominant.
         val mass = orbitSource?.let { minOf(requested, it.mass * 0.02).coerceAtLeast(1e-8) }
             ?: minOf(requested, affordable)
-        val velocity = orbitSource?.let { SimulationEngine.orbitVelocity(it, preview.startWorld) } ?: launchVelocity(preview)
+        val physicalScale = mode == AppMode.Sandbox && bodies.any { it.physicalScale }
+        val velocity = orbitSource?.let { SimulationEngine.orbitVelocity(it, preview.startWorld, mass, physicalScale) } ?: launchVelocity(preview)
         val color = when (kind) { BodyKind.Ship -> Color(0xFF8BD3FF); BodyKind.Rocket -> Color(0xFFFFB36B)
             BodyKind.Star -> Color(0xFFFFD166); BodyKind.BlackHole -> Color(0xFFCB9BFF); else -> Color.Cyan }
-        val physicalScale = mode == AppMode.Sandbox && bodies.any { it.physicalScale }
         val radius = if (physicalScale) when (kind) {
             BodyKind.Ship -> .00001f
             BodyKind.Rocket -> .000002f
@@ -371,12 +371,18 @@ class SpaceGameState(
     }
     fun launch(preview: TouchPreview, holdSeconds: Double) {
         if (menuOpen || !hasSession || sandboxOverlayOpen || (mode == AppMode.Arcade && (arcade?.lives ?: 0) <= 0)) return
+        if (orbitSourceId != null && orbitSource == null) {
+            orbitSourceId=null; touchPreview=null; feedback=R.string.satellite_parent_lost; return
+        }
         if (spawnCount >= spawnLimit) { feedback = null; return }
         val candidate = previewBody(preview, holdSeconds)
         if (candidate == null) { feedback = R.string.not_enough_energy; return }
-        if (orbitSource != null && (candidate.position - orbitSource!!.position).magnitude() <= candidate.radius + orbitSource!!.radius +
-            (if (orbitSource!!.physicalScale) .0001 else 8.0)) {
-            feedback = R.string.satellite_farther; return
+        orbitSource?.let { parent ->
+            when (satellitePlacement(parent,candidate,bodies)) {
+                SatellitePlacement.Overlap -> { feedback = R.string.satellite_farther; return }
+                SatellitePlacement.StrongTides -> { feedback = R.string.satellite_unstable; return }
+                SatellitePlacement.Clear -> Unit
+            }
         }
         val generated = SimulationEngine.createBody(candidate.position, candidate.position, 0.0, candidate.kind)
         val body = candidate.copy(id = generated.id, color = if (candidate.kind == BodyKind.Ambient || candidate.kind == BodyKind.Player) generated.color else candidate.color)

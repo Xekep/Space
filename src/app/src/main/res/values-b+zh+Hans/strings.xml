@@ -15,7 +15,6 @@
     <string name="motion_control">"倾斜操控"</string>
     <string name="object_count">"物体：%1$d / %2$d"</string>
     <string name="app_name">"Space"</string>
-    <string name="arcade_compact">"生命：%1$d · 波次：%2$d · 得分：%3$d"</string>
     <string name="menu">"菜单"</string>
     <string name="find_core">"返回核心"</string>
     <string name="fit_system">"查看全景"</string>
@@ -112,7 +111,9 @@
     <string name="lag_paused">"长时间卡顿后，模拟已暂停。如有需要，请降低时间倍率。"</string>
     <string name="practice_hit">"练习陨石击中了核心。请重试，练习中不会损失生命。"</string>
     <string name="not_enough_energy">"能量不足，请等待补充。"</string>
-    <string name="satellite_farther">"请将卫星放在离母天体更远的位置。"</string>
+    <string name="satellite_farther">"请将卫星放在远离附近天体的位置。"</string>
+    <string name="satellite_unstable">附近天体的引力过强，请将卫星放在更靠近母天体的位置。</string>
+    <string name="satellite_parent_lost">母天体已消失，请选择其他天体。</string>
     <string name="practice_complete">"练习完成，简单难度游戏已开始。"</string>
     <string name="checkpoint_stored">"检查点已保存"</string>
     <string name="place_satellite">"在选中的天体周围放置卫星，速度将自动设定。"</string>

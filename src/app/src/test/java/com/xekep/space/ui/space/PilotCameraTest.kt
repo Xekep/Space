@@ -8,6 +8,26 @@ import org.junit.Test
 import kotlin.math.*
 
 class PilotCameraTest {
+    @Test fun maximumZoomKeepsTurningAndAcceleratingVehiclesExactlyAtScreenCenter() {
+        for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+            val game=SpaceGameState().apply {
+                resize(IntSize(1080,1920))
+                if (mode == AppMode.Sandbox) startSandbox(SandboxPresetKind.Empty) else startArcade()
+                setMotionControlEnabled(true); chooseSpawnKind(kind)
+                val point=Vec2(5000.0,5000.0)
+                launch(TouchPreview(point,point,0),0.0)
+                setSteeringInput(Vec2(.6,1.0))
+                transformCamera(Offset(300f,400f),Offset(80f,-100f),maximumZoom(mode)/camera.zoom)
+            }
+            val id=game.controlledVehicleId!!
+            repeat(120) {
+                game.update(1.0/60)
+                val body=game.bodies.first { it.id == id }
+                val position=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+                assertEquals(540f,position.x,.001f); assertEquals(960f,position.y,.001f)
+            }
+        }
+    }
     @Test fun offCenterPinchingKeepsBothVehicleTypesCenteredInBothModesAndDoesNotRetarget() {
         listOf(AppMode.Sandbox,AppMode.Arcade).forEach { mode ->
             listOf(BodyKind.Ship,BodyKind.Rocket).forEach { kind ->
@@ -29,8 +49,7 @@ class PilotCameraTest {
                 repeat(90) { game.update(1.0/60) }
                 assertNotEquals(center,game.camera.center)
                 val body=game.bodies.first { it.id == id }
-                // Following remains smooth while moving, with a small speed-dependent camera lag.
-                assertTrue((body.position-game.camera.center).magnitude() < body.velocity.magnitude()*.18+1.0)
+                assertEquals(body.position,game.camera.center)
                 val heading=rotateVector(body.heading,game.cameraRotation)
                 assertEquals(0.0,heading.x,.01); assertTrue(heading.y < -.99)
                 game.chooseSpawnKind(BodyKind.Ambient)

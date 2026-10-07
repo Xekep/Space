@@ -86,7 +86,7 @@ class GameplayRulesTest {
         val before = game.sandbox!!
         val parent = game.bodies.first()
         game.selectBody(parent.id); game.prepareOrbit()
-        val point = parent.position + Vec2(-300.0, 0.0)
+        val point = parent.position + Vec2(-80.0, 0.0)
         game.launch(TouchPreview(point, point, 0), 0.0)
         val satellite = game.bodies.last()
         assertTrue(satellite.mass <= parent.mass * 0.02)

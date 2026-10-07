@@ -24,15 +24,18 @@ class CoreDirectionUiTest {
         try {
             val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
-            val baseline=compose.onRoot().captureToImage().asAndroidBitmap()
             compose.runOnIdle {
                 val point=game.bodies.first { it.kind == com.xekep.space.sim.BodyKind.Core }.position+
                     com.xekep.space.sim.Vec2(0.0,-4000.0)
                 game.chooseSpawnKind(com.xekep.space.sim.BodyKind.Ship)
                 game.launch(TouchPreview(point,point,0),0.0)
-                game.transformCamera(Offset.Zero,Offset.Zero,1f)
+                game.fitCamera()
                 assertNotNull(game.controlledVehicleId)
             }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("core-direction").assertDoesNotExist()
+            val baseline=compose.onRoot().captureToImage().asAndroidBitmap()
+            compose.runOnIdle { game.transformCamera(Offset.Zero,Offset.Zero,1f) }
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("core-direction").assertIsDisplayed()
             val bitmap=compose.onRoot().captureToImage().asAndroidBitmap()

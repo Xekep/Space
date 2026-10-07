@@ -16,7 +16,6 @@
 
     <string name="object_count">Объекты: %1$d из %2$d</string>
     <string name="app_name">Space</string>
-    <string name="arcade_compact">"Жизни: %1$d · Волна: %2$d · Очки: %3$d"</string>
     <string name="menu">"Меню"</string>
     <string name="find_core">"К ядру"</string>
     <string name="fit_system">"Вся система"</string>
@@ -125,7 +124,9 @@
     <string name="practice_hit">"Учебный метеор достиг ядра. Попробуйте снова: жизни защищены."</string>
 
     <string name="not_enough_energy">"Недостаточно энергии. Дождитесь восстановления."</string>
-    <string name="satellite_farther">"Разместите спутник дальше от родительского тела."</string>
+    <string name="satellite_farther">"Разместите спутник подальше от соседних тел."</string>
+    <string name="satellite_unstable">Мешает притяжение соседей. Попробуйте ближе к выбранному телу.</string>
+    <string name="satellite_parent_lost">Центральное тело исчезло. Выберите другое.</string>
     <string name="practice_complete">"Обучение завершено. Началась попытка на лёгкой сложности."</string>
     <string name="checkpoint_stored">"Контрольный снимок сохранён"</string>
     <string name="place_satellite">"Разместите спутник вокруг выбранного тела. Скорость подбирается автоматически."</string>

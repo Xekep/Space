@@ -42,11 +42,11 @@ class SandboxToolsTest {
         val position = worldToScreen(parent.position, game.viewport, game.camera.center, game.camera.zoom)
         compose.onNodeWithTag("space-scene").performTouchInput { click(position) }
         compose.onNodeWithTag("orbit-helper").performClick()
-        compose.onNodeWithTag("space-scene").performTouchInput { click(position + Offset(0f, 230f)) }
+        compose.onNodeWithTag("space-scene").performTouchInput { click(position + Offset(0f, 80f*game.camera.zoom)) }
         compose.runOnIdle {
             assertEquals(3, game.bodies.size)
             val satellite = game.bodies.last()
-            assertEquals(SimulationEngine.orbitVelocity(parent, satellite.position), satellite.velocity)
+            assertEquals(SimulationEngine.orbitVelocity(parent,satellite.position,satellite.mass,satellite.physicalScale), satellite.velocity)
         }
     }
     @Test fun sandboxPracticeAdvancesWithActionsAndCanBeSkipped() {
