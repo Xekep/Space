@@ -187,9 +187,27 @@ class SpaceGameState(
         history.clear(); undoCount = 0; checkpoint = sandbox; dirty = false; clearSelection()
         mode = AppMode.Sandbox; touchPreview = null; menuOpen = false; feedback = null; tutorialStep = -1; resetFrameClock()
         spawnKind = BodyKind.Ambient
+        if (preset == SandboxPresetKind.RandomSystems && viewport != IntSize.Zero) fitCamera()
         explosions = emptyList()
         if (preset == SandboxPresetKind.SolarSystem && viewport != IntSize.Zero) { focusSolar(SolarBody.Sun); clearSelection() }
         checkpoint = sandbox
+    }
+    private fun pauseAfterStall() {
+        if (mode == AppMode.Sandbox) {
+            sandboxRevision++; sandbox=sandbox?.copy(paused=true)
+            steeringInput=Vec2.Zero; pendingBoost=0.0; touchPreview=null; resetFrameClock()
+        } else openMenu()
+        feedback=R.string.lag_paused
+    }
+    fun setPilotTargetSpeed(value: Double) {
+        if (!value.isFinite()) return
+        val id=controlledVehicleId ?: return
+        val target=value.coerceIn(0.0,900.0)
+        if (mode == AppMode.Sandbox) {
+            sandboxRevision++
+            sandbox=sandbox?.let { scene -> scene.copy(bodies=scene.bodies.map { if (it.id == id) it.copy(pilotTargetSpeed=target) else it }) }
+            dirty=true
+        } else arcade=arcade?.let { scene -> scene.copy(bodies=scene.bodies.map { if (it.id == id) it.copy(pilotTargetSpeed=target) else it }) }
     }
     fun update(dt: Double) {
         updateCameraRotation(dt)
@@ -198,7 +216,7 @@ class SpaceGameState(
         if (mode == AppMode.Sandbox && (sandbox?.paused == true || sandboxOverlayOpen || orbitSourceId != null)) { resetFrameClock(); return }
         if (mode == AppMode.Arcade && (arcade?.lives ?: 0) <= 0) { resetFrameClock(); return }
         accumulator += dt
-        if (accumulator > 2.0) { openMenu(); feedback = R.string.lag_paused; return }
+        if (accumulator > 2.0) { pauseAfterStall(); return }
         var steps = 0
         val seconds = 1.0 / 60.0
         while (accumulator + 1e-9 >= seconds && steps < 15) {
@@ -236,7 +254,7 @@ class SpaceGameState(
         val current = sandbox ?: return
         if (current.paused || orbitSourceId != null) { resetFrameClock(); return }
         accumulator += dt
-        if (accumulator > 2.0) { openMenu(); feedback = R.string.lag_paused; return }
+        if (accumulator > 2.0) { pauseAfterStall(); return }
         val seconds = 1.0 / 60.0
         val steps = ((accumulator + 1e-9) / seconds).toInt().coerceAtMost(15)
         if (steps == 0) return
@@ -510,7 +528,7 @@ class SpaceGameState(
         sandboxRevision++; rememberEdit(); clearSelection(); resetFrameClock(); resetPresentation()
         val scene=RandomSystems.create(random,SimulationEngine::newBodyId)
         lastSandboxVehicleId=null; explosions=emptyList(); touchPreview=null
-        sandbox=sandbox?.copy(bodies=scene,referenceEnergy=SimulationEngine.totalEnergy(scene),name=name,
+        sandbox=sandbox?.copy(bodies=scene,referenceEnergy=SimulationEngine.totalEnergy(scene),name=name,preset=SandboxPresetKind.RandomSystems,
             timeScale=1.0)
         dirty=true; feedback=null; fitCamera()
     }

@@ -53,7 +53,8 @@ class SandboxToolsTest {
         val game = SpaceGameState()
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithTag("mode-Sandbox").performClick()
-        compose.onNodeWithTag("practice-controls").performClick()
+        compose.onNodeWithTag("open-settings").performClick()
+        compose.onNodeWithTag("practice-controls").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(0, game.tutorialStep); assertTrue(game.sandbox!!.paused) }
         compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
         compose.runOnIdle { assertEquals(1, game.tutorialStep) }

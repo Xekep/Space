@@ -137,7 +137,7 @@ class SpaceInteractionTest {
     @Test fun modeSelectionStartsSolarSystemAndKeepsItWhenSwitchingBack() {
         val game = SpaceGameState()
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
-        compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.universe_awaits)).assertIsDisplayed()
+        compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.universe_awaits)).assertDoesNotExist()
         compose.onNodeWithTag("mode-Sandbox").performClick()
         compose.onNodeWithTag("preset-SolarSystem").performScrollTo().performClick()
         compose.onNodeWithTag("menu-primary").performClick()

@@ -188,7 +188,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             if (game.touchPreview != null) frameNanos = SystemClock.elapsedRealtimeNanos()
             if (previousFrame != 0L) {
                 val dt = ((frame - previousFrame) / 1_000_000_000.0).coerceAtLeast(0.0)
-                if (game.mode == AppMode.Sandbox && game.bodies.size >= 40) game.updateSandboxAsync(dt) else game.update(dt)
+                if (game.mode == AppMode.Sandbox && (game.bodies.size >= 40 || game.sandbox?.collisionsEnabled == true)) game.updateSandboxAsync(dt) else game.update(dt)
             }
             previousFrame = frame
         }

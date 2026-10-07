@@ -1,76 +1,41 @@
 package com.xekep.space.ui.space
 
-import com.xekep.space.R
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.xekep.space.R
 import com.xekep.space.sim.SandboxPresetKind
-import com.xekep.space.storage.SandboxSlotSummary
 import com.xekep.space.storage.GameOptions
+import com.xekep.space.storage.SandboxSlotSummary
 import com.xekep.space.ui.LanguageMenuButton
-import kotlin.math.roundToInt
+import kotlin.math.*
 
 private data class MenuConfirmation(val title: String, val message: String, val action: () -> Unit)
+private enum class MenuPanel { Settings, Worlds }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SpaceMenu(
     game: SpaceGameState,
@@ -84,254 +49,254 @@ fun SpaceMenu(
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val compactMenu = configuration.screenHeightDp < 420 || (configuration.screenWidthDp < 360 && configuration.fontScale > 1.15f)
     val compactPresets = configuration.screenWidthDp < 360 || configuration.fontScale > 1.15f
     var selectedMode by rememberSaveable(game.mode) { mutableStateOf(game.mode) }
     var difficulty by rememberSaveable { mutableStateOf(game.arcade?.difficulty ?: ArcadeDifficulty.Normal) }
     var preset by rememberSaveable { mutableStateOf(game.sandbox?.preset?.takeUnless { it == SandboxPresetKind.Empty } ?: SandboxPresetKind.SolarSystem) }
-    var collisions by rememberSaveable { mutableStateOf(game.sandbox?.collisionsEnabled ?: false) }
-    var collisionMode by rememberSaveable { mutableStateOf(game.sandbox?.collisionMode ?: com.xekep.space.sim.SandboxCollisionMode.Merge) }
+    var panel by rememberSaveable { mutableStateOf<MenuPanel?>(null) }
+    var info by remember { mutableStateOf(false) }
     var confirmation by remember { mutableStateOf<MenuConfirmation?>(null) }
     var naming by remember { mutableStateOf(false) }
     var sceneName by remember { mutableStateOf(game.sandbox?.name.orEmpty()) }
-    val hasSelectedSession = if (selectedMode == AppMode.Arcade) game.arcade != null && game.arcade!!.lives > 0 else game.sandbox != null
+    val hasSelectedSession = if (selectedMode == AppMode.Arcade) game.arcade?.let { it.lives > 0 } == true else game.sandbox != null
     val accent = if (selectedMode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val startNew: () -> Unit = {
         if (selectedMode == AppMode.Arcade) game.startArcade(difficulty)
-        else { game.startSandbox(preset, context.getString(preset.labelId())); game.setCollisions(collisions); game.setCollisionMode(collisionMode) }
+        else {
+            val collisions=game.sandbox?.collisionsEnabled ?: false
+            val mode=game.sandbox?.collisionMode ?: com.xekep.space.sim.SandboxCollisionMode.Merge
+            game.startSandbox(preset,context.getString(preset.labelId()))
+            game.setCollisions(collisions); game.setCollisionMode(mode)
+        }
+    }
+    val newSession: () -> Unit = {
+        confirmation=if (selectedMode == AppMode.Arcade)
+            MenuConfirmation(context.getString(R.string.new_run_question),context.getString(R.string.new_run_confirmation),startNew)
+        else MenuConfirmation(context.getString(R.string.new_universe_question),context.getString(R.string.new_universe_confirmation),startNew)
+    }
+    val practice: () -> Unit = {
+        panel=null
+        val action={ game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) }
+        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action)
+        else action()
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xF202040B)).safeDrawingPadding().padding(16.dp), contentAlignment = Alignment.Center) {
-        val horizontalFooter = maxHeight < 420.dp
-        Surface(Modifier.widthIn(max = 520.dp).fillMaxWidth(), shape = RoundedCornerShape(28.dp),
-            color = Color(0xFF0B1425), contentColor = MaterialTheme.colorScheme.onSurface,
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.09f))) {
-            Column(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("SPACE", style = MaterialTheme.typography.labelLarge, letterSpacing = 5.sp, color = accent)
-                        if (!compactMenu) Text(if (game.hasSession) context.getString(R.string.take_breath) else context.getString(R.string.universe_awaits),
-                            style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                        if (!compactMenu) Text(if (game.hasSession) context.getString(R.string.simulation_paused) else context.getString(R.string.two_modes),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val header: @Composable () -> Unit = {
+                Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                    OrbitGlyph(Modifier.size(32.dp),accent)
+                    Text("SPACE",Modifier.weight(1f).padding(start=10.dp),style=MaterialTheme.typography.titleMedium,
+                        letterSpacing=3.sp,color=accent)
+                    IconButton(onClick={ panel=MenuPanel.Settings },modifier=Modifier.testTag("open-settings")
+                        .semantics { contentDescription=context.getString(R.string.settings) }) {
+                        SettingsGlyph(Modifier.size(22.dp),MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (!compactMenu) OrbitGlyph(Modifier.size(58.dp), accent, selectedMode == AppMode.Arcade)
                 }
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("menu-content")
-                    .padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ModeCard(AppMode.Arcade, selectedMode == AppMode.Arcade) { selectedMode = AppMode.Arcade }
-                    ModeCard(AppMode.Sandbox, selectedMode == AppMode.Sandbox) { selectedMode = AppMode.Sandbox }
-                    if (selectedMode == AppMode.Arcade) {
-                        MenuLabel(context.getString(R.string.next_run))
-                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ArcadeDifficulty.entries.forEach {
-                                FilterChip(selected = difficulty == it, onClick = { difficulty = it },
-                                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = accent.copy(alpha = 0.16f), selectedLabelColor = accent),
-                                    label = { Text(context.getString(it.labelId()), maxLines = 1) }, modifier = Modifier.widthIn(min = 72.dp))
-                            }
+    }
+    val worldsActions: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            TextButton(onClick={ panel=MenuPanel.Worlds },modifier=Modifier.weight(1f).testTag("open-worlds")) { Text(context.getString(R.string.worlds)) }
+            InfoButton { info=true }
+        }
+    }
+    val choices: @Composable (Boolean) -> Unit = { wide ->
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    AppMode.entries.forEach { mode ->
+                        ModeTab(mode,selectedMode == mode,accent,Modifier.weight(1f)) { selectedMode=mode }
+                    }
+                }
+                if (selectedMode == AppMode.Arcade) {
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        ArcadeDifficulty.entries.forEach { level ->
+                            FilterChip(difficulty == level,{ difficulty=level },modifier=Modifier.weight(1f).testTag("difficulty-${level.name}"),
+                                shape=RoundedCornerShape(8.dp),colors=FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor=accent.copy(alpha=.14f),selectedLabelColor=accent),
+                                label={ Text(context.getString(level.labelId()),maxLines=1,overflow=TextOverflow.Ellipsis) })
                         }
-                        Text(context.getString(R.string.difficulty_details, difficulty.lives, difficulty.scoreFactor.toString()),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = Color(0xFF17223A),
-                            contentColor = MaterialTheme.colorScheme.onSurface) {
-                            FlowRow(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                CompactHudValue(context.getString(R.string.personal_best, context.getString(difficulty.labelId())), game.recordFor(difficulty).roundToInt().toString())
-                                game.arcade?.let { CompactHudValue(context.getString(R.string.last_run), it.score.roundToInt().toString()) }
+                    }
+                    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                        Text(context.getString(R.string.menu_record,game.recordFor(difficulty).roundToInt()),Modifier.weight(1f),
+                            style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        InfoButton { info=true }
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("preset-row"),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        listOf(SandboxPresetKind.SolarSystem,SandboxPresetKind.BinaryStars,SandboxPresetKind.ClassicOrbits).forEach { choice ->
+                            val label=when (choice) {
+                                SandboxPresetKind.RandomSystems -> R.string.random_systems_short
+                                SandboxPresetKind.SolarSystem -> R.string.solar
+                                SandboxPresetKind.BinaryStars -> R.string.binary
+                                SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits
+                                SandboxPresetKind.Empty -> R.string.empty
                             }
-                        }
-                        options?.let { LargeVehicleSwitch(it) }
-                    } else {
-                        MenuLabel(if (game.sandbox == null) context.getString(R.string.starting_scene) else context.getString(R.string.new_universe))
-                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).testTag("preset-row"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(SandboxPresetKind.SolarSystem, SandboxPresetKind.BinaryStars, SandboxPresetKind.ClassicOrbits).forEach {
-                                val label = when (it) { SandboxPresetKind.SolarSystem -> context.getString(R.string.solar); SandboxPresetKind.BinaryStars -> context.getString(R.string.binary); SandboxPresetKind.ClassicOrbits -> context.getString(R.string.classic_orbits); SandboxPresetKind.Empty -> context.getString(R.string.empty) }
-                                val active = preset == it
-                                Surface(onClick = { preset = it }, modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp)
-                                    .testTag("preset-${it.name}").semantics { selected = active; role = Role.RadioButton },
-                                    shape = RoundedCornerShape(12.dp), color = if (active) accent.copy(alpha = .16f) else Color.Transparent,
-                                    contentColor = if (active) accent else MaterialTheme.colorScheme.onSurface,
-                                    border = BorderStroke(1.dp, if (active) accent else Color.White.copy(alpha = .16f))) {
-                                    Box(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                                        Text(label, maxLines = 2, textAlign = TextAlign.Center,
-                                            style = if (compactPresets) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge)
-                                    }
+                            val active=preset == choice
+                            Surface(onClick={ preset=choice },modifier=Modifier.weight(1f).fillMaxHeight().heightIn(min=48.dp)
+                                .testTag("preset-${choice.name}").semantics { selected=active; role=Role.RadioButton },
+                                shape=RoundedCornerShape(8.dp),color=if (active) accent.copy(alpha=.14f) else Color(0xFF141E30),
+                                contentColor=if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant) {
+                                Box(Modifier.padding(horizontal=4.dp,vertical=12.dp),contentAlignment=Alignment.Center) {
+                                    Text(context.getString(label),maxLines=2,textAlign=TextAlign.Center,
+                                        style=if (compactPresets) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge)
                                 }
                             }
                         }
-                        if (hasSelectedSession) {
-                            Button(onClick = {
-                                confirmation = MenuConfirmation(context.getString(R.string.new_universe_question), context.getString(R.string.new_universe_confirmation), startNew)
-                            }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("new-session"),
-                                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
-                                Text(context.getString(R.string.create_preset, context.getString(preset.labelId())), fontWeight = FontWeight.SemiBold)
-                            }
-                        } else {
-                            Button(onClick = startNew, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("menu-primary"),
-                                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
-                                Text(context.getString(R.string.create_universe), fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                        Text(context.getString(preset.descriptionId()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(context.getString(R.string.merge_impact), style = MaterialTheme.typography.titleSmall)
-                            }
-                            Switch(checked = collisions, onCheckedChange = {
-                                collisions = it
-                                game.setCollisions(it)
-                            }, modifier = Modifier.testTag("sandbox-collisions"))
-                        }
-                        options?.let { LargeVehicleSwitch(it) }
-                        if (collisions) CollisionModePicker(collisionMode) { collisionMode=it; game.setCollisionMode(it) }
-                        if (game.sandbox != null) {
-                            MenuLabel(context.getString(R.string.current_universe))
-                            Text("${game.sandbox!!.name}${if (game.dirty) context.getString(R.string.unsaved_changes) else ""}", style = MaterialTheme.typography.bodySmall)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = { sceneName = game.sandbox!!.name; naming = true }) { Text(context.getString(R.string.rename)) }
-                                TextButton(onClick = onExport) { Text(context.getString(R.string.export_scene)) }
-                                TextButton(onClick = {
-                                    confirmation = MenuConfirmation(context.getString(R.string.import_question), context.getString(R.string.import_confirmation), onImport)
-                                }) { Text(context.getString(R.string.import_scene)) }
-                            }
-                            MenuLabel(context.getString(R.string.saved_universes))
-                            (1..3).forEach { slot ->
-                                val summary = saveSummaries.getOrNull(slot - 1)
-                                SandboxSlotRow(slot, summary,
-                                    onSave = {
-                                        if (summary == null) onSaveSlot(slot)
-                                        else confirmation = MenuConfirmation(context.getString(R.string.replace_slot_question, slot), context.getString(R.string.replace_slot_confirmation)) { onSaveSlot(slot) }
-                                    },
-                                    onLoad = {
-                                        confirmation = MenuConfirmation(context.getString(R.string.load_slot_question, slot), context.getString(R.string.load_slot_confirmation)) { onLoadSlot(slot) }
-                                    })
-                            }
-                        } else if (saveSummaries.any { it != null }) {
-                            MenuLabel(context.getString(R.string.saved_universes))
-                            saveSummaries.filterNotNull().forEach { summary ->
-                                OutlinedButton(onClick = { onLoadSlot(summary.slot) }, modifier = Modifier.fillMaxWidth()) {
-                                    Text(context.getString(R.string.load_slot_bodies, summary.slot, summary.bodyCount))
-                                }
-                            }
-                        }
-                        if (game.sandbox == null) TextButton(onClick = onImport) { Text(context.getString(R.string.import_scene)) }
                     }
-                    if (hasSelectedSession && selectedMode == AppMode.Arcade) {
-                        OutlinedButton(onClick = {
-                            confirmation = MenuConfirmation(context.getString(R.string.new_run_question), context.getString(R.string.new_run_confirmation), startNew)
-                        }, modifier = Modifier.fillMaxWidth().testTag("new-session")) {
-                            Text(context.getString(R.string.new_arcade_run))
-                        }
+                    val randomActive=preset == SandboxPresetKind.RandomSystems
+                    Surface(onClick={ preset=SandboxPresetKind.RandomSystems },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+                        .testTag("preset-RandomSystems").semantics { selected=randomActive; role=Role.RadioButton },
+                        shape=RoundedCornerShape(8.dp),color=if (randomActive) accent.copy(alpha=.14f) else Color(0xFF141E30),
+                        contentColor=if (randomActive) accent else MaterialTheme.colorScheme.onSurfaceVariant) {
+                        Box(Modifier.padding(horizontal=12.dp,vertical=12.dp),contentAlignment=Alignment.Center) { Text(context.getString(R.string.random_systems_short)) }
                     }
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                    if (notice != null) Text(notice, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
-                    options?.let {
-                        MenuLabel(context.getString(R.string.feedback_options))
-                        OptionSwitch(context.getString(R.string.music), it.music, Modifier.testTag("ambient-music-switch")) { enabled -> it.music = enabled; it.save() }
-                        OptionSwitch(context.getString(R.string.sound), it.sound) { enabled -> it.sound = enabled; it.save() }
-                        OptionSwitch(context.getString(R.string.vibration), it.vibration) { enabled -> it.vibration = enabled; it.save() }
-                        OptionSwitch(context.getString(R.string.reduced_flashes), it.reducedFlashes) { enabled -> it.reducedFlashes = enabled; it.save() }
-                    }
+                    if (!wide) worldsActions()
                 }
-                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (hasSelectedSession || selectedMode == AppMode.Arcade) {
-                        Button(onClick = { if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("menu-primary"),
-                            colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color(0xFF041018))) {
-                            Text(if (hasSelectedSession) context.getString(R.string.continue_mode, context.getString(selectedMode.labelId())) else context.getString(R.string.launch_arcade),
-                                fontWeight = FontWeight.SemiBold)
+    }
+    val actions: @Composable (Boolean) -> Unit = { wide ->
+                if (wide && selectedMode == AppMode.Sandbox) worldsActions()
+                if (notice != null) Text(notice,Modifier.fillMaxWidth(),textAlign=TextAlign.Center,
+                    style=MaterialTheme.typography.bodySmall,color=accent)
+                Button(onClick={ if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
+                    modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("menu-primary"),shape=RoundedCornerShape(10.dp),
+                    colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF041018))) {
+                    Text(context.getString(if (hasSelectedSession) R.string.resume_game else if (selectedMode == AppMode.Arcade)
+                        R.string.start_game else R.string.create_universe),fontWeight=FontWeight.SemiBold)
+                }
+                if (hasSelectedSession) TextButton(onClick=newSession,modifier=Modifier.fillMaxWidth().testTag("new-session")) {
+                    Text(context.getString(if (selectedMode == AppMode.Arcade) R.string.new_game else R.string.new_world))
+                }
+                LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
+    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
+        val wide=maxHeight < 380.dp && maxWidth >= 500.dp
+        Surface(Modifier.widthIn(max=if (wide) 680.dp else 420.dp).fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xF20B1425)) {
+            if (wide) Row(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()).testTag("menu-content"),
+                horizontalArrangement=Arrangement.spacedBy(24.dp),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1.3f).padding(bottom=12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) { header(); choices(true) }
+                Column(Modifier.weight(1f).padding(top=12.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) { actions(true) }
+            } else Column(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()).testTag("menu-content"),
+                verticalArrangement=Arrangement.spacedBy(12.dp)) { header(); choices(false); actions(false) }
+        }
+    }
+
+    panel?.let { openPanel ->
+        ModalBottomSheet(onDismissRequest={ panel=null },sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
+            containerColor=Color(0xFF0B1425),contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(topStart=16.dp,topEnd=16.dp)) {
+            Column(Modifier.widthIn(max=520.dp).fillMaxWidth().align(Alignment.CenterHorizontally).padding(horizontal=20.dp)) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Text(context.getString(if (openPanel == MenuPanel.Settings) R.string.settings else R.string.worlds),
+                        Modifier.weight(1f),style=MaterialTheme.typography.titleLarge)
+                    TextButton(onClick={ panel=null },modifier=Modifier.testTag("close-menu-panel")) { Text(context.getString(R.string.close)) }
+                }
+                Column(Modifier.weight(1f,fill=false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom=24.dp)
+                    .testTag(if (openPanel == MenuPanel.Settings) "settings-panel" else "worlds-panel"),
+                    verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                if (openPanel == MenuPanel.Settings) {
+                    options?.let { settings ->
+                        OptionSwitch(context.getString(R.string.music),settings.music,"ambient-music-switch") { settings.music=it; settings.save() }
+                        OptionSwitch(context.getString(R.string.sound),settings.sound,"sound-switch") { settings.sound=it; settings.save() }
+                        OptionSwitch(context.getString(R.string.vibration),settings.vibration,"vibration-switch") { settings.vibration=it; settings.save() }
+                        OptionSwitch(context.getString(R.string.reduced_flashes),settings.reducedFlashes,"reduced-flashes-switch") { settings.reducedFlashes=it; settings.save() }
+                        OptionSwitch(context.getString(R.string.large_vehicle_icons),settings.largeVehicleIcons,"large-vehicle-icons",
+                            context.getString(R.string.large_vehicle_icons_description)) { settings.largeVehicleIcons=it; settings.save() }
+                    }
+                    HorizontalDivider(color=Color.White.copy(alpha=.08f))
+                    TextButton(onClick=practice,modifier=Modifier.fillMaxWidth().testTag("practice-controls")) {
+                        Text(context.getString(R.string.how_to_play))
+                    }
+                } else {
+                    game.sandbox?.let { scene ->
+                        Text(scene.name + if (game.dirty) context.getString(R.string.unsaved_changes) else "",
+                            style=MaterialTheme.typography.titleSmall)
+                        FlowRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick={ sceneName=scene.name; naming=true },modifier=Modifier.testTag("rename-world")) { Text(context.getString(R.string.rename)) }
+                            TextButton(onClick={ panel=null; onExport() },modifier=Modifier.testTag("export-world")) { Text(context.getString(R.string.export_scene)) }
                         }
                     }
-                    val practiceClick = {
-                        val action = { game.beginTutorial(selectedMode, context.getString(R.string.empty_space)) }
-                        if (hasSelectedSession) confirmation = MenuConfirmation(context.getString(R.string.practice_question), context.getString(R.string.practice_confirmation), action)
-                        else action()
-                    }
-                    if (horizontalFooter) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = practiceClick, modifier = Modifier.weight(1f).testTag("practice-controls")) {
-                                Text(context.getString(R.string.practice_controls))
-                            }
-                            LanguageMenuButton(Modifier.weight(1f))
-                        }
-                    } else {
-                        TextButton(onClick = practiceClick, modifier = Modifier.fillMaxWidth().testTag("practice-controls")) {
-                            Text(context.getString(R.string.practice_controls))
-                        }
-                        LanguageMenuButton()
+                    TextButton(onClick={
+                        if (game.sandbox == null) { panel=null; onImport() }
+                        else confirmation=MenuConfirmation(context.getString(R.string.import_question),context.getString(R.string.import_confirmation)) { panel=null; onImport() }
+                    },modifier=Modifier.testTag("import-world")) { Text(context.getString(R.string.import_scene)) }
+                    if (notice != null) Text(notice,style=MaterialTheme.typography.bodySmall,color=accent)
+                    (1..3).forEach { slot ->
+                        SandboxSlotRow(slot,saveSummaries.getOrNull(slot-1),
+                            onSave={
+                                if (saveSummaries.getOrNull(slot-1) == null) onSaveSlot(slot)
+                                else confirmation=MenuConfirmation(context.getString(R.string.replace_slot_question,slot),context.getString(R.string.replace_slot_confirmation)) { onSaveSlot(slot) }
+                            },onLoad={
+                                if (game.sandbox == null) onLoadSlot(slot)
+                                else confirmation=MenuConfirmation(context.getString(R.string.load_slot_question,slot),context.getString(R.string.load_slot_confirmation)) { onLoadSlot(slot) }
+                            },canSave=game.sandbox != null)
                     }
                 }
             }
+            }
         }
     }
+    if (info) AlertDialog(onDismissRequest={ info=false },
+        title={ Text(context.getString(if (selectedMode == AppMode.Arcade) difficulty.labelId() else preset.labelId())) },
+        text={ Text(if (selectedMode == AppMode.Arcade) context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
+            else context.getString(preset.descriptionId())) },confirmButton={ TextButton(onClick={ info=false }) { Text(context.getString(R.string.close)) } })
     confirmation?.let { pending ->
-        AlertDialog(onDismissRequest = { confirmation = null },
-            title = { Text(pending.title) }, text = { Text(pending.message) },
-            confirmButton = { TextButton(onClick = { confirmation = null; pending.action() }, modifier = Modifier.testTag("confirm-action")) { Text(context.getString(R.string.confirm)) } },
-            dismissButton = { TextButton(onClick = { confirmation = null }) { Text(context.getString(R.string.keep_current)) } })
+        AlertDialog(onDismissRequest={ confirmation=null },title={ Text(pending.title) },text={ Text(pending.message) },
+            confirmButton={ TextButton(onClick={ confirmation=null; pending.action() },modifier=Modifier.testTag("confirm-action")) { Text(context.getString(R.string.confirm)) } },
+            dismissButton={ TextButton(onClick={ confirmation=null }) { Text(context.getString(R.string.keep_current)) } })
     }
-    if (naming) AlertDialog(onDismissRequest = { naming = false }, title = { Text(context.getString(R.string.name_universe)) },
-        text = { OutlinedTextField(sceneName, { sceneName = it.take(40) }, singleLine = true, label = { Text(context.getString(R.string.name)) }) },
-        confirmButton = { TextButton(onClick = { game.renameSandbox(sceneName); naming = false }, enabled = sceneName.isNotBlank()) { Text(context.getString(R.string.save)) } },
-        dismissButton = { TextButton(onClick = { naming = false }) { Text(context.getString(R.string.cancel)) } })
+    if (naming) AlertDialog(onDismissRequest={ naming=false },title={ Text(context.getString(R.string.name_universe)) },
+        text={ OutlinedTextField(sceneName,{ sceneName=it.take(40) },singleLine=true,label={ Text(context.getString(R.string.name)) },modifier=Modifier.testTag("world-name")) },
+        confirmButton={ TextButton(onClick={ game.renameSandbox(sceneName); naming=false },enabled=sceneName.isNotBlank(),modifier=Modifier.testTag("save-world-name")) { Text(context.getString(R.string.save)) } },
+        dismissButton={ TextButton(onClick={ naming=false }) { Text(context.getString(R.string.cancel)) } })
 }
 
 @Composable
-private fun OptionSwitch(label: String, checked: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodySmall)
-        Switch(checked = checked, onCheckedChange = onChange, modifier = modifier, enabled = enabled)
-    }
-}
-
-@Composable
-private fun LargeVehicleSwitch(settings: GameOptions) {
-    val context = LocalContext.current
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(context.getString(R.string.large_vehicle_icons), Modifier.weight(1f), maxLines=1, style=MaterialTheme.typography.titleSmall)
-        Switch(checked=settings.largeVehicleIcons,onCheckedChange={ settings.largeVehicleIcons=it; settings.save() },
-            modifier=Modifier.testTag("large-vehicle-icons").semantics {
-                contentDescription=context.getString(R.string.large_vehicle_icons_description)
-            })
+private fun OptionSwitch(label: String,checked: Boolean,tag: String,description: String=label,onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+        Text(label,Modifier.weight(1f).padding(end=12.dp),style=MaterialTheme.typography.bodyMedium)
+        Switch(checked,onChange,Modifier.testTag(tag).semantics { contentDescription=description })
     }
 }
 
 @Composable
-private fun MenuLabel(text: String) {
-    Text(text, modifier = Modifier.padding(top = 4.dp), style = MaterialTheme.typography.labelSmall,
-        letterSpacing = 2.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
-
-@Composable
-private fun ModeCard(mode: AppMode, isSelected: Boolean, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val accent = if (mode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().testTag("mode-${mode.name}")
-        .semantics { selected = isSelected; role = Role.RadioButton }, shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) accent.copy(alpha = 0.09f) else Color.White.copy(alpha = 0.025f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, if (isSelected) accent.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.1f))) {
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            OrbitGlyph(Modifier.size(46.dp), accent, mode == AppMode.Arcade)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(context.getString(mode.labelId()), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(if (mode == AppMode.Arcade) context.getString(R.string.arcade_description) else context.getString(R.string.sandbox_description),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ModeTab(mode: AppMode,active: Boolean,accent: Color,modifier: Modifier,onClick: () -> Unit) {
+    val context=LocalContext.current
+    Surface(onClick=onClick,modifier=modifier.testTag("mode-${mode.name}").semantics { selected=active; role=Role.Tab },color=Color.Transparent) {
+        Column(horizontalAlignment=Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(horizontal=4.dp),contentAlignment=Alignment.Center) {
+                Text(context.getString(mode.labelId()),style=MaterialTheme.typography.titleSmall,
+                    color=if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(if (isSelected) "●" else "○", color = accent, fontSize = 18.sp)
+            HorizontalDivider(thickness=2.dp,color=if (active) accent else Color.White.copy(alpha=.06f))
         }
     }
 }
 
 @Composable
-private fun OrbitGlyph(modifier: Modifier, color: Color, arcade: Boolean) {
+private fun InfoButton(onClick: () -> Unit) {
+    val context=LocalContext.current
+    IconButton(onClick,Modifier.testTag("menu-info").semantics { contentDescription=context.getString(R.string.details) }) {
+        Text("ⓘ",style=MaterialTheme.typography.titleMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun OrbitGlyph(modifier: Modifier,color: Color) {
+    val transition=rememberInfiniteTransition(label="menu-orbit")
+    val phase by transition.animateFloat(0f,(2*PI).toFloat(),infiniteRepeatable(tween(48000,easing=LinearEasing)),label="orbit-phase")
     Canvas(modifier) {
-        drawCircle(Brush.radialGradient(listOf(color.copy(alpha = 0.16f), Color.Transparent)), size.minDimension / 2)
-        drawOval(color.copy(alpha = 0.5f), topLeft = Offset(size.width * 0.06f, size.height * 0.28f),
-            size = Size(size.width * 0.88f, size.height * 0.44f), style = Stroke(width = 1.5.dp.toPx()))
-        drawCircle(color, size.minDimension * 0.12f)
-        drawCircle(if (arcade) Color(0xFFFF8A5B) else Color(0xFFB8F2B3), size.minDimension * 0.06f,
-            center = Offset(size.width * 0.86f, size.height * 0.37f))
+        drawOval(color.copy(alpha=.4f),Offset(size.width*.06f,size.height*.28f),Size(size.width*.88f,size.height*.44f),style=Stroke(1.dp.toPx()))
+        drawCircle(color,size.minDimension*.12f)
+        drawCircle(color.copy(alpha=.8f),size.minDimension*.06f,Offset(center.x+cos(phase)*size.width*.44f,center.y+sin(phase)*size.height*.22f))
+    }
+}
+
+@Composable
+private fun SettingsGlyph(modifier: Modifier,color: Color) {
+    Canvas(modifier) {
+        val r=size.minDimension*.32f
+        drawCircle(color,r,style=Stroke(1.5.dp.toPx()))
+        drawCircle(color,r*.38f,style=Stroke(1.5.dp.toPx()))
+        repeat(8) { n ->
+            val angle=n*PI/4
+            val direction=Offset(cos(angle).toFloat(),sin(angle).toFloat())
+            drawLine(color,center+direction*r,center+direction*(r*1.35f),2.dp.toPx())
+        }
     }
 }

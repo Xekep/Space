@@ -19,6 +19,16 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
             // Like a steering wheel: input changes turn rate relative to the craft's course.
             val angle = atan2(body.heading.y, body.heading.x) + control.steering.coerceIn(-1.0, 1.0) * 3.6 * seconds
             val heading = Vec2(cos(angle), sin(angle))
+            body.pilotTargetSpeed?.let { selected ->
+                val target=(selected+control.boost.coerceIn(0.0,1.0)*150).coerceIn(0.0,900.0)
+                val throttle=target/900
+                val desired=heading*target
+                val difference=desired-body.velocity
+                val acceleration=120+420*throttle
+                val powered=minOf(seconds,body.fuelRemaining/(.12+1.38*throttle))
+                val change=difference.normalized()*minOf(difference.magnitude(),acceleration*powered)
+                return@map body.copy(heading=heading,velocity=body.velocity+change,pilotThrottle=throttle,pilotTargetSpeed=target)
+            }
             val speed = body.velocity.magnitude().coerceAtLeast(70.0)
             val throttle=(body.pilotThrottle+control.boost.coerceIn(0.0,1.0)*.5).coerceIn(0.0,1.0)
             // Active manoeuvring thrusters cancel lateral drift so turns also change the flight path.

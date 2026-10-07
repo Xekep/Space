@@ -68,6 +68,8 @@ data class CelestialBody(
     val driftRemaining: Double = if (kind == BodyKind.Rocket) ROCKET_DRIFT_SECONDS else 0.0,
     val routePath: FlightPath? = null,
     val routeDistance: Double = 0.0,
+    val isDebris: Boolean = false,
+    val pilotTargetSpeed: Double? = null,
 )
 
 data class CollisionEvent(
@@ -98,6 +100,7 @@ enum class SandboxPresetKind(val title: String, val description: String) {
     SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
     ClassicOrbits("Orbits", "A star and eight planets in a playful gravity scale."),
+    RandomSystems("Random systems", "Ten random stellar systems with 500 bodies."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
@@ -164,6 +167,10 @@ object SimulationEngine {
     }
 
     fun sandboxPreset(kind: SandboxPresetKind = SandboxPresetKind.SolarSystem): SandboxPreset {
+        if (kind == SandboxPresetKind.RandomSystems) {
+            val bodies=RandomSystems.create(Random.Default,::newBodyId)
+            return SandboxPreset(bodies,Vec2.Zero,.02f,totalEnergy(bodies))
+        }
         if (kind == SandboxPresetKind.Empty) {
             return SandboxPreset(emptyList(), Vec2.Zero, 1f, 0.0)
         }

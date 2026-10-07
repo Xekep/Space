@@ -37,27 +37,18 @@
     <string name="import_failed">"Не удалось импортировать сцену. Текущий мир сохранён."</string>
     <string name="load_failed">"Не удалось загрузить сохранение."</string>
     <string name="space_scene">"Космическая сцена"</string>
-    <string name="take_breath">"Время передохнуть."</string>
     <string name="universe_awaits">"Ваш космос ждёт."</string>
-    <string name="simulation_paused">"Симуляция на паузе"</string>
-    <string name="two_modes">"Два способа исследовать космос"</string>
-    <string name="next_run">"НОВАЯ ПОПЫТКА"</string>
-    <string name="last_run">"Последняя попытка"</string>
-    <string name="starting_scene">"НАЧАЛЬНАЯ СЦЕНА"</string>
-    <string name="new_universe">"НОВЫЙ МИР"</string>
     <string name="solar">"Система"</string>
     <string name="binary">"Две звезды"</string>
     <string name="empty">"Пусто"</string>
     <string name="merge_impact">Столкновения тел</string>
 
-    <string name="current_universe">"ТЕКУЩИЙ МИР"</string>
     <string name="unsaved_changes">" · Есть изменения"</string>
     <string name="rename">"Название"</string>
     <string name="export_scene">"Экспорт"</string>
     <string name="import_scene">"Импорт"</string>
     <string name="import_question">"Импортировать сцену?"</string>
     <string name="import_confirmation">"После выбора корректного файла текущая песочница будет заменена."</string>
-    <string name="saved_universes">"СОХРАНЁННЫЕ МИРЫ"</string>
 
     <string name="replace_slot_confirmation">"Предыдущее сохранение в этом слоте будет заменено."</string>
     <string name="load_slot_confirmation">"Несохранённые изменения текущей песочницы будут заменены."</string>
@@ -65,17 +56,13 @@
     <string name="new_universe_question">"Создать новый мир?"</string>
     <string name="new_run_confirmation">"Текущая попытка завершится. Рекорд сохранится."</string>
     <string name="new_universe_confirmation">"Несохранённые изменения будут заменены. Сначала сохраните мир в слот."</string>
-    <string name="new_arcade_run">"Новая попытка"</string>
 
 
-    <string name="feedback_options">"ОБРАТНАЯ СВЯЗЬ"</string>
     <string name="sound">"Звуки событий"</string>
     <string name="music">"Фоновая музыка"</string>
     <string name="vibration">"Вибрация"</string>
     <string name="reduced_flashes">"Меньше вспышек"</string>
-    <string name="launch_arcade">"Начать аркаду"</string>
     <string name="create_universe">"Создать мир"</string>
-    <string name="practice_controls">"Обучение"</string>
     <string name="practice_question">"Начать обучение?"</string>
     <string name="practice_confirmation">"Учебная сцена заменит эту сессию. Сначала сохраните свой мир."</string>
     <string name="confirm">"Подтвердить"</string>
@@ -84,8 +71,6 @@
     <string name="name">"Название"</string>
     <string name="save">"Сохранить"</string>
     <string name="cancel">"Отмена"</string>
-    <string name="arcade_description">"Защищайте ядро. Выдержите следующую волну."</string>
-    <string name="sandbox_description">"Создавайте миры. Исследуйте орбиты."</string>
     <string name="load">"Загрузить"</string>
     <string name="undo">"Отмена"</string>
     <string name="checkpoint">"Снимок"</string>
@@ -139,15 +124,11 @@
 
     <string name="saved_slot">"Сохранено в слот %1$d"</string>
     <string name="difficulty_details">"Жизни: %1$d · Очки ×%2$s · Волна: 24 с + отдых 4 с"</string>
-    <string name="personal_best">"Рекорд · %1$s"</string>
     <string name="slot_name">"%1$d · %2$s"</string>
     <string name="slot_empty">"Слот %1$d"</string>
     <string name="body_count">"Тел: %1$d"</string>
     <string name="replace_slot_question">"Заменить слот %1$d?"</string>
     <string name="load_slot_question">"Загрузить слот %1$d?"</string>
-    <string name="load_slot_bodies">"Слот %1$d · Тел: %2$d"</string>
-    <string name="create_preset">"Создать: %1$s"</string>
-    <string name="continue_mode">"Продолжить: %1$s"</string>
     <string name="body_details">"Масса %1$d · Скорость %2$d"</string>
     <string name="game_over_intercepts">"Перехвачено: %1$d · Рекорд: %2$d"</string>
     <string name="game_over_details">"Время: %1$d с · Волна: %2$d · Точность: %3$d%%"</string>
@@ -210,4 +191,16 @@
     <string name="collision_debris">Обломки</string>
     <string name="generate_random_systems">Создать системы · 500 тел</string>
     <string name="random_systems_name">Случайные системы</string>
+    <string name="settings">Настройки</string>
+    <string name="worlds">Миры</string>
+    <string name="details">Подробнее</string>
+    <string name="menu_record">Рекорд · %1$d</string>
+    <string name="new_world">Новый мир</string>
+    <string name="resume_game">Продолжить</string>
+    <string name="start_game">Начать игру</string>
+    <string name="new_game">Новая игра</string>
+    <string name="how_to_play">Как играть</string>
+    <string name="random_systems_short">Системы · 500 тел</string>
+    <string name="random_systems_description">Десять случайных систем: звёзды, планеты, спутники и астероиды.</string>
+    <string name="pilot_target_speed">Заданная скорость</string>
 </resources>

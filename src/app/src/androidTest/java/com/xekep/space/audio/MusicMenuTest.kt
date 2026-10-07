@@ -27,7 +27,7 @@ class MusicMenuTest {
     @Before fun chooseLanguageOnFirstLaunch() {
         if (compose.onAllNodesWithTag("first-language-screen").fetchSemanticsNodes().isNotEmpty()) {
             compose.onNodeWithTag("language-en").performClick()
-            compose.waitUntil(5000) { compose.onAllNodesWithTag("ambient-music-switch").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(5000) { compose.onAllNodesWithTag("open-settings").fetchSemanticsNodes().isNotEmpty() }
         }
     }
 
@@ -36,6 +36,7 @@ class MusicMenuTest {
     }
 
     @Test fun musicSwitchImmediatelyControlsPlaybackInThePausedMenu() {
+        compose.onNodeWithTag("open-settings").performClick()
         val audio = context.getSystemService(AudioManager::class.java)
         val control = compose.onNodeWithTag("ambient-music-switch").performScrollTo()
         if (control.fetchSemanticsNode().config[SemanticsProperties.ToggleableState] != ToggleableState.On) {

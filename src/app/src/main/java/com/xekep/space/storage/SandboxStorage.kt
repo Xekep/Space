@@ -92,6 +92,8 @@ class SandboxStorage(context: Context) {
                     .put("kind", body.kind.name)
                     .put("solar", body.solar?.name ?: "")
                     .put("physicalScale", body.physicalScale)
+                    .put("isDebris",body.isDebris)
+                    .put("pilotTargetSpeed",body.pilotTargetSpeed)
                     .put("burnRemaining", body.burnRemaining)
                     .put("headingX", body.heading.x)
                     .put("headingY", body.heading.y)
@@ -144,6 +146,7 @@ class SandboxStorage(context: Context) {
                 val pilotThrottle=body.optDouble("pilotThrottle",0.0)
                 require(pilotThrottle in 0.0..1.0)
                 val kind=BodyKind.valueOf(body.getString("kind"))
+                val targetSpeed=if (body.has("pilotTargetSpeed")) body.getDouble("pilotTargetSpeed").also { require(it in 0.0..900.0 && (kind == BodyKind.Ship || kind == BodyKind.Rocket)) } else null
                 val fuel=body.optDouble("fuelRemaining",com.xekep.space.sim.vehicleFuelCapacity(kind))
                 require(fuel in 0.0..com.xekep.space.sim.vehicleFuelCapacity(kind))
                 val drift=body.optDouble("driftRemaining",if (kind == BodyKind.Rocket) com.xekep.space.sim.ROCKET_DRIFT_SECONDS else 0.0)
@@ -181,6 +184,7 @@ class SandboxStorage(context: Context) {
                         heading = heading,
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
+                        pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
                         fuelRemaining = fuel,
                         driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),

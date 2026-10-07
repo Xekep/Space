@@ -125,4 +125,24 @@ class PilotCameraTest {
             }
         }
     }
+    @Test fun speedSelectorOnlyChangesTheLastPilotedCraftInEitherModeAndClampsInput() {
+        for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+            val game=SpaceGameState().apply {
+                resize(IntSize(1080,2340))
+                if (mode == AppMode.Sandbox) startSandbox(SandboxPresetKind.Empty) else startArcade()
+                setMotionControlEnabled(true); chooseSpawnKind(kind)
+                launch(TouchPreview(Vec2(5000.0,5000.0),Vec2(5000.0,5000.0),0),0.0)
+                launch(TouchPreview(Vec2(5500.0,5000.0),Vec2(5500.0,5000.0),0),0.0)
+            }
+            val id=game.controlledVehicleId!!
+            game.setPilotTargetSpeed(1500.0)
+            assertEquals(900.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,0.0)
+            assertTrue(game.bodies.filter { it.id != id }.all { it.pilotTargetSpeed == null })
+            val before=game.bodies
+            game.setPilotTargetSpeed(Double.NaN); assertEquals(before,game.bodies)
+            game.setPilotTargetSpeed(200.0)
+            assertEquals(200.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,0.0)
+        }
+    }
+
 }

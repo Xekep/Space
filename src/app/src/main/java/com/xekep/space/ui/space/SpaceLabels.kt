@@ -39,6 +39,7 @@ fun SandboxPresetKind.labelId(): Int = when (this) {
     SandboxPresetKind.SolarSystem -> R.string.solar_system
     SandboxPresetKind.BinaryStars -> R.string.binary_stars
     SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits
+    SandboxPresetKind.RandomSystems -> R.string.random_systems_name
     SandboxPresetKind.Empty -> R.string.empty_space
 }
 
@@ -47,6 +48,7 @@ fun SandboxPresetKind.descriptionId(): Int = when (this) {
     SandboxPresetKind.SolarSystem -> R.string.solar_description
     SandboxPresetKind.BinaryStars -> R.string.binary_description
     SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits_description
+    SandboxPresetKind.RandomSystems -> R.string.random_systems_description
     SandboxPresetKind.Empty -> R.string.empty_description
 }
 

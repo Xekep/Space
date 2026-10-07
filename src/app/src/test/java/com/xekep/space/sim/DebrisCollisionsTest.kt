@@ -53,4 +53,32 @@ class DebrisCollisionsTest {
         assertEquals(8,result.bodies.size); verifyConserved(before,result.bodies)
         assertTrue(result.bodies.all { it.physicalScale && it.position.x.isFinite() && it.radius > 0 })
     }
+    @Test fun stellarImpactLeavesOneRemnantAndFiniteDebrisWithoutAFragmentationCascade() {
+        val stars=pair().map { it.copy(kind=BodyKind.Star) }
+        val first=collide(stars)
+        assertEquals(1,first.bodies.count { it.kind == BodyKind.Star })
+        assertTrue(first.bodies.size in 3..7)
+        verifyConserved(stars,first.bodies)
+        var bodies=first.bodies
+        repeat(120) {
+            bodies=SimulationEngine.stepSandbox(bodies,1.0/60,0.0,true,collisionMode=SandboxCollisionMode.Debris).bodies
+            assertTrue(bodies.size <= 7)
+            assertTrue(bodies.all { it.position.x.isFinite() && it.position.y.isFinite() && it.mass > 0 })
+            assertEquals(200.0,bodies.sumOf { it.mass },1e-7)
+        }
+    }
+
+    @Test fun closePhysicalStarsRemainBoundedAndDoNotMultiplyTheirFragments() {
+        var bodies=listOf(CelestialBody(1,Vec2(-.2,0.0),Vec2(1600.0,0.0),6000.0,.2f,Color.Yellow,BodyKind.Star,physicalScale=true),
+            CelestialBody(2,Vec2(.2,0.0),Vec2(-1600.0,0.0),6000.0,.2f,Color.Cyan,BodyKind.Star,physicalScale=true))
+        repeat(60) {
+            bodies=SimulationEngine.stepSandbox(bodies,1.0/60,0.0,true,collisionMode=SandboxCollisionMode.Debris).bodies
+            assertTrue(bodies.size <= 7)
+            assertTrue(bodies.all { it.position.x.isFinite() && it.position.y.isFinite() && it.velocity.magnitude().isFinite() })
+            assertEquals(12000.0,bodies.sumOf { it.mass },1e-6)
+        }
+        assertEquals(1,bodies.count { it.kind == BodyKind.Star })
+        assertTrue(bodies.any { it.isDebris })
+    }
+
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -45,10 +46,11 @@ fun SandboxSlotRow(
     summary: SandboxSlotSummary?,
     onSave: () -> Unit,
     onLoad: () -> Unit,
+    canSave: Boolean = true,
 ) {
     val context = LocalContext.current
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(10.dp),
         color = Color.White.copy(alpha = 0.04f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp,
@@ -78,9 +80,9 @@ fun SandboxSlotRow(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                FilledTonalButton(onClick = onSave) { Text(context.getString(R.string.save)) }
+                FilledTonalButton(onClick = onSave, enabled = canSave, modifier = Modifier.testTag("save-slot-$slot")) { Text(context.getString(R.string.save)) }
                 androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp))
-                FilledTonalButton(onClick = onLoad, enabled = summary != null) { Text(context.getString(R.string.load)) }
+                FilledTonalButton(onClick = onLoad, enabled = summary != null, modifier = Modifier.testTag("load-slot-$slot")) { Text(context.getString(R.string.load)) }
             }
         }
     }

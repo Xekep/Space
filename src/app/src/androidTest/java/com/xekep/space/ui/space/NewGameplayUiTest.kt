@@ -58,6 +58,7 @@ class NewGameplayUiTest {
         try {
             val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.ClassicOrbits); toggleSandboxPause(); openMenu() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("open-settings").performClick()
             compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOn().performClick()
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("large-vehicle-icons").assertIsOff()
@@ -73,11 +74,15 @@ class NewGameplayUiTest {
             compose.onNodeWithTag("large-vehicle-icons").performClick().assertIsOn()
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle { assertTrue(game.largeVehicleIcons) }
+            compose.onNodeWithTag("close-menu-panel").performClick()
             compose.onNodeWithTag("mode-Arcade").performScrollTo().performClick()
+            compose.onNodeWithTag("open-settings").performClick()
             compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOn().performClick()
             compose.onNodeWithTag("large-vehicle-icons").assertIsOff()
             compose.runOnIdle { assertFalse(game.largeVehicleIcons) }
+            compose.onNodeWithTag("close-menu-panel").performClick()
             compose.onNodeWithTag("mode-Sandbox").performScrollTo().performClick()
+            compose.onNodeWithTag("open-settings").performClick()
             compose.onNodeWithTag("large-vehicle-icons").performScrollTo().assertIsOff()
         } finally { prefs.edit().putBoolean("largeVehicleIcons",prior).commit() }
     }

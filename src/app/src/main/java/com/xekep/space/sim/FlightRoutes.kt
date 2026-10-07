@@ -8,10 +8,11 @@ fun routeCruiseSpeed(launchSpeed: Double): Double {
     return (if (launchSpeed > 2) launchSpeed else 120.0).coerceIn(.1,260.0)
 }
 
-/** Wheel input overrides the route; neutral lets the navigator fly the authored path. */
+/** Wheel input or an explicit speed setpoint overrides the route; neutral keeps the navigator. */
 fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightControl?, seconds: Double): List<CelestialBody> {
     if (!seconds.isFinite() || seconds <= 0) return bodies
-    val manual=control?.takeIf { abs(it.steering) > .025 || it.boost > 0 }
+    val manual=control?.takeIf { candidate -> abs(candidate.steering) > .025 || candidate.boost > 0 ||
+        bodies.any { it.id == candidate.bodyId && it.pilotTargetSpeed != null } }
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body
         if (body.fuelRemaining <= 1e-9 || body.id == manual?.bodyId)

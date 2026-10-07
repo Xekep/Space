@@ -37,27 +37,18 @@
     <string name="import_failed">"This scene could not be imported. The current universe is kept."</string>
     <string name="load_failed">"This save could not be loaded."</string>
     <string name="space_scene">"Space scene"</string>
-    <string name="take_breath">"Take a breath."</string>
     <string name="universe_awaits">"Your universe awaits."</string>
-    <string name="simulation_paused">"Simulation paused"</string>
-    <string name="two_modes">"Two ways to explore the cosmos"</string>
-    <string name="next_run">"NEXT RUN"</string>
-    <string name="last_run">"Last / current run"</string>
-    <string name="starting_scene">"STARTING SCENE"</string>
-    <string name="new_universe">"NEW UNIVERSE"</string>
     <string name="solar">"System"</string>
     <string name="binary">"Binary"</string>
     <string name="empty">"Empty"</string>
     <string name="merge_impact">Body collisions</string>
 
-    <string name="current_universe">"CURRENT UNIVERSE"</string>
     <string name="unsaved_changes">" · Unsaved changes"</string>
     <string name="rename">"Rename"</string>
     <string name="export_scene">"Export scene"</string>
     <string name="import_scene">"Import scene"</string>
     <string name="import_question">"Import scene?"</string>
     <string name="import_confirmation">"The current sandbox will be replaced after choosing a valid scene file."</string>
-    <string name="saved_universes">"SAVED UNIVERSES"</string>
 
     <string name="replace_slot_confirmation">"The previous saved universe in this slot will be replaced."</string>
     <string name="load_slot_confirmation">"Unsaved changes to the current sandbox will be replaced."</string>
@@ -65,17 +56,13 @@
     <string name="new_universe_question">"Create a new universe?"</string>
     <string name="new_run_confirmation">"The current run will end. Your personal best is kept."</string>
     <string name="new_universe_confirmation">"Unsaved sandbox changes will be replaced. Save to a slot first to keep this universe."</string>
-    <string name="new_arcade_run">"New arcade run"</string>
 
 
-    <string name="feedback_options">"FEEDBACK"</string>
     <string name="sound">"Sound effects"</string>
     <string name="music">"Ambient music"</string>
     <string name="vibration">"Vibration"</string>
     <string name="reduced_flashes">"Reduced flashes"</string>
-    <string name="launch_arcade">"Launch arcade"</string>
     <string name="create_universe">"Create universe"</string>
-    <string name="practice_controls">"Practice controls"</string>
     <string name="practice_question">"Practice controls?"</string>
     <string name="practice_confirmation">"A practice scene will replace this session. Save your universe first."</string>
     <string name="confirm">"Confirm"</string>
@@ -84,8 +71,6 @@
     <string name="name">"Name"</string>
     <string name="save">"Save"</string>
     <string name="cancel">"Cancel"</string>
-    <string name="arcade_description">"Defend the core. Survive the next wave."</string>
-    <string name="sandbox_description">"Build worlds. Discover their orbits."</string>
     <string name="load">"Load"</string>
     <string name="undo">"Undo"</string>
     <string name="checkpoint">"Checkpoint"</string>
@@ -139,15 +124,11 @@
 
     <string name="saved_slot">"Saved to slot %1$d"</string>
     <string name="difficulty_details">"Hull: %1$d · Score ×%2$s · Waves: 24s + 4s recharge"</string>
-    <string name="personal_best">"Personal best · %1$s"</string>
     <string name="slot_name">"%1$d · %2$s"</string>
     <string name="slot_empty">"Slot %1$d"</string>
     <string name="body_count">"Bodies: %1$d"</string>
     <string name="replace_slot_question">"Replace slot %1$d?"</string>
     <string name="load_slot_question">"Load slot %1$d?"</string>
-    <string name="load_slot_bodies">"Load slot %1$d · Bodies: %2$d"</string>
-    <string name="create_preset">"Create %1$s"</string>
-    <string name="continue_mode">"Continue %1$s"</string>
     <string name="body_details">"Mass %1$d · Speed %2$d"</string>
     <string name="game_over_intercepts">"Intercepts: %1$d · Best: %2$d"</string>
     <string name="game_over_details">"Time: %1$ds · Wave: %2$d · Accuracy: %3$d%%"</string>
@@ -210,4 +191,16 @@
     <string name="collision_debris">Debris</string>
     <string name="generate_random_systems">Generate systems · 500 bodies</string>
     <string name="random_systems_name">Random systems</string>
+    <string name="settings">Settings</string>
+    <string name="worlds">Worlds</string>
+    <string name="details">Details</string>
+    <string name="menu_record">Best · %1$d</string>
+    <string name="new_world">New world</string>
+    <string name="resume_game">Continue</string>
+    <string name="start_game">Start game</string>
+    <string name="new_game">New game</string>
+    <string name="how_to_play">How to play</string>
+    <string name="random_systems_short">Systems · 500 bodies</string>
+    <string name="random_systems_description">Ten random systems: stars, planets, moons and asteroids.</string>
+    <string name="pilot_target_speed">Target speed</string>
 </resources>

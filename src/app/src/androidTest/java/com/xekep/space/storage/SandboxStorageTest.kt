@@ -243,4 +243,20 @@ class SandboxStorageTest {
         assertEquals(0.0, ArcadeProgress(context).records.getValue(com.xekep.space.ui.space.ArcadeDifficulty.Normal), 0.0)
     }
 
+    @Test fun debrisAndPilotSpeedRoundTripWithTheRandomSystemsPresetAndOldDefaults() {
+        val ship=com.xekep.space.sim.CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,1f,
+            androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,pilotTargetSpeed=320.0)
+        val fragment=com.xekep.space.sim.CelestialBody(2,Vec2(100.0,0.0),Vec2.Zero,1.0,.5f,
+            androidx.compose.ui.graphics.Color.Gray,isDebris=true)
+        val snapshot=SandboxSnapshot(listOf(ship,fragment),Vec2.Zero,1f,0.0,0,preset=SandboxPresetKind.RandomSystems)
+        assertEquals(snapshot,storage.decode(storage.encode(snapshot)))
+        val raw=org.json.JSONObject(storage.encode(snapshot))
+        raw.getJSONArray("bodies").getJSONObject(0).remove("pilotTargetSpeed")
+        raw.getJSONArray("bodies").getJSONObject(1).remove("isDebris")
+        val old=storage.decode(raw.toString())
+        assertNull(old.bodies[0].pilotTargetSpeed); assertFalse(old.bodies[1].isDebris)
+        raw.getJSONArray("bodies").getJSONObject(0).put("pilotTargetSpeed",901.0)
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
+    }
+
 }

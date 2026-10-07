@@ -117,4 +117,16 @@ class GameplayRulesTest {
         game.skipTutorial()
         assertFalse(game.arcade!!.practice); assertEquals(0.0, game.arcade!!.elapsed, 0.0)
     }
+    @Test fun sandboxLongStallPausesInPlaceWithoutOpeningTheMenuOrLosingBodies() = kotlinx.coroutines.runBlocking {
+        for (async in listOf(false,true)) {
+            val game=game().apply { startSandbox(SandboxPresetKind.BinaryStars); setCollisions(true); setCollisionMode(com.xekep.space.sim.SandboxCollisionMode.Debris) }
+            val before=game.bodies
+            if (async) game.updateSandboxAsync(3.0) else game.update(3.0)
+            assertFalse(game.menuOpen); assertTrue(game.sandbox!!.paused)
+            assertEquals(before,game.bodies); assertNotNull(game.feedback)
+            game.toggleSandboxPause(); game.update(1.0/60)
+            assertFalse(game.menuOpen); assertFalse(game.sandbox!!.paused)
+        }
+    }
+
 }

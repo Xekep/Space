@@ -25,16 +25,17 @@ class MenuAndHapticsUiTest {
         compose.onNodeWithTag("motion-control-switch").assertDoesNotExist()
         compose.onNodeWithText(context.getString(com.xekep.space.R.string.motion_control)).assertDoesNotExist()
     }
-    @Test fun collisionModeBelongsToSandboxAndCanBeChangedFromTheMenu() {
+    @Test fun collisionModeIsInSandboxToolsInsteadOfTheMainMenu() {
         val game=SpaceGameState().apply { startSandbox(); setCollisions(true); openMenu() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.onNodeWithTag("sandbox-collisions").assertDoesNotExist()
+        compose.onNodeWithTag("collision-mode-Debris").assertDoesNotExist()
+        compose.onNodeWithTag("menu-primary").performClick()
+        compose.onNodeWithTag("sandbox-tools").performClick()
         compose.onNodeWithTag("collision-mode-Debris").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(com.xekep.space.sim.SandboxCollisionMode.Debris,game.sandbox!!.collisionMode) }
         compose.onNodeWithTag("collision-mode-Merge").performScrollTo().performClick()
         compose.runOnIdle { assertEquals(com.xekep.space.sim.SandboxCollisionMode.Merge,game.sandbox!!.collisionMode) }
-        compose.onNodeWithTag("mode-Arcade").performScrollTo().performClick()
-        compose.onNodeWithTag("collision-mode-Debris").assertDoesNotExist()
-        compose.onNodeWithTag("collision-mode-Merge").assertDoesNotExist()
     }
 
     @Test fun vibrationPermissionAndEnabledForegroundImpactsWork() {

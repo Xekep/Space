@@ -109,7 +109,8 @@ internal object NumericIntegrator {
     }
 
     private fun fuelRate(body: CelestialBody, controlledId: Long?) =
-        1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0
+        if (body.id == controlledId && body.pilotTargetSpeed != null) .12+1.38*body.pilotThrottle else
+            1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0
 
     private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray,
         workspace: Buffers,useTree: Boolean) {
