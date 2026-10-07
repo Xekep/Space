@@ -71,5 +71,28 @@ fun com.xekep.space.sim.CelestialBody.labelId(): Int = when (solar) {
     com.xekep.space.sim.SolarBody.Callisto -> R.string.callisto
     com.xekep.space.sim.SolarBody.Titan -> R.string.titan
     com.xekep.space.sim.SolarBody.Triton -> R.string.triton
-    null -> kind.labelId()
+    null -> if (kind == BodyKind.Ship && shipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_guardian else kind.labelId()
+}
+
+
+@StringRes
+fun SpaceGameState.spawnLabelId(): Int = if (mode == AppMode.Arcade && spawnKind == BodyKind.Ship &&
+    arcadeShipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_guardian else
+    if (spawnKind == BodyKind.Ambient) R.string.spawn_body_short else spawnKind.labelId()
+
+@StringRes
+fun ArcadeUpgrade.labelId(): Int = when (this) {
+    ArcadeUpgrade.Fleet -> R.string.upgrade_fleet
+    ArcadeUpgrade.Engines -> R.string.upgrade_engines
+    ArcadeUpgrade.Guns -> R.string.upgrade_guns
+    ArcadeUpgrade.Reactor -> R.string.upgrade_reactor
+    ArcadeUpgrade.Repair -> R.string.upgrade_repair
+}
+@StringRes
+fun ArcadeUpgrade.descriptionId(): Int = when (this) {
+    ArcadeUpgrade.Fleet -> R.string.upgrade_fleet_help
+    ArcadeUpgrade.Engines -> R.string.upgrade_engines_help
+    ArcadeUpgrade.Guns -> R.string.upgrade_guns_help
+    ArcadeUpgrade.Reactor -> R.string.upgrade_reactor_help
+    ArcadeUpgrade.Repair -> R.string.upgrade_repair_help
 }

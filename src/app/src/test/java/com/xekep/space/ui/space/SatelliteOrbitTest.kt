@@ -191,4 +191,28 @@ class SatelliteOrbitTest {
         }
         assertTrue("Orbit radius range: $minimum..$maximum",minimum > .18 && maximum < .22)
     }
+    @Test fun satelliteRadiusUsesTheParentsDensityEvenForTinyBodiesAndNestedMoons() {
+        for ((mass,radius) in listOf(70.0 to 8f,1.0 to .4f,1e-8 to .00001f)) {
+            val parent=CelestialBody(100000,Vec2.Zero,Vec2(180.0,-90.0),mass,radius,androidx.compose.ui.graphics.Color.Cyan)
+            val game=SpaceGameState().apply {
+                loadSandbox(com.xekep.space.storage.SandboxSnapshot(listOf(parent),Vec2.Zero,1f,0.0,0))
+            }
+            var center=parent
+            repeat(3) {
+                game.selectBody(center.id); game.prepareOrbit()
+                val point=center.position+Vec2(maxOf(center.radius*4.0,.1),0.0)
+                val preview=TouchPreview(point,point,0)
+                val candidate=game.previewBody(preview,4.0)!!
+                assertTrue(candidate.mass < center.mass)
+                assertTrue(candidate.radius > 0 && candidate.radius < center.radius)
+                assertEquals(center.radius*cbrt(candidate.mass/center.mass),candidate.radius.toDouble(),center.radius*1e-6)
+                assertEquals(SimulationEngine.orbitVelocity(center,point,candidate.mass),candidate.velocity)
+                val count=game.bodies.size
+                game.launch(preview,4.0)
+                assertEquals(count+1,game.bodies.size)
+                assertEquals(candidate.radius,game.bodies.last().radius)
+                center=game.bodies.last()
+            }
+        }
+    }
 }

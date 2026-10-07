@@ -45,14 +45,14 @@ internal object NumericIntegrator {
         val dt = seconds / steps
         repeat(steps) { step ->
             if (hasVehicles) bodies.forEachIndexed { i, body ->
-                if (alignRockets && body.isVehicle && body.id != controlledId && body.waypoints.isEmpty()) {
+                if (alignRockets && body.isVehicle && body.enginePowered && body.id != controlledId && body.waypoints.isEmpty()) {
                     val velocity = Vec2(values[i * 4 + 2], values[i * 4 + 3])
                     if (velocity.magnitude() > 2.0) {
                         val heading = turnHeading(Vec2(headings[i * 2], headings[i * 2 + 1]), velocity, dt, 2.8)
                         headings[i * 2] = heading.x; headings[i * 2 + 1] = heading.y
                     }
                 }
-                val acceleration = if (body.kind == BodyKind.Rocket && body.id != controlledId && body.routePath == null) {
+                val acceleration = if (body.kind == BodyKind.Rocket && body.enginePowered && body.id != controlledId && body.routePath == null) {
                     val speed = Vec2(values[i*4+2], values[i*4+3]).magnitude()
                     minOf(80.0 * ((body.fuelRemaining-step*dt)/dt).coerceIn(0.0,1.0),
                         (900.0-speed).coerceAtLeast(0.0)/dt)
@@ -86,7 +86,7 @@ internal object NumericIntegrator {
             if (hasRoutes) bodies.forEachIndexed { i, body ->
                 val path = body.routePath?.takeIf { body.fuelRemaining > 1e-9 } ?: return@forEachIndexed
                 val elapsed = (step+1)*dt
-                val powered = minOf(elapsed, body.fuelRemaining/fuelRate(body,controlledId))
+                val powered = minOf(elapsed, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
                 val sample = path.sample(body.routeDistance+body.routeSpeed*powered)
                 val point = sample.position+sample.direction*(body.routeSpeed*(elapsed-powered))
                 values[i*4]=point.x; values[i*4+1]=point.y
@@ -96,7 +96,7 @@ internal object NumericIntegrator {
         }
         return bodies.mapIndexed { i, body ->
             val point = Vec2(values[i * 4], values[i * 4 + 1])
-            val powered = minOf(seconds, body.fuelRemaining/fuelRate(body,controlledId))
+            val powered = minOf(seconds, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
             val fuel = if (body.isVehicle) (body.fuelRemaining-seconds*fuelRate(body,controlledId)).coerceAtLeast(0.0) else body.fuelRemaining
             body.copy(position = point, velocity = Vec2(values[i * 4 + 2], values[i * 4 + 3]),
                 heading = Vec2(headings[i * 2], headings[i * 2 + 1]),
@@ -112,8 +112,8 @@ internal object NumericIntegrator {
     }
 
     private fun fuelRate(body: CelestialBody, controlledId: Long?) =
-        if (body.id == controlledId && body.pilotTargetSpeed != null) .12+1.38*body.pilotThrottle else
-            1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0
+        (if (body.pilotTargetSpeed == 0.0) 0.0 else if (body.id == controlledId && body.pilotTargetSpeed != null) .12+1.38*body.pilotThrottle else
+            1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0) * body.fuelConsumptionScale
 
     private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray,
         workspace: Buffers,useTree: Boolean,cacheGravity: Boolean = true) {

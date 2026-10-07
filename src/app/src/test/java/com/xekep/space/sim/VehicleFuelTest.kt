@@ -10,11 +10,13 @@ class VehicleFuelTest {
     @Test fun freeShipsAndRocketsAlignWithGravityDeflectedVelocityWhilePilotsAndRoutesKeepTheirHeading() {
         val star=CelestialBody(2,Vec2(500.0,0.0),Vec2.Zero,6000.0,5f,Color.Yellow,BodyKind.Star)
         val free=listOf(BodyKind.Ship,BodyKind.Rocket).map { kind ->
-            val body=craft(kind).let { if (kind == BodyKind.Rocket) it.copy(fuelRemaining=0.0) else it }
+            val body=craft(kind)
             SimulationEngine.stepSandbox(listOf(body,star),.5,0.0,false).bodies.first()
         }
         assertTrue(free.all { it.heading.x > .01 && it.velocity.x > 0 })
-        assertEquals(free[0].heading.x,free[1].heading.x,1e-8)
+        val coasting=craft(BodyKind.Rocket).copy(fuelRemaining=0.0)
+        val drift=SimulationEngine.stepSandbox(listOf(coasting,star),.5,0.0,false).bodies.first()
+        assertEquals(coasting.heading,drift.heading); assertTrue(drift.velocity.x > 0)
         for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
             val pilot=SimulationEngine.stepSandbox(listOf(craft(kind),star),.5,0.0,false,1).bodies.first()
             assertEquals(craft(kind).heading,pilot.heading)

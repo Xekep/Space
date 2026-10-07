@@ -179,6 +179,22 @@
     <string name="new_game">Neues Spiel</string>
     <string name="how_to_play">Spielanleitung</string>
     <string name="random_systems_short">Systeme · 500 Körper</string>
-    <string name="random_systems_description">500 Himmelskörper: Einzel- und Doppelsterne, elliptische Umlaufbahnen, Asteroidengürtel und kreuzende Ströme.</string>
+    <string name="random_systems_description">500 Himmelskörper: zehn getrennte Sternsysteme, Planeten, Monde und Asteroidengürtel mit stabilen Anfangsbahnen.</string>
     <string name="pilot_target_speed">Zielgeschwindigkeit</string>
+    <string name="spawn_guardian">Wächter</string>
+    <string name="guardian_unlocked">Wächter freigeschaltet · schützt den Kern</string>
+    <string name="upgrade_title">Welle %1$d · Verbesserung</string>
+    <string name="upgrade_description">Wähle eine Option, um den Flug fortzusetzen.</string>
+    <string name="upgrade_fleet">Flottenreserve</string>
+    <string name="upgrade_fleet_help">+1 Schiffsplatz und +2 Raketenplätze</string>
+    <string name="upgrade_engines">Sparsame Triebwerke</string>
+    <string name="upgrade_engines_help" formatted="false">15% weniger Treibstoffverbrauch</string>
+    <string name="upgrade_guns">Schnellfeuer</string>
+    <string name="upgrade_guns_help" formatted="false">15% kürzerer Feuerabstand für Schiffe</string>
+    <string name="upgrade_reactor">Reaktor</string>
+    <string name="upgrade_reactor_help">+20 Energiekapazität und +2 Energie pro Sekunde</string>
+    <string name="upgrade_repair">Kern reparieren</string>
+    <string name="upgrade_repair_help">Stellt einen Strukturpunkt wieder her</string>
+    <string name="challenge_giant">Splittergigant</string>
+    <string name="challenge_parts">Fragmente · %1$d</string>
 </resources>

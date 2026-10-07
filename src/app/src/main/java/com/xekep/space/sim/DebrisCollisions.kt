@@ -48,8 +48,9 @@ internal fun collisionPairs(bodies: List<CelestialBody>,previous: List<Celestial
 
 internal class EjectaBudget(var remaining: Int)
 
-/** Inelastic contact plus a small, energy-limited ejecta budget. Ejecta are real gravitational
- * bodies. Removed mass and momentum are transferred to them, including at the scene limit. */
+/** Absorb both bodies into one remnant, ejecting a bounded fraction of matter on energetic
+ * impacts. Symmetric ejecta carry their share of mass and momentum; the remaining kinetic
+ * energy is dissipated. Debris is absorbed without spawning another generation. */
 internal fun debrisCollisions(bodies: List<CelestialBody>,previous: List<CelestialBody>,seconds: Double,
     budget: EjectaBudget = EjectaBudget(Int.MAX_VALUE),newId: () -> Long): StepResult {
     val aligned=bodies.size == previous.size && bodies.indices.all { bodies[it].id == previous[it].id }
@@ -63,75 +64,53 @@ internal fun debrisCollisions(bodies: List<CelestialBody>,previous: List<Celesti
     if (pairs.isEmpty()) return StepResult(bodies,emptyList())
     val result=bodies.toMutableList(); val events=ArrayList<CollisionEvent>()
     val touched=BooleanArray(bodies.size); val removed=BooleanArray(bodies.size)
+    var activeCount=bodies.size
     for ((i,j,contact) in pairs) {
         if (touched[i] || touched[j]) continue
-        var a=result[i]; var b=result[j]
-        val aStart=prior(i,a).position; val bStart=prior(j,b).position
-        var p1=aStart+(a.position-aStart)*contact.fraction
-        var p2=bStart+(b.position-bStart)*contact.fraction
-        var normal=(p2-p1).normalized()
-        if (normal == Vec2.Zero) normal=(a.velocity-b.velocity).normalized().takeUnless { it == Vec2.Zero } ?: Vec2(1.0,0.0)
+        val a=result[i]; val b=result[j]
+        touched[i]=true; touched[j]=true; removed[j]=true; activeCount--
+        val p1=prior(i,a).position+(a.position-prior(i,a).position)*contact.fraction
+        val p2=prior(j,b).position+(b.position-prior(j,b).position)*contact.fraction
         val mass=a.mass+b.mass
-        val gap=(a.radius+b.radius-(p2-p1).magnitude()).coerceAtLeast(0.0)+max(1e-8,min(a.radius,b.radius)*1e-4)
-        p1-=normal*(gap*b.mass/mass); p2+=normal*(gap*a.mass/mass)
+        val velocity=(a.velocity*a.mass+b.velocity*b.mass)/mass
+        val position=(p1*a.mass+p2*b.mass)/mass+velocity*seconds*(1-contact.fraction)
         val relative=b.velocity-a.velocity
-        val approach=-(relative.x*normal.x+relative.y*normal.y)
-        if (approach <= 1e-8) {
-            result[i]=a.copy(position=p1+a.velocity*seconds*(1-contact.fraction))
-            result[j]=b.copy(position=p2+b.velocity*seconds*(1-contact.fraction))
-            continue
-        }
-        touched[i]=true; touched[j]=true
+        val speed=relative.magnitude()
+        val normal=(p2-p1).normalized().takeUnless { it == Vec2.Zero }
+            ?: relative.normalized().takeUnless { it == Vec2.Zero } ?: Vec2(1.0,0.0)
         val escape=sqrt(800.0*mass/(a.radius+b.radius+forceSoftening(a,b)))
-        // Low-speed resting contacts transfer impulse without perpetual micro-bounces.
-        val restitution=if (approach < max(.5,escape*.01)) 0.0 else .55
-        val impulse=(1+restitution)*approach/(1/a.mass+1/b.mass)
-        val v1=a.velocity-normal*(impulse/a.mass); val v2=b.velocity+normal*(impulse/b.mass)
-        val impact=p1+normal*a.radius.toDouble()
-        val reducedMass=a.mass*b.mass/mass
-        val dissipated=.5*reducedMass*approach*approach*(1-restitution*restitution)
-        val stellar=(a.kind == BodyKind.Star || a.kind == BodyKind.Core) && (b.kind == BodyKind.Star || b.kind == BodyKind.Core)
+        val energy=.5*(a.mass*b.mass/mass)*speed*speed
         val perImpact=if (bodies.size >= BARNES_HUT_THRESHOLD) 2 else if (bodies.size >= 80) 4 else 6
-        val count=if (a.isDebris || b.isDebris) 0 else minOf(perImpact,1000-result.size,budget.remaining)/2*2
-        if (count >= 2 && approach > max(12.0,escape*.3)) {
-            budget.remaining-=count
-            val loss=min(a.mass,b.mass)*(approach/(escape+1)*.04).coerceIn(.015,.12)
-            val loss1=loss*b.mass/mass; val loss2=loss*a.mass/mass
-            val fragmentMass=loss/count
-            val volume=a.radius.toDouble().pow(3)*loss1/a.mass+b.radius.toDouble().pow(3)*loss2/b.mass
-            val radius=cbrt(volume/count).coerceAtLeast(1e-7).toFloat()
-            val base=(v1*loss1+v2*loss2)/loss
-            val spread=min(sqrt(2*dissipated*.12/loss),approach*.35)
+        val count=if (a.isDebris || b.isDebris || speed <= max(12.0,escape*.3)) 0
+            else minOf(perImpact,1000-activeCount,budget.remaining)/2*2
+        val loss=if (count == 0) 0.0 else min(a.mass,b.mass)*(speed/(escape+1)*.04).coerceIn(.015,.12)
+        val volume=a.radius.toDouble().pow(3)+b.radius.toDouble().pow(3)
+        val remnantRadius=cbrt(volume*(1-loss/mass)).toFloat()
+        if (count > 0) {
+            budget.remaining-=count; activeCount+=count
+            val radius=cbrt(volume*loss/mass/count).toFloat()
+            val spread=min(sqrt(2*energy*.25/loss),speed*.5)
             val tangent=normal.perpendicular()
-            val remnantRadius=cbrt(a.radius.toDouble().pow(3)+b.radius.toDouble().pow(3)-volume)
-            val debrisCenter=if (stellar) (p1*a.mass+p2*b.mass)/mass else impact
-            val offset=if (stellar) remnantRadius+radius*2.2 else max(sqrt(2*max(a.radius,b.radius)*radius+radius*radius)*1.2,radius*2.2)
             repeat(count/2) { pair ->
-                val angle=(pair-(count/2-1)*.5)*.3
+                val angle=(pair-(count/2-1)*.5)*.45
                 val direction=tangent*cos(angle)+normal*sin(angle)
                 for (sign in listOf(-1.0,1.0)) result+=CelestialBody(newId(),
-                    debrisCenter+tangent*(sign*(offset+pair*radius*2.4)),base+direction*(sign*spread),fragmentMass,radius,
+                    position+direction*(sign*(remnantRadius+radius*2.5)),velocity+direction*(sign*spread),loss/count,radius,
                     Color((a.color.red+b.color.red)*.5f,(a.color.green+b.color.green)*.5f,(a.color.blue+b.color.blue)*.5f),
                     physicalScale=a.physicalScale || b.physicalScale,isDebris=true)
             }
-            a=a.copy(mass=a.mass-loss1,radius=(a.radius*cbrt(1-loss1/a.mass)).toFloat(),solar=null)
-            b=b.copy(mass=b.mass-loss2,radius=(b.radius*cbrt(1-loss2/b.mass)).toFloat(),solar=null)
         }
-        if (stellar) {
-            val combinedMass=a.mass+b.mass
-            val velocity=(v1*a.mass+v2*b.mass)/combinedMass
-            val position=(p1*a.mass+p2*b.mass)/combinedMass+velocity*seconds*(1-contact.fraction)
-            val dominant=if (a.mass >= b.mass) a else b
-            result[i]=dominant.copy(id=a.id,mass=combinedMass,position=position,velocity=velocity,
-                radius=cbrt(a.radius.toDouble().pow(3)+b.radius.toDouble().pow(3)).toFloat(),solar=null,
-                physicalScale=a.physicalScale || b.physicalScale,trail=listOf(position))
-            removed[j]=true
-        } else {
-            result[i]=a.copy(position=p1+v1*seconds*(1-contact.fraction),velocity=v1,trail=contactTrail(a,p1,v1))
-            result[j]=b.copy(position=p2+v2*seconds*(1-contact.fraction),velocity=v2,trail=contactTrail(b,p2,v2))
+        val dominant=if (a.mass >= b.mass) a else b
+        val kind=when {
+            a.kind == BodyKind.Core || b.kind == BodyKind.Core -> BodyKind.Core
+            a.kind == BodyKind.Star || b.kind == BodyKind.Star -> BodyKind.Star
+            else -> dominant.kind
         }
-        if (stellar || approach > max(4.0,escape*.02))
-            events+=CollisionEvent(a.kind,b.kind,impact,velocity=(v1+v2)*.1,seed=(a.id xor b.id).toInt(),debrisImpact=true)
+        result[i]=dominant.copy(mass=mass-loss,position=position,velocity=velocity,radius=remnantRadius,
+            kind=kind,solar=null,physicalScale=a.physicalScale || b.physicalScale,
+            isDebris=a.isDebris && b.isDebris,trail=listOf(position))
+        if (count > 0 || speed > max(4.0,escape*.02))
+            events+=CollisionEvent(a.kind,b.kind,position,velocity=velocity,seed=(a.id xor b.id).toInt(),debrisImpact=true)
     }
     return StepResult(result.filterIndexed { index,_ -> index >= removed.size || !removed[index] },events)
 }

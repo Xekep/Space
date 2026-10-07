@@ -201,6 +201,22 @@
     <string name="new_game">Новая игра</string>
     <string name="how_to_play">Как играть</string>
     <string name="random_systems_short">Системы · 500 тел</string>
-    <string name="random_systems_description">500 тел: одиночные и двойные звёзды, вытянутые орбиты, астероидные пояса и пересекающиеся потоки.</string>
+    <string name="random_systems_description">500 тел: десять разнесённых звёздных систем, планеты, спутники и астероидные пояса с устойчивыми начальными орбитами.</string>
     <string name="pilot_target_speed">Заданная скорость</string>
+    <string name="spawn_guardian">Страж</string>
+    <string name="guardian_unlocked">Открыт Страж · патрулирует ядро</string>
+    <string name="upgrade_title">Волна %1$d · улучшение</string>
+    <string name="upgrade_description">Выберите одно. Полёт продолжится после выбора.</string>
+    <string name="upgrade_fleet">Резерв флота</string>
+    <string name="upgrade_fleet_help">+1 место для корабля и +2 для ракет</string>
+    <string name="upgrade_engines">Экономичные двигатели</string>
+    <string name="upgrade_engines_help" formatted="false">Расход топлива ниже на 15%</string>
+    <string name="upgrade_guns">Скорострельность</string>
+    <string name="upgrade_guns_help" formatted="false">Интервал стрельбы короче на 15%</string>
+    <string name="upgrade_reactor">Реактор</string>
+    <string name="upgrade_reactor_help">+20 к запасу энергии и +2 энергии в секунду</string>
+    <string name="upgrade_repair">Ремонт ядра</string>
+    <string name="upgrade_repair_help">Восстановить одну единицу прочности</string>
+    <string name="challenge_giant">Осколочный гигант</string>
+    <string name="challenge_parts">Осколки · %1$d</string>
 </resources>

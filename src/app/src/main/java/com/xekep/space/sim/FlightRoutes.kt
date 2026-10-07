@@ -15,7 +15,7 @@ fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightContro
         bodies.any { it.id == candidate.bodyId && it.pilotTargetSpeed != null } }
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body
-        if (body.fuelRemaining <= 1e-9 || body.id == manual?.bodyId)
+        if (!body.enginePowered || body.id == manual?.bodyId)
             return@map body.copy(waypoints=emptyList(),routePath=null,routeDistance=0.0)
         val path=body.routePath ?: FlightPath.through(body.position,body.waypoints)
             ?: return@map body.copy(waypoints=emptyList())

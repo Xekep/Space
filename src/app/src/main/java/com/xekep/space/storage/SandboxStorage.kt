@@ -93,6 +93,8 @@ class SandboxStorage(context: Context) {
                     .put("solar", body.solar?.name ?: "")
                     .put("physicalScale", body.physicalScale)
                     .put("isDebris",body.isDebris)
+                    .put("shipClass",body.shipClass.name)
+                    .put("fuelConsumptionScale",body.fuelConsumptionScale)
                     .put("pilotTargetSpeed",body.pilotTargetSpeed)
                     .put("burnRemaining", body.burnRemaining)
                     .put("headingX", body.heading.x)
@@ -126,8 +128,8 @@ class SandboxStorage(context: Context) {
                 val velocity = Vec2(body.getDouble("vx"), body.getDouble("vy"))
                 val id = body.getLong("id")
                 require(id in 1..Long.MAX_VALUE - 1001)
-                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1e-8..100000000.0)
-                require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 1e-6..10000.0)
+                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1e-30..100000000.0)
+                require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 1e-20..10000.0)
                 val burn = body.optDouble("burnRemaining", 0.0)
                 val heading = Vec2(body.optDouble("headingX", 0.0), body.optDouble("headingY", -1.0))
                 require(burn in 0.0..3.0 && heading.x.isFinite() && heading.y.isFinite() && kotlin.math.abs(heading.magnitude() - 1.0) < 1e-6)
@@ -146,6 +148,9 @@ class SandboxStorage(context: Context) {
                 val pilotThrottle=body.optDouble("pilotThrottle",0.0)
                 require(pilotThrottle in 0.0..1.0)
                 val kind=BodyKind.valueOf(body.getString("kind"))
+                val shipClass=com.xekep.space.sim.ShipClass.valueOf(body.optString("shipClass","Interceptor"))
+                val fuelScale=body.optDouble("fuelConsumptionScale",1.0)
+                require(fuelScale in .5..1.0 && (shipClass == com.xekep.space.sim.ShipClass.Interceptor || kind == BodyKind.Ship))
                 val targetSpeed=if (body.has("pilotTargetSpeed")) body.getDouble("pilotTargetSpeed").also { require(it in 0.0..900.0 && (kind == BodyKind.Ship || kind == BodyKind.Rocket)) } else null
                 val fuel=body.optDouble("fuelRemaining",com.xekep.space.sim.vehicleFuelCapacity(kind))
                 require(fuel in 0.0..com.xekep.space.sim.vehicleFuelCapacity(kind))
@@ -185,6 +190,7 @@ class SandboxStorage(context: Context) {
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
+                        shipClass=shipClass,fuelConsumptionScale=fuelScale,
                         fuelRemaining = fuel,
                         driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),

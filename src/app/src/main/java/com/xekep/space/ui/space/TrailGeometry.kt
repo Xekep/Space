@@ -88,3 +88,14 @@ internal fun visibleTrailBodies(bodies: List<CelestialBody>,viewport: IntSize,ca
     }
     return visible
 }
+
+/** Full history for light scenes; reduce screen length gradually as body count and measured
+ * solver cost rise. Physics itself never depends on this presentation budget. */
+internal fun adaptiveTrailLength(count: Int,solverLoad: Float = 0f,highlighted: Boolean = false): Float {
+    if (count <= 60 && solverLoad <= 1.25f) return Float.POSITIVE_INFINITY
+    val crowding=((count-60)/440f).coerceIn(0f,1f)
+    val base=384f+(48f-384f)*crowding
+    val pressure=(1f/(1f+(solverLoad-1f).coerceAtLeast(0f)*.35f)).coerceAtLeast(.35f)
+    val length=base*pressure
+    return if (highlighted) maxOf(96f,length) else length.coerceAtLeast(24f)
+}

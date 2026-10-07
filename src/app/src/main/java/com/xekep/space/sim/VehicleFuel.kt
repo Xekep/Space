@@ -21,3 +21,6 @@ internal fun expireVehicles(bodies: List<CelestialBody>): StepResult {
         CollisionEvent(it.kind,it.kind,it.position,vehicleExplosion=true,velocity=it.velocity*.12,seed=it.id.toInt())
     })
 }
+
+/** An explicit zero on the speed/thrust slider cuts the engine; null retains automatic flight. */
+val CelestialBody.enginePowered: Boolean get() = isVehicle && fuelRemaining > 1e-9 && pilotTargetSpeed != 0.0

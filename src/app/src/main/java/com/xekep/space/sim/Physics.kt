@@ -47,6 +47,8 @@ enum class BodyKind {
     BlackHole,
 }
 
+enum class ShipClass { Interceptor, Guardian }
+
 data class CelestialBody(
     val id: Long,
     val position: Vec2,
@@ -70,6 +72,8 @@ data class CelestialBody(
     val routeDistance: Double = 0.0,
     val isDebris: Boolean = false,
     val pilotTargetSpeed: Double? = null,
+    val shipClass: ShipClass = ShipClass.Interceptor,
+    val fuelConsumptionScale: Double = 1.0,
 )
 
 data class CollisionEvent(
@@ -82,6 +86,7 @@ data class CollisionEvent(
     val velocity: Vec2 = Vec2.Zero,
     val seed: Int = 0,
     val debrisImpact: Boolean = false,
+    val collapseRadius: Float = 0f,
 )
 
 data class StepResult(
@@ -478,8 +483,10 @@ object SimulationEngine {
             if (collisionsEnabled) {
                 val mergeResult = if (collisionMode == SandboxCollisionMode.Debris)
                     debrisCollisions(current,previous,substep,ejecta,idSource::getAndIncrement) else mergeCollisions(current, previous)
-                current = mergeResult.bodies
+                val collapse = collapseMassiveRemnants(mergeResult.bodies, current)
+                current = collapse.bodies
                 collisions += mergeResult.collisions
+                collisions += collapse.collisions
             }
             remaining -= substep
         }

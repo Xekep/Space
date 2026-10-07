@@ -32,3 +32,27 @@ fun absorbBlackHoles(before: List<CelestialBody>, after: List<CelestialBody>): S
     }
     return StepResult(bodies.filter { it.id !in removed },events)
 }
+
+/** Gameplay threshold for an accreted remnant, not a stellar evolution calculation.
+ * Use a separate solar-scale threshold so an ordinary Sun never collapses on creation. */
+const val PLAYGROUND_COLLAPSE_MASS = 18000.0
+const val SOLAR_COLLAPSE_MASS = 300000.0
+
+internal fun collapseMassiveRemnants(after: List<CelestialBody>,before: List<CelestialBody>): StepResult {
+    if (after.size == before.size && after.indices.all { after[it].id == before[it].id && after[it].mass == before[it].mass })
+        return StepResult(after,emptyList())
+    val old=before.associateBy { it.id }
+    val events=ArrayList<CollisionEvent>()
+    val bodies=after.map { body ->
+        val threshold=if (body.physicalScale) SOLAR_COLLAPSE_MASS else PLAYGROUND_COLLAPSE_MASS
+        if (body.isVehicle || body.isDebris || body.kind == BodyKind.BlackHole || body.mass < threshold ||
+            body.mass <= (old[body.id]?.mass ?: body.mass)) body else {
+            events+=CollisionEvent(body.kind,BodyKind.BlackHole,body.position,velocity=body.velocity,
+                seed=body.id.toInt(),collapseRadius=body.radius)
+            body.copy(kind=BodyKind.BlackHole,solar=null,color=androidx.compose.ui.graphics.Color(0xFFCB9BFF),
+                radius=if (body.physicalScale) (.03*cbrt(body.mass/12000)).toFloat()
+                    else (10*cbrt(body.mass/12000)).toFloat(),trail=listOf(body.position))
+        }
+    }
+    return StepResult(bodies,events)
+}

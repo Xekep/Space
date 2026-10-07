@@ -179,6 +179,22 @@
     <string name="new_game">新游戏</string>
     <string name="how_to_play">玩法说明</string>
     <string name="random_systems_short">星系 · 500 个天体</string>
-    <string name="random_systems_description">500 个天体：单星和双星、椭圆轨道、小行星带与交汇的天体流。</string>
+    <string name="random_systems_description">500 个天体：十个彼此分开的恒星系统，包含行星、卫星和小行星带，初始轨道稳定。</string>
     <string name="pilot_target_speed">目标速度</string>
+    <string name="spawn_guardian">守卫舰</string>
+    <string name="guardian_unlocked">已解锁守卫舰 · 巡逻保护核心</string>
+    <string name="upgrade_title">第%1$d波 · 升级</string>
+    <string name="upgrade_description">选择一项升级后继续飞行。</string>
+    <string name="upgrade_fleet">舰队扩容</string>
+    <string name="upgrade_fleet_help">飞船上限+1，导弹上限+2</string>
+    <string name="upgrade_engines">节能引擎</string>
+    <string name="upgrade_engines_help" formatted="false">燃料消耗降低15%</string>
+    <string name="upgrade_guns">快速射击</string>
+    <string name="upgrade_guns_help" formatted="false">飞船射击间隔缩短15%</string>
+    <string name="upgrade_reactor">反应堆</string>
+    <string name="upgrade_reactor_help">能量上限+20，每秒恢复量+2</string>
+    <string name="upgrade_repair">修复核心</string>
+    <string name="upgrade_repair_help">恢复1点核心耐久</string>
+    <string name="challenge_giant">碎裂巨型小行星</string>
+    <string name="challenge_parts">碎片 · %1$d</string>
 </resources>

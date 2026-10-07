@@ -54,7 +54,7 @@ class TrailCollisionsUiTest {
         shot("collisions-500-before.png")
         compose.runOnIdle { runBlocking {
             game.toggleSandboxPause(); game.updateSandboxAsync(1.0/30,budgeted=true); game.toggleSandboxPause()
-            assertTrue(game.bodies.size in 502..516); assertTrue(game.explosions.isNotEmpty())
+            assertTrue(game.bodies.size in 250..266); assertTrue(game.explosions.isNotEmpty())
         } }
         compose.mainClock.advanceTimeByFrame()
         shot("collisions-500-impact.png")

@@ -1,0 +1,40 @@
+package com.xekep.space.ui.space
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import com.xekep.space.R
+
+@Composable
+internal fun ArcadeUpgradeDialog(game: SpaceGameState) {
+    val offer=game.arcade?.upgradeOffer ?: return
+    Dialog(onDismissRequest=game::openMenu) {
+        Surface(shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,
+            modifier=Modifier.fillMaxWidth().heightIn(max=560.dp).testTag("arcade-upgrade-dialog")) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.upgrade_title,offer.wave),style=MaterialTheme.typography.titleLarge)
+                Text(stringResource(if (offer.wave == 3) R.string.guardian_unlocked else R.string.upgrade_description),
+                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                for (upgrade in offer.choices) {
+                    Surface(onClick={ game.chooseArcadeUpgrade(upgrade) },shape=RoundedCornerShape(14.dp),
+                        color=MaterialTheme.colorScheme.secondary.copy(alpha=.10f),
+                        modifier=Modifier.fillMaxWidth().testTag("arcade-upgrade-${upgrade.name}")) {
+                        Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(upgrade.labelId()),style=MaterialTheme.typography.titleSmall,
+                                color=MaterialTheme.colorScheme.secondary)
+                            Text(stringResource(upgrade.descriptionId()),style=MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

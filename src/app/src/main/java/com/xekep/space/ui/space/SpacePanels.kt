@@ -76,14 +76,14 @@ fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLiv
 }
 
 @Composable
-fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double) {
+fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy) {
     val context = LocalContext.current
     Surface(modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(context.getString(R.string.launch_energy), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                Text("${energy.roundToInt()} / ${MaxEnergy.toInt()}", style = MaterialTheme.typography.labelMedium)
+                Text("${energy.roundToInt()} / ${maximum.toInt()}", style = MaterialTheme.typography.labelMedium)
             }
             Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(99.dp))) {
                 Box(Modifier.fillMaxWidth(energyRatio.coerceIn(0f, 1f)).height(6.dp)

@@ -16,11 +16,13 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
     if (control == null || !control.steering.isFinite() || !control.boost.isFinite() || !seconds.isFinite() || seconds <= 0) return bodies
     return bodies.map { body ->
         if (body.id != control.bodyId || !body.isVehicle || body.fuelRemaining <= 1e-9) body else {
+            val target=body.pilotTargetSpeed?.let { (it+control.boost.coerceIn(0.0,1.0)*150).coerceIn(0.0,900.0) }
+            // A stopped engine provides neither steering torque nor braking thrust.
+            if (target == 0.0) return@map body.copy(pilotThrottle=0.0)
             // Like a steering wheel: input changes turn rate relative to the craft's course.
             val angle = atan2(body.heading.y, body.heading.x) + control.steering.coerceIn(-1.0, 1.0) * 3.6 * seconds
             val heading = Vec2(cos(angle), sin(angle))
-            body.pilotTargetSpeed?.let { selected ->
-                val target=(selected+control.boost.coerceIn(0.0,1.0)*150).coerceIn(0.0,900.0)
+            target?.let { target ->
                 val throttle=target/900
                 val desired=heading*target
                 val difference=desired-body.velocity

@@ -201,6 +201,22 @@
     <string name="new_game">New game</string>
     <string name="how_to_play">How to play</string>
     <string name="random_systems_short">Systems · 500 bodies</string>
-    <string name="random_systems_description">500 bodies: single and binary stars, eccentric orbits, asteroid belts and crossing streams.</string>
+    <string name="random_systems_description">500 bodies: ten separated stars, planets, moons and asteroid belts with stable initial orbits.</string>
     <string name="pilot_target_speed">Target speed</string>
+    <string name="spawn_guardian">Guardian</string>
+    <string name="guardian_unlocked">Guardian unlocked · patrols the core</string>
+    <string name="upgrade_title">Wave %1$d · upgrade</string>
+    <string name="upgrade_description">Choose one. Flight resumes after your choice.</string>
+    <string name="upgrade_fleet">Fleet reserve</string>
+    <string name="upgrade_fleet_help">+1 ship slot and +2 rocket slots</string>
+    <string name="upgrade_engines">Efficient engines</string>
+    <string name="upgrade_engines_help" formatted="false">15% less fuel consumption</string>
+    <string name="upgrade_guns">Rapid fire</string>
+    <string name="upgrade_guns_help" formatted="false">15% shorter ship firing interval</string>
+    <string name="upgrade_reactor">Reactor</string>
+    <string name="upgrade_reactor_help">+20 energy capacity and +2 energy per second</string>
+    <string name="upgrade_repair">Core repair</string>
+    <string name="upgrade_repair_help">Restore one hull point</string>
+    <string name="challenge_giant">Fracturing giant</string>
+    <string name="challenge_parts">Fragments · %1$d</string>
 </resources>

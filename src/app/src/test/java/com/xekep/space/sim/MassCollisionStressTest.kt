@@ -16,7 +16,7 @@ class MassCollisionStressTest {
         val energy=SimulationEngine.totalEnergy(initial)
         val first=SimulationEngine.stepSandbox(initial,1.0/30,energy,true,collisionMode=SandboxCollisionMode.Debris)
         assertTrue("The stress scene must actually collide",first.collisions.size >= 200)
-        assertTrue(first.bodies.size in 502..516)
+        assertTrue(first.bodies.size in 250..266)
         assertEquals(initial.sumOf { it.mass },first.bodies.sumOf { it.mass },1e-7)
         val p=first.bodies.fold(Vec2.Zero) { total,b -> total+b.velocity*b.mass }
         assertEquals(0.0,p.x,1e-6); assertEquals(0.0,p.y,1e-6)
@@ -40,7 +40,7 @@ class MassCollisionStressTest {
         val result=debrisCollisions(after,previous,.01) { error("A tiny contact must not fragment") }
         assertTrue(result.collisions.isEmpty())
         assertEquals(0.0,result.bodies[0].velocity.magnitude(),1e-9)
-        assertEquals(0.0,result.bodies[1].velocity.magnitude(),1e-9)
+        assertEquals(1,result.bodies.size); assertEquals(140.0,result.bodies.single().mass,1e-9)
     }
     @Test fun mergedBodiesStartTheirOwnTailRatherThanConnectingUnrelatedHistories() {
         val bodies=scene().take(2)

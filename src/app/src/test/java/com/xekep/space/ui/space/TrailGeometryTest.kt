@@ -45,4 +45,17 @@ class TrailGeometryTest {
         assertEquals(visible.map { it.id },visibleTrailBodies(bodies.reversed(),viewport,camera,0.0,1f,0,1).map { it.id })
         assertTrue(visibleTrailBodies(bodies,viewport,SpaceCamera(Vec2(10000.0,0.0),1f),0.0,1f,null,null).isEmpty())
     }
+    @Test fun lightScenesKeepFullHistoryAndDenseOrBusyScenesGraduallyShortenIt() {
+        assertTrue(adaptiveTrailLength(17).isInfinite())
+        val lengths=listOf(80,160,300,500).map { adaptiveTrailLength(it) }
+        assertTrue(lengths.zipWithNext().all { (a,b) -> a > b })
+        assertEquals(48f,lengths.last(),0f)
+        assertTrue(adaptiveTrailLength(160,4f) < adaptiveTrailLength(160,1f))
+        assertTrue(adaptiveTrailLength(17,4f).isFinite())
+        assertTrue(adaptiveTrailLength(500,4f,true) >= 96f)
+        val trail=(0..41).map { Vec2(it*10.0,0.0) }
+        val body=CelestialBody(1,trail.last(),Vec2.Zero,70.0,8f,Color.Cyan,trail=trail)
+        val points=trailScreenPoints(body,IntSize(1000,1000),SpaceCamera(),body.position,adaptiveTrailLength(2),2f)
+        assertEquals(410.0,points.zipWithNext().sumOf { (a,b) -> (b-a).getDistance().toDouble() },1e-6)
+    }
 }

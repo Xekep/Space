@@ -8,7 +8,7 @@ enum class SatellitePlacement { Clear, Overlap, StrongTides }
 fun satellitePlacement(parent: CelestialBody, satellite: CelestialBody, scene: List<CelestialBody>): SatellitePlacement {
     val offset=satellite.position-parent.position
     val distance=offset.magnitude()
-    val margin=if (parent.physicalScale || satellite.physicalScale) .0001 else 8.0
+    val margin=if (parent.physicalScale || satellite.physicalScale) .0001 else minOf(8.0,parent.radius*.2)
     if (distance <= parent.radius+satellite.radius+margin || scene.any {
         it.id != parent.id && it.id != satellite.id &&
             (it.position-satellite.position).magnitude() <= it.radius+satellite.radius

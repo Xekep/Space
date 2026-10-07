@@ -105,7 +105,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val controlledId by remember(game) { derivedStateOf { game.controlledVehicleId } }
     val tiltCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { game.setSteeringInput(it) }
     val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
-    val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && hasSession &&
+    val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && !game.arcadeUpgradePending && hasSession &&
         (if (game.mode == AppMode.Sandbox) sandboxPaused == false && game.orbitSourceId == null else (game.arcade?.lives ?: 0) > 0)
     val motionEnabled = options.motionControl && tilt.available
     SideEffect { game.setMotionControlEnabled(motionEnabled); tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
@@ -286,10 +286,17 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId).forEach {
                 drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=bodies.size < 60,
                     cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),dense=bodies.size >= 160,
-                    highlighted=it.id == game.selectedBodyId || it.id == controlledId)
+                    highlighted=it.id == game.selectedBodyId || it.id == controlledId,
+                    maxLengthDp=adaptiveTrailLength(bodies.size,game.simulationLoad,it.id == game.selectedBodyId || it.id == controlledId))
             }
             drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
                 controlledId,largeVehicleIcons,interpolation,bodies.size >= 160)
+            arcade?.challenge?.let { challenge ->
+                bodies.filter { it.id in challenge.ids }.forEach { body ->
+                    drawCircle(Color(0xFFFFA46B).copy(alpha=.7f),bodyScreenRadius(body,renderCamera.zoom,density)+4.dp.toPx(),
+                        worldToScreen(body.position,viewport,renderCamera.center,renderCamera.zoom),style=Stroke(1.dp.toPx()))
+                }
+            }
             drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, renderCamera.center, renderCamera.zoom, options.reducedFlashes)
             arcade?.combat?.projectiles?.forEach { shot ->
                 val point = worldToScreen(shot.position, viewport, renderCamera.center, renderCamera.zoom)
@@ -325,6 +332,13 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     verticalArrangement = Arrangement.SpaceBetween) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ArcadeTopHud(game)
+                        arcade?.challenge?.takeIf { it.ids.isNotEmpty() }?.let { challenge ->
+                            Text(if (challenge.parentId in challenge.ids) context.getString(R.string.challenge_giant) else
+                                context.getString(R.string.challenge_parts,challenge.ids.size),
+                                modifier=Modifier.fillMaxWidth().testTag("arcade-challenge"),
+                                textAlign=androidx.compose.ui.text.style.TextAlign.Center,
+                                style=MaterialTheme.typography.labelMedium,color=Color(0xFFFFA46B))
+                        }
                         if (arcade?.resting == true) Text(
                             context.getString(R.string.rest),
                             modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
@@ -348,7 +362,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         ArcadeSpawnControls(game, options, tilt.available)
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
                         if (game.mode == AppMode.Arcade && arcade != null) {
-                            ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / MaxEnergy).toFloat(), arcade.energy)
+                            ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / arcade.maxEnergy).toFloat(), arcade.energy,arcade.maxEnergy)
                         }
 
                     }
@@ -363,6 +377,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 elapsed = arcade.elapsed, wave = arcade.wave, accuracy = arcade.accuracy,
                 onRetry = { game.startArcade(arcade.difficulty) }, onMenu = game::openMenu)
         }
+        if (!game.menuOpen && game.arcadeUpgradePending) ArcadeUpgradeDialog(game)
         if (game.menuOpen) {
             val menuPhase=rememberMenuPhase()
             MenuCosmos(Modifier.fillMaxSize(),menuPhase)

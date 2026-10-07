@@ -15,7 +15,11 @@ import kotlin.math.*
 fun DrawScope.drawExplosions(effects: List<Explosion>, viewport: IntSize, camera: Vec2, zoom: Float, reducedFlashes: Boolean) {
     effects.forEach { burst ->
         val center = worldToScreen(burst.position + burst.drift * burst.age, viewport, camera, zoom)
-        val progress = (burst.age / Explosion.DURATION).toFloat()
+        if (burst.collapseRadius > 0f) {
+            drawCollapse(burst,center,zoom,reducedFlashes)
+            return@forEach
+        }
+        val progress = (burst.age / burst.duration).toFloat()
         val alpha = (1f - progress).pow(2)
         if (!reducedFlashes && progress < .32f) {
             drawCircle(Color(0xFFFFCB79).copy(alpha = alpha * .35f), (12 + progress * 65).dp.toPx(), center)

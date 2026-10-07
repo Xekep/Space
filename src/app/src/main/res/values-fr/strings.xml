@@ -179,6 +179,22 @@
     <string name="new_game">Nouvelle partie</string>
     <string name="how_to_play">Comment jouer</string>
     <string name="random_systems_short">Systèmes · 500 corps</string>
-    <string name="random_systems_description">500 corps : étoiles simples et binaires, orbites elliptiques, ceintures d’astéroïdes et flux croisés.</string>
+    <string name="random_systems_description">500 corps : dix systèmes stellaires espacés, des planètes, des lunes et des ceintures d’astéroïdes aux orbites initiales stables.</string>
     <string name="pilot_target_speed">Vitesse cible</string>
+    <string name="spawn_guardian">Gardien</string>
+    <string name="guardian_unlocked">Gardien débloqué · patrouille le noyau</string>
+    <string name="upgrade_title">Vague %1$d · amélioration</string>
+    <string name="upgrade_description">Choisissez une option pour reprendre le vol.</string>
+    <string name="upgrade_fleet">Réserve de flotte</string>
+    <string name="upgrade_fleet_help">+1 place de vaisseau et +2 de missiles</string>
+    <string name="upgrade_engines">Moteurs économes</string>
+    <string name="upgrade_engines_help" formatted="false">Consommation de carburant réduite de 15%</string>
+    <string name="upgrade_guns">Tir rapide</string>
+    <string name="upgrade_guns_help" formatted="false">Intervalle de tir réduit de 15%</string>
+    <string name="upgrade_reactor">Réacteur</string>
+    <string name="upgrade_reactor_help">+20 de capacité et +2 d’énergie par seconde</string>
+    <string name="upgrade_repair">Réparer le noyau</string>
+    <string name="upgrade_repair_help">Restaure un point de résistance</string>
+    <string name="challenge_giant">Géant fragmenté</string>
+    <string name="challenge_parts">Fragments · %1$d</string>
 </resources>

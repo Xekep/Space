@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SolarBody
+import com.xekep.space.sim.enginePowered
 import kotlin.math.hypot
 import kotlin.math.abs
 import kotlin.math.pow
@@ -48,15 +49,7 @@ fun DrawScope.drawBody(
     }
     val screenRadius = bodyScreenRadius(body, zoom, density)
     if (body.kind == BodyKind.BlackHole) {
-        drawCircle(Color(0xFFAB78E8).copy(alpha=.14f),screenRadius*2.8f,center)
-        rotate(-22f,center) {
-            drawOval(Color(0xFFF2BB7C).copy(alpha=.75f),center-Offset(screenRadius*2.2f,screenRadius*.65f),
-                androidx.compose.ui.geometry.Size(screenRadius*4.4f,screenRadius*1.3f),style=Stroke(screenRadius*.23f))
-        }
-        drawCircle(Color(0xFF020309),screenRadius,center)
-        drawCircle(body.color,screenRadius*1.12f,center,style=Stroke(1.5.dp.toPx()))
-        drawArc(Color(0xFFFFE9C6),205f,105f,false,center-Offset(screenRadius*1.14f,screenRadius*1.14f),
-            androidx.compose.ui.geometry.Size(screenRadius*2.28f,screenRadius*2.28f),style=Stroke(2.dp.toPx()))
+        drawBlackHole(center,screenRadius)
         return
     }
     if (body.solar == SolarBody.Saturn) {
@@ -138,18 +131,28 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
                 close()
             }, color)
         }
-        if (body.kind == BodyKind.Ship) {
+        if (body.kind == BodyKind.Ship && body.shipClass == com.xekep.space.sim.ShipClass.Guardian) {
+            hull(listOf(Offset(0f,-1.15f),Offset(.65f,-.55f),Offset(.65f,.45f),Offset(0f,.8f),Offset(-.65f,.45f),Offset(-.65f,-.55f)),Color(0xFFD5F6EA))
+            hull(listOf(Offset(-.6f,-.25f),Offset(-1.1f,0f),Offset(-1.05f,.75f),Offset(-.5f,.5f)),body.color)
+            hull(listOf(Offset(.6f,-.25f),Offset(1.1f,0f),Offset(1.05f,.75f),Offset(.5f,.5f)),body.color)
+            drawCircle(Color(0xFF245C59),r*.3f,center-Offset(0f,r*.28f))
+            listOf(-.85f,.85f).forEach { x ->
+                drawLine(Color(0xFFE3FFF1),center+Offset(x*r,0f),center+Offset(x*r,-.5f*r),r*.12f,StrokeCap.Round)
+                if (body.enginePowered) drawLine(Color(0xFF81E5C4),center+Offset(x*r,.65f*r),
+                    center+Offset(x*r,(if (piloted) 1.15f+body.pilotThrottle.toFloat()*.5f else .95f)*r),r*.13f,StrokeCap.Round)
+            }
+        } else if (body.kind == BodyKind.Ship) {
             // Twin nacelles, swept wings, central fuselage and luminous cockpit.
             hull(listOf(Offset(-.22f, -.45f), Offset(-1.15f, .35f), Offset(-1.05f, .85f), Offset(-.28f, .45f)), Color(0xFF537A9A))
             hull(listOf(Offset(.22f, -.45f), Offset(1.15f, .35f), Offset(1.05f, .85f), Offset(.28f, .45f)), Color(0xFF537A9A))
             listOf(-.78f, .78f).forEach { x ->
                 hull(listOf(Offset(x - .14f, -.4f), Offset(x, -.65f), Offset(x + .14f, -.4f), Offset(x + .14f, .85f), Offset(x - .14f, .85f)), body.color)
-                drawLine(Color(0xFF72E9FF), center + Offset(x * r, .8f * r), center + Offset(x * r, 1.18f * r), r * .12f, StrokeCap.Round)
+                if (body.enginePowered) drawLine(Color(0xFF72E9FF), center + Offset(x * r, .8f * r), center + Offset(x * r, 1.18f * r), r * .12f, StrokeCap.Round)
             }
             hull(listOf(Offset(0f, -1.35f), Offset(.32f, -.48f), Offset(.29f, .67f), Offset(0f, .9f), Offset(-.29f, .67f), Offset(-.32f, -.48f)), Color(0xFFD6EAF5))
             hull(listOf(Offset(0f, -.92f), Offset(.18f, -.4f), Offset(.15f, .05f), Offset(-.15f, .05f), Offset(-.18f, -.4f)), Color(0xFF1D5E87))
             drawLine(Color(0xFFB0FBFF), center + Offset(0f, -.72f * r), center + Offset(0f, -.25f * r), r * .07f, StrokeCap.Round)
-            if (piloted && body.fuelRemaining > 1e-9) listOf(-.78f,.78f).forEach { x ->
+            if (piloted && body.enginePowered) listOf(-.78f,.78f).forEach { x ->
                 hull(listOf(Offset(x-.1f,.85f),Offset(x,1.45f+body.pilotThrottle.toFloat()*.7f),Offset(x+.1f,.85f)),Color(0xFF9EF8FF))
             }
         } else {
@@ -157,7 +160,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
             hull(listOf(Offset(-.35f, .15f), Offset(-.75f, .9f), Offset(-.35f, .75f)), body.color)
             hull(listOf(Offset(.35f, .15f), Offset(.75f, .9f), Offset(.35f, .75f)), body.color)
             drawCircle(Color(0xFF276B95), r * .19f, center + Offset(0f, -r * .3f))
-            if (body.fuelRemaining > 1e-9) {
+            if (body.enginePowered) {
                 hull(listOf(Offset(-.25f, .8f), Offset(0f, if (piloted) 1.6f+body.pilotThrottle.toFloat()*.8f else 1.9f), Offset(.25f, .8f)), Color(0xFFFF9851))
                 hull(listOf(Offset(-.13f, .8f), Offset(0f, 1.45f), Offset(.13f, .8f)), Color(0xFFFFE6A3))
             }
@@ -201,8 +204,9 @@ fun DrawScope.drawTrail(
     renderPosition: com.xekep.space.sim.Vec2 = body.position,
     dense: Boolean = false,
     highlighted: Boolean = false,
+    maxLengthDp: Float = if (dense) 48f else Float.POSITIVE_INFINITY,
 ) {
-    val length=(if (body.isDebris) 20f else if (dense && !highlighted) 48f else 96f)*density
+    val length=(if (body.isDebris) minOf(20f,maxLengthDp) else maxLengthDp)*density
     val points=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
         (if (dense) 4f else 2f)*density)
     if (points.size < 2 || points.zipWithNext().sumOf { (a,b) -> (b-a).getDistance().toDouble() } < 1.5) return

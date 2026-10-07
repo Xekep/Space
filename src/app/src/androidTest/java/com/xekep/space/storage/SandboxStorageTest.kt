@@ -24,6 +24,22 @@ class SandboxStorageTest {
 
     @After fun cleanup() { target.deleteSharedPreferences(preferenceName) }
 
+    @Test fun guardianAndFuelEfficiencyRoundTripAndOldFilesKeepDefaultShipClass() {
+        val craft=com.xekep.space.sim.CelestialBody(1,Vec2(240.0,0.0),Vec2(0.0,100.0),24.0,8f,
+            androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,
+            shipClass=com.xekep.space.sim.ShipClass.Guardian,fuelConsumptionScale=.85)
+        val scene=SandboxSnapshot(listOf(craft),Vec2.Zero,1f,0.0,123L)
+        assertEquals(scene,storage.decode(storage.encode(scene)))
+        val raw=org.json.JSONObject(storage.encode(scene))
+        val body=raw.getJSONArray("bodies").getJSONObject(0)
+        body.remove("shipClass"); body.remove("fuelConsumptionScale")
+        val old=storage.decode(raw.toString()).bodies.single()
+        assertEquals(com.xekep.space.sim.ShipClass.Interceptor,old.shipClass)
+        assertEquals(1.0,old.fuelConsumptionScale,0.0)
+        body.put("fuelConsumptionScale",0.0)
+        assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
+    }
+
     @Test fun aSavedLoopContinuesTheSameCycleAfterReloadAndRejectsInvalidLoopIndices() {
         val path=com.xekep.space.sim.FlightPath.through(Vec2.Zero,listOf(Vec2(100.0,0.0),Vec2(100.0,100.0)),true)!!
         val sample=path.sample(path.length-5)
@@ -257,6 +273,15 @@ class SandboxStorageTest {
         assertNull(old.bodies[0].pilotTargetSpeed); assertFalse(old.bodies[1].isDebris)
         raw.getJSONArray("bodies").getJSONObject(0).put("pilotTargetSpeed",901.0)
         assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
+    }
+
+    @Test fun tinyNestedSatellitesRoundTripWithoutBeingClampedToOrdinaryBodySize() {
+        val body=com.xekep.space.sim.CelestialBody(1,Vec2.Zero,Vec2(180.0,-90.0),8e-14,2e-7f,
+            androidx.compose.ui.graphics.Color.Cyan)
+        val scene=SandboxSnapshot(listOf(body),Vec2.Zero,1f,0.0,1L)
+        assertEquals(scene,storage.decode(storage.encode(scene)))
+        for (bad in listOf(body.copy(mass=0.0),body.copy(mass=-1.0),body.copy(radius=0f)))
+            assertTrue(runCatching { storage.decode(storage.encode(scene.copy(bodies=listOf(bad)))) }.isFailure)
     }
 
 }

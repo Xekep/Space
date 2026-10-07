@@ -14,8 +14,8 @@ import com.xekep.space.sim.*
 
 private data class WaypointTap(val id: PointerId, val start: Offset, val primary: Offset)
 
-fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier = pointerInput(game, game.menuOpen, hasSession, game.sandboxOverlayOpen) {
-    if (game.menuOpen || !hasSession || game.sandboxOverlayOpen) return@pointerInput
+fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier = pointerInput(game, game.menuOpen, hasSession, game.sandboxOverlayOpen, game.arcadeUpgradePending) {
+    if (game.menuOpen || !hasSession || game.sandboxOverlayOpen || game.arcadeUpgradePending) return@pointerInput
     awaitEachGesture {
         val down = awaitFirstDown()
         val startedAt = SystemClock.elapsedRealtimeNanos()

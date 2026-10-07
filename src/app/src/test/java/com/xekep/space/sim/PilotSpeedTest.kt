@@ -8,7 +8,7 @@ class PilotSpeedTest {
     private fun craft(kind: BodyKind,target: Double)=CelestialBody(1,Vec2.Zero,Vec2(0.0,-200.0),24.0,1f,Color.Cyan,kind,
         pilotTargetSpeed=target)
     @Test fun speedChangesGraduallyInBothDirectionsAndBothCraftTypesUseTheSameControl() {
-        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (target in listOf(0.0,100.0,500.0)) {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (target in listOf(100.0,500.0)) {
             var body=craft(kind,target)
             val first=steerManually(listOf(body),ManualFlightControl(1,0.0),1.0/60).single()
             assertTrue((first.velocity-body.velocity).magnitude() < 10)
@@ -52,5 +52,23 @@ class PilotSpeedTest {
         assertEquals(450.0,turned.pilotTargetSpeed!!,1e-8)
         assertNotEquals(body.heading,turned.heading)
         assertTrue(turned.velocity.x > 0)
+    }
+    @Test fun zeroThrustCutsFlameSteeringBrakingAndFuelConsumptionForBothCraft() {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+            val initial=craft(kind,0.0).copy(pilotThrottle=.8)
+            val body=applyFlightControls(listOf(initial),ManualFlightControl(1,1.0),.2).single()
+            assertEquals(initial.velocity,body.velocity); assertEquals(initial.heading,body.heading)
+            assertEquals(0.0,body.pilotThrottle,0.0); assertFalse(body.enginePowered)
+            val drift=NumericIntegrator.advance(listOf(body),1.0,1.0/120,controlledId=1).single()
+            assertEquals(body.velocity,drift.velocity); assertEquals(body.fuelRemaining,drift.fuelRemaining,0.0)
+            assertEquals(body.position.x+body.velocity.x,drift.position.x,1e-9)
+            assertEquals(body.position.y+body.velocity.y,drift.position.y,1e-9)
+            val boosted=steerManually(listOf(body),ManualFlightControl(1,1.0,1.0),.2).single()
+            assertTrue(boosted.enginePowered); assertNotEquals(body.heading,boosted.heading)
+            assertTrue(boosted.velocity.x > 0)
+            val automatic=NumericIntegrator.advance(listOf(body),1.0,1.0/120).single()
+            assertEquals(body.heading,automatic.heading); assertEquals(body.velocity,automatic.velocity)
+            assertEquals(body.fuelRemaining,automatic.fuelRemaining,0.0)
+        }
     }
 }

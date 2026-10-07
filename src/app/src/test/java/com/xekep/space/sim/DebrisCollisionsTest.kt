@@ -23,16 +23,18 @@ class DebrisCollisionsTest {
     @Test fun energeticImpactTransfersMomentumAndCreatesRealMassConservingFragments() {
         val before=pair().map { it.copy(velocity=it.velocity+Vec2(25.0,-12.0)) }
         val result=collide(before)
-        assertEquals(8,result.bodies.size); assertTrue(result.collisions.single().debrisImpact)
+        assertEquals(7,result.bodies.size); assertTrue(result.collisions.single().debrisImpact)
         verifyConserved(before,result.bodies)
-        assertTrue(result.bodies.drop(2).all { it.radius < 10 && it.kind == BodyKind.Ambient })
-        assertTrue(result.bodies[0].velocity.x < 25 && result.bodies[1].velocity.x > 25)
+        assertTrue(result.bodies.filter { it.isDebris }.all { it.radius < 10 && it.kind == BodyKind.Ambient })
+        assertEquals(25.0,result.bodies.first { !it.isDebris }.velocity.x,1e-8)
+        assertTrue(result.bodies.first { !it.isDebris }.mass > before.maxOf { it.mass })
     }
-    @Test fun gentleImpactBouncesWithoutSheddingMass() {
+    @Test fun gentleImpactAbsorbsWithoutSheddingMass() {
         val before=pair().map { it.copy(position=it.position*.9,velocity=it.velocity*.03) }
         val result=collide(before)
-        assertEquals(2,result.bodies.size); verifyConserved(before,result.bodies)
-        assertTrue(result.bodies[0].velocity.x < 0 && result.bodies[1].velocity.x > 0)
+        assertEquals(1,result.bodies.size); verifyConserved(before,result.bodies)
+        assertEquals(200.0,result.bodies.single().mass,1e-8)
+        assertEquals(Vec2.Zero,result.bodies.single().velocity)
     }
     @Test fun sceneLimitDoesNotLoseMassOrOverflowTheSaveLimit() {
         for (count in listOf(995,999,1000)) {
@@ -50,7 +52,7 @@ class DebrisCollisionsTest {
     @Test fun fastSweepsAndPhysicalScaleImpactsAreNotMissed() {
         val before=pair().map { it.copy(position=it.position/100.0,velocity=it.velocity*10.0,radius=.01f,physicalScale=true) }
         val result=collide(before)
-        assertEquals(8,result.bodies.size); verifyConserved(before,result.bodies)
+        assertEquals(7,result.bodies.size); verifyConserved(before,result.bodies)
         assertTrue(result.bodies.all { it.physicalScale && it.position.x.isFinite() && it.radius > 0 })
     }
     @Test fun stellarImpactLeavesOneRemnantAndFiniteDebrisWithoutAFragmentationCascade() {
@@ -78,7 +80,23 @@ class DebrisCollisionsTest {
             assertEquals(12000.0,bodies.sumOf { it.mass },1e-6)
         }
         assertEquals(1,bodies.count { it.kind == BodyKind.Star })
-        assertTrue(bodies.any { it.isDebris })
+        // Falling ejecta may subsequently be reabsorbed; there is no fragment cascade.
     }
 
+    @Test fun unequalBodiesAbsorbWithCenterOfMassVelocityAndKeepEveryBitOfMomentum() {
+        val before=pair().mapIndexed { index,body -> if (index == 0) body.copy(mass=400.0,velocity=Vec2(45.0,30.0))
+            else body.copy(mass=20.0,velocity=Vec2(-90.0,-15.0)) }
+        val result=collide(before)
+        verifyConserved(before,result.bodies)
+        val remnant=result.bodies.single { !it.isDebris }
+        assertTrue(remnant.mass > 400 && remnant.mass <= 420)
+        val expected=(before[0].velocity*400.0+before[1].velocity*20.0)/420.0
+        assertEquals(expected.x,remnant.velocity.x,1e-9); assertEquals(expected.y,remnant.velocity.y,1e-9)
+    }
+    @Test fun debrisIsReabsorbedWithoutCreatingNewDebris() {
+        val before=pair().mapIndexed { index,body -> body.copy(isDebris=index == 1) }
+        val result=collide(before)
+        assertEquals(1,result.bodies.size); assertFalse(result.bodies.single().isDebris)
+        verifyConserved(before,result.bodies)
+    }
 }
