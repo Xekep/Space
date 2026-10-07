@@ -70,6 +70,8 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.random.Random
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 @Composable
 fun SpaceSceneRoot(state: SpaceGameState? = null) {
@@ -136,6 +138,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         }.getOrElse { context.getString(R.string.import_failed) }
     }
     var frameNanos by remember { mutableLongStateOf(SystemClock.elapsedRealtimeNanos()) }
+    var drawNanos by remember { mutableLongStateOf(0L) }
+    val interpolation=remember(game) { SandboxInterpolation() }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, shake, tilt) {
         shake.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
@@ -180,18 +184,32 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     LaunchedEffect(game.feedback) {
         if (game.feedback != null && game.orbitSourceId == null) { delay(4000); game.dismissFeedback() }
     }
-    LaunchedEffect(game, game.menuOpen, sandboxPaused, game.sandboxOverlayOpen) {
-        var previousFrame = 0L
+    LaunchedEffect(game, game.mode, game.sceneGeneration, game.menuOpen, sandboxPaused, game.sandboxOverlayOpen) {
+        var previousFrame=0L
+        var previousPhysics=0L
+        var calculation: Job?=null
         game.resetFrameClock()
-        while (true) {
-            val frame = withInfiniteAnimationFrameNanos { it }
-            if (game.touchPreview != null) frameNanos = SystemClock.elapsedRealtimeNanos()
-            if (previousFrame != 0L) {
-                val dt = ((frame - previousFrame) / 1_000_000_000.0).coerceAtLeast(0.0)
-                if (game.mode == AppMode.Sandbox && (game.bodies.size >= 40 || game.sandbox?.collisionsEnabled == true)) game.updateSandboxAsync(dt) else game.update(dt)
+        try {
+            while (true) {
+                val frame=withInfiniteAnimationFrameNanos { it }
+                if (game.touchPreview != null) frameNanos=SystemClock.elapsedRealtimeNanos()
+                if (previousFrame != 0L) {
+                    val dt=((frame-previousFrame)/1_000_000_000.0).coerceAtLeast(0.0)
+                    if (game.mode == AppMode.Sandbox && (game.bodies.size >= 40 || game.sandbox?.collisionsEnabled == true)) {
+                        game.updateSandboxPresentation(dt)
+                        if (!game.menuOpen && !game.sandboxOverlayOpen && game.sandbox?.paused == false && game.orbitSourceId == null) {
+                            if (game.bodies.size >= 160) drawNanos=SystemClock.elapsedRealtimeNanos()
+                            if (calculation?.isActive != true) {
+                                val elapsed=if (previousPhysics == 0L) dt else ((frame-previousPhysics)/1e9).coerceAtLeast(0.0)
+                                previousPhysics=frame
+                                calculation=launch { game.updateSandboxAsync(elapsed,budgeted=true) }
+                            }
+                        } else previousPhysics=0L
+                    } else game.update(dt)
+                }
+                previousFrame=frame
             }
-            previousFrame = frame
-        }
+        } finally { calculation?.cancel() }
     }
 
     val solarLabels = remember(game, game.sceneGeneration) { SolarLabelLayout() }
@@ -244,45 +262,56 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF02040B), Color(0xFF081125), Color(0xFF0D1834))))) {
         Canvas(Modifier.fillMaxSize().testTag("space-scene").semantics { contentDescription = context.getString(R.string.space_scene) }
             .onSizeChanged(game::resize).spaceGestures(game, hasSession)) {
+            if (game.menuOpen) return@Canvas
             drawRect(Brush.radialGradient(listOf(Color(0x221E3A8A), Color.Transparent), center, max(size.width, size.height) * 0.75f))
             val bodies = game.bodies
+            interpolation.begin(bodies,game.sandboxEditRevision,drawNanos,
+                game.mode == AppMode.Sandbox && bodies.size >= 160 && !game.menuOpen && !game.sandboxOverlayOpen &&
+                    game.sandbox?.paused == false && game.orbitSourceId == null && game.touchPreview == null)
+            val tracked=game.cameraTarget
+            val renderCamera=if (tracked != null) camera.copy(center=interpolation.position(tracked)) else camera
             rotate((game.cameraRotation*180/PI).toFloat()) {
             stars.forEach {
                 // A little parallax makes camera travel visible even far from a planet.
-                val x = ((it.position.x - camera.center.x * camera.zoom * 0.06) % size.width + size.width) % size.width
-                val y = ((it.position.y - camera.center.y * camera.zoom * 0.06) % size.height + size.height) % size.height
+                val x = ((it.position.x - renderCamera.center.x * renderCamera.zoom * 0.06) % size.width + size.width) % size.width
+                val y = ((it.position.y - renderCamera.center.y * renderCamera.zoom * 0.06) % size.height + size.height) % size.height
                 val tiles=if (abs(game.cameraRotation) > .001) -1..1 else 0..0
                 for (tileX in tiles) for (tileY in tiles) {
                     drawCircle(Color.White.copy(alpha = it.alpha), it.radius, Offset(x.toFloat()+tileX*size.width, y.toFloat()+tileY*size.height))
                 }
             }
-            if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, camera.center, camera.zoom, game.hiddenSolarOrbits)
-            bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,it.color,it.routePath,it.routeDistance) }
-            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,camera.center,camera.zoom,accent,it.routePath,showMarkers=true) }
-            bodies.forEach { drawTrail(it, viewport, camera.center, camera.zoom, detailed = bodies.size < 60, cameraRotation=game.cameraRotation) }
-            visibleSolarBodies(bodies, camera.zoom, density).forEach { drawBody(it, viewport, camera.center, camera.zoom, game.cameraRotation, it.id == controlledId, largeVehicleIcons) }
-            drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, camera.center, camera.zoom, options.reducedFlashes)
+            if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, renderCamera.center, renderCamera.zoom, game.hiddenSolarOrbits)
+            bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
+            candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
+            bodies.forEach {
+                if (bodies.size < 160 || it.mass >= 2 || renderCamera.zoom >= .1f)
+                    drawTrail(it, viewport, renderCamera.center, renderCamera.zoom, detailed = bodies.size < 60,
+                        cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),stride=if (bodies.size >= 160) 6 else if (bodies.size < 60) 1 else 2)
+            }
+            drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
+                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160)
+            drawExplosions(if (game.mode == AppMode.Sandbox) game.explosions else arcade?.explosions.orEmpty(), viewport, renderCamera.center, renderCamera.zoom, options.reducedFlashes)
             arcade?.combat?.projectiles?.forEach { shot ->
-                val point = worldToScreen(shot.position, viewport, camera.center, camera.zoom)
+                val point = worldToScreen(shot.position, viewport, renderCamera.center, renderCamera.zoom)
                 drawLine(Color(0xFF9EF8FF), point - shot.velocity.normalized().toOffset() * 10.dp.toPx(), point, 2.dp.toPx())
             }
             prediction.forEachIndexed { index, point ->
-                drawCircle((if (canLaunch) accent else Color(0xFFFF7A6B)).copy(alpha = 0.8f - index * 0.02f), 2.dp.toPx(), worldToScreen(point, viewport, camera.center, camera.zoom))
+                drawCircle((if (canLaunch) accent else Color(0xFFFF7A6B)).copy(alpha = 0.8f - index * 0.02f), 2.dp.toPx(), worldToScreen(point, viewport, renderCamera.center, renderCamera.zoom))
             }
             preview?.let {
-                val radius = (SimulationEngine.radiusForMass(previewMass ?: 70.0) * camera.zoom).coerceIn(6f, 42f)
+                val radius = (SimulationEngine.radiusForMass(previewMass ?: 70.0) * renderCamera.zoom).coerceIn(6f, 42f)
                 val color = if (canLaunch) Color(0xFF9BE7FF) else Color(0xFFFF7A6B)
-                val start = worldToScreen(it.startWorld, viewport, camera.center, camera.zoom)
-                val end = worldToScreen(it.currentWorld, viewport, camera.center, camera.zoom)
+                val start = worldToScreen(it.startWorld, viewport, renderCamera.center, renderCamera.zoom)
+                val end = worldToScreen(it.currentWorld, viewport, renderCamera.center, renderCamera.zoom)
                 drawCircle(color.copy(alpha = 0.12f), radius * 2.6f, start)
                 if (candidate != null && candidate.kind in listOf(com.xekep.space.sim.BodyKind.Ship,com.xekep.space.sim.BodyKind.Rocket,com.xekep.space.sim.BodyKind.Star,com.xekep.space.sim.BodyKind.BlackHole))
-                    drawBody(candidate, viewport, camera.center, camera.zoom, game.cameraRotation, largeVehicleIcons=largeVehicleIcons)
+                    drawBody(candidate, viewport, renderCamera.center, renderCamera.zoom, game.cameraRotation, largeVehicleIcons=largeVehicleIcons)
                 else drawCircle(color.copy(alpha = 0.88f), radius, start, style = Stroke(width = 2.5f))
                 if (distance(start, end) > 6f) { drawArrow(start, end, color); drawFingerDirection(end, end - start, color) }
             }
             }
-            drawSolarLabels(bodies, viewport, camera.center, camera.zoom, context, solarLabels, game.presentationAge, game.cameraRotation)
-            drawSpaceIndicators(game)
+            drawSolarLabels(bodies, viewport, renderCamera.center, renderCamera.zoom, context, solarLabels, game.presentationAge, game.cameraRotation)
+            drawSpaceIndicators(game,renderCamera) { interpolation.position(it) }
             if (!options.reducedFlashes && game.mode == AppMode.Arcade && (arcade?.hitFlash ?: 0.0) > 0.0) {
                 drawRect(Color(0xFFFF6B6B).copy(alpha = (arcade!!.hitFlash * 0.16).toFloat()))
             }
@@ -335,7 +364,9 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 onRetry = { game.startArcade(arcade.difficulty) }, onMenu = game::openMenu)
         }
         if (game.menuOpen) {
-            SpaceMenu(game, summaries, notice, options = options,
+            val menuPhase=rememberMenuPhase()
+            MenuCosmos(Modifier.fillMaxSize(),menuPhase)
+            SpaceMenu(game, summaries, notice, options = options, orbitPhase=menuPhase,
                 onExport = { game.pendingExport = game.snapshot(System.currentTimeMillis()); exportScene.launch("${game.sandbox?.name?.replace(Regex("[^A-Za-z0-9_-]"), "_") ?: context.getString(R.string.space)}.space.json") },
                 onImport = { importScene.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onSaveSlot = { slot ->

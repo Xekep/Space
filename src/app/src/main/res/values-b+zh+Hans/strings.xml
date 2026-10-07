@@ -179,6 +179,6 @@
     <string name="new_game">新游戏</string>
     <string name="how_to_play">玩法说明</string>
     <string name="random_systems_short">星系 · 500 个天体</string>
-    <string name="random_systems_description">十个随机恒星系统：恒星、行星、卫星和小行星。</string>
+    <string name="random_systems_description">500 个天体：单星和双星、椭圆轨道、小行星带与交汇的天体流。</string>
     <string name="pilot_target_speed">目标速度</string>
 </resources>

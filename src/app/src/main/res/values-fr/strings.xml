@@ -179,6 +179,6 @@
     <string name="new_game">Nouvelle partie</string>
     <string name="how_to_play">Comment jouer</string>
     <string name="random_systems_short">Systèmes · 500 corps</string>
-    <string name="random_systems_description">Dix systèmes aléatoires : étoiles, planètes, lunes et astéroïdes.</string>
+    <string name="random_systems_description">500 corps : étoiles simples et binaires, orbites elliptiques, ceintures d’astéroïdes et flux croisés.</string>
     <string name="pilot_target_speed">Vitesse cible</string>
 </resources>

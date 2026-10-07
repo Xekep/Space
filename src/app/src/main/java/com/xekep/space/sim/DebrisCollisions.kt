@@ -5,23 +5,39 @@ import kotlin.math.*
 
 enum class SandboxCollisionMode { Merge, Debris }
 
-/** Sweep-and-prune broad phase, including the whole travelled segment of fast bodies. */
-internal fun collisionPairs(bodies: List<CelestialBody>,previous: List<CelestialBody>): List<Pair<Int,Int>> {
-    val before=previous.associateBy { it.id }
-    data class Bounds(val index: Int,val left: Double,val right: Double,val top: Double,val bottom: Double)
-    val bounds=bodies.mapIndexed { i,b ->
-        val start=before[b.id]?.position ?: b.position
-        val radius=b.radius*1.4
-        Bounds(i,min(start.x,b.position.x)-radius,max(start.x,b.position.x)+radius,
-            min(start.y,b.position.y)-radius,max(start.y,b.position.y)+radius)
-    }.sortedBy { it.left }
+private class SweepBounds {
+    var index=0; var left=0.0; var right=0.0; var top=0.0; var bottom=0.0
+}
+private val sweepWorkspace=ThreadLocal<ArrayList<SweepBounds>>()
+
+/** Sweep-and-prune broad phase. Swept bounds preserve contacts between fast moving bodies.
+ * Reuse boxes and sweep along the wider axis, avoiding quadratic work in a vertical cluster. */
+internal fun collisionPairs(bodies: List<CelestialBody>,previous: List<CelestialBody>,
+    before: Map<Long,CelestialBody> = previous.associateBy { it.id },margin: Double = 1.0): List<Pair<Int,Int>> {
+    val bounds=sweepWorkspace.get() ?: ArrayList<SweepBounds>().also(sweepWorkspace::set)
+    while (bounds.size < bodies.size) bounds+=SweepBounds()
+    while (bounds.size > bodies.size) bounds.removeAt(bounds.lastIndex)
+    var minX=Double.POSITIVE_INFINITY; var maxX=Double.NEGATIVE_INFINITY
+    var minY=Double.POSITIVE_INFINITY; var maxY=Double.NEGATIVE_INFINITY
+    bodies.forEachIndexed { i,body ->
+        val start=before[body.id]?.position ?: body.position
+        val radius=body.radius*(if (body.isVehicle) 1.4 else margin)
+        bounds[i].apply {
+            index=i; left=min(start.x,body.position.x)-radius; right=max(start.x,body.position.x)+radius
+            top=min(start.y,body.position.y)-radius; bottom=max(start.y,body.position.y)+radius
+            minX=min(minX,left); maxX=max(maxX,right); minY=min(minY,top); maxY=max(maxY,bottom)
+        }
+    }
+    val horizontal=maxX-minX >= maxY-minY
+    bounds.sortWith(if (horizontal) compareBy { it.left } else compareBy { it.top })
     val pairs=ArrayList<Pair<Int,Int>>()
     for (i in bounds.indices) {
         val first=bounds[i]
         for (j in i+1 until bounds.size) {
             val second=bounds[j]
-            if (second.left > first.right) break
-            if (first.bottom < second.top || second.bottom < first.top) continue
+            if (if (horizontal) second.left > first.right else second.top > first.bottom) break
+            if (if (horizontal) first.bottom < second.top || second.bottom < first.top
+                else first.right < second.left || second.right < first.left) continue
             pairs+=min(first.index,second.index) to max(first.index,second.index)
         }
     }
@@ -36,11 +52,12 @@ internal fun debrisCollisions(bodies: List<CelestialBody>,previous: List<Celesti
     val result=bodies.toMutableList(); val events=ArrayList<CollisionEvent>()
     val touched=BooleanArray(bodies.size)
     val removed=BooleanArray(bodies.size)
-    val pairs=collisionPairs(bodies,previous).mapNotNull { (i,j) ->
+    val pairs=collisionPairs(bodies,previous,before).mapNotNull { (i,j) ->
         val a=bodies[i]; val b=bodies[j]
         if (a.isVehicle || b.isVehicle || a.kind == BodyKind.BlackHole || b.kind == BodyKind.BlackHole) null
         else bodyContact(before[a.id] ?: a,a,before[b.id] ?: b,b)?.let { Triple(i,j,it) }
     }.sortedBy { it.third.fraction }
+    if (pairs.isEmpty()) return StepResult(bodies,emptyList())
     for ((i,j,contact) in pairs) {
         if (touched[i] || touched[j]) continue
         var a=result[i]; var b=result[j]

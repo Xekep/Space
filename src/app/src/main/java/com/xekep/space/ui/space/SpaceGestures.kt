@@ -19,7 +19,9 @@ fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier 
     awaitEachGesture {
         val down = awaitFirstDown()
         val startedAt = SystemClock.elapsedRealtimeNanos()
-        game.touchPreview = game.previewAt(down.position, down.position, startedAt)
+        val initial=game.previewAt(down.position,down.position,startedAt)
+        val tapped=if (game.orbitSourceId == null) game.bodyAt(initial.startWorld)?.id else null
+        game.touchPreview = initial.copy(tapBodyId=tapped)
         var cameraGesture = false
         var launched = false
         val vehicle = game.spawnKind == BodyKind.Ship || game.spawnKind == BodyKind.Rocket
@@ -61,7 +63,7 @@ fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier 
                     if (change != null) {
                         val pending=waypointTap?.let { tap -> event.changes.firstOrNull { it.id == tap.id }?.position }?.let(game::worldAt)
                         val route=points.toList()+listOfNotNull(pending).take(if (points.size < MAX_WAYPOINTS) 1 else 0)
-                        game.touchPreview = game.previewAt(down.position, change.position, startedAt).copy(waypoints=route)
+                        game.touchPreview = game.previewAt(down.position, change.position, startedAt).copy(startWorld=initial.startWorld,waypoints=route,tapBodyId=tapped)
                         if (!change.pressed && !change.isConsumed) {
                             game.touchPreview?.let {
                                 val hold = (change.uptimeMillis-down.uptimeMillis).coerceAtLeast(0L)/1000.0

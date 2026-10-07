@@ -27,6 +27,7 @@ data class TouchPreview(
     val startedAtNanos: Long,
     val dragDp: Offset? = null,
     val waypoints: List<Vec2> = emptyList(),
+    val tapBodyId: Long? = null,
 )
 
 data class BackgroundStar(

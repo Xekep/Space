@@ -2,6 +2,7 @@ package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Brush
@@ -14,6 +15,7 @@ import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SolarBody
 import kotlin.math.hypot
+import kotlin.math.abs
 import kotlin.math.pow
 import androidx.compose.ui.graphics.drawscope.clipPath
 import kotlin.random.Random
@@ -26,15 +28,22 @@ fun DrawScope.drawBody(
     cameraRotation: Double = 0.0,
     piloted: Boolean = false,
     largeVehicleIcons: Boolean = false,
+    renderPosition: com.xekep.space.sim.Vec2 = body.position,
+    renderHeading: com.xekep.space.sim.Vec2 = body.heading,
+    simple: Boolean = false,
 ) {
-    val center = worldToScreen(body.position, viewport, cameraCenter, zoom)
+    val center = worldToScreen(renderPosition, viewport, cameraCenter, zoom)
     val margin = maxOf(120.dp.toPx(),bodyScreenRadius(body,zoom,density,largeVehicleIcons)*2f)
     val extent = hypot(size.width,size.height) / 2 + margin
     if (cameraRotation == 0.0) {
         if (center.x < -margin || center.y < -margin || center.x > size.width + margin || center.y > size.height + margin) return
     } else if ((center-this.center).getDistance() > extent) return
     if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) {
-        drawVehicle(body, center, zoom, piloted, largeVehicleIcons)
+        drawVehicle(body, center, zoom, piloted, largeVehicleIcons,renderHeading)
+        return
+    }
+    if (simple && body.solar == null && body.kind in listOf(BodyKind.Ambient,BodyKind.Player)) {
+        drawCircle(body.color,(body.radius*zoom).coerceIn(2.5f,38f),center)
         return
     }
     val screenRadius = bodyScreenRadius(body, zoom, density)
@@ -117,9 +126,8 @@ fun DrawScope.drawBody(
     )
 }
 
-private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean) {
+private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean,heading: com.xekep.space.sim.Vec2) {
     val r = bodyScreenRadius(body, zoom, density, largeVehicleIcons)
-    val heading = body.heading
     val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
     drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
     rotate(angle, center) {
@@ -157,6 +165,21 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
     }
 }
 
+internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: IntSize,camera: SpaceCamera,rotation: Double,
+    controlledId: Long?,largeIcons: Boolean,interpolation: SandboxInterpolation,large: Boolean) {
+    val dots=if (large) LinkedHashMap<Color,MutableList<Offset>>() else null
+    bodies.forEach { body ->
+        if (dots != null && body.kind == BodyKind.Ambient && body.solar == null && body.mass < 2 && body.radius*camera.zoom <= 2.5f) {
+            val point=worldToScreen(interpolation.position(body),viewport,camera.center,camera.zoom)
+            val visible=if (abs(rotation) < .001) point.x >= -4 && point.y >= -4 && point.x <= size.width+4 && point.y <= size.height+4
+                else (point-center).getDistance() <= hypot(size.width,size.height)*.5f+4
+            if (visible) dots.getOrPut(body.color) { ArrayList() }+=point
+        } else drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
+            interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large)
+    }
+    dots?.forEach { (color,points) -> drawPoints(points,PointMode.Points,color,strokeWidth=2.5f,cap=StrokeCap.Round) }
+}
+
 fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehicleIcons: Boolean = false): Float {
     if (body.kind == BodyKind.Star) return (body.radius*zoom).coerceIn(14f*density,45f*density)
     if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn(9f*density,24f*density)
@@ -175,6 +198,8 @@ fun DrawScope.drawTrail(
     zoom: Float,
     detailed: Boolean = true,
     cameraRotation: Double = 0.0,
+    renderPosition: com.xekep.space.sim.Vec2 = body.position,
+    stride: Int = if (detailed) 1 else 2,
 ) {
     if (body.trail.size < 2) {
         return
@@ -190,6 +215,8 @@ fun DrawScope.drawTrail(
     val left = cameraCenter.x - width / (2.0 * zoom); val top = cameraCenter.y - height / (2.0 * zoom)
     if (maxX < left || maxY < top || minX > left + width / zoom || minY > top + height / zoom) return
 
+    if (!detailed && (maxX-minX)*zoom < 1.5 && (maxY-minY)*zoom < 1.5) return
+
     val trailBoost = when (body.kind) {
         BodyKind.Meteor -> 0.08f
         BodyKind.Player -> 0.05f
@@ -197,10 +224,10 @@ fun DrawScope.drawTrail(
     }
 
     val first = worldToScreen(body.trail.first(), viewport, cameraCenter, zoom)
-    val last = worldToScreen(body.trail.last(), viewport, cameraCenter, zoom)
+    val last = worldToScreen(renderPosition, viewport, cameraCenter, zoom)
     val path = Path().apply {
         moveTo(first.x, first.y)
-        for (index in 1 until body.trail.size step if (detailed) 1 else 2) {
+        for (index in 1 until body.trail.lastIndex step stride) {
             val point = worldToScreen(body.trail[index], viewport, cameraCenter, zoom)
             lineTo(point.x, point.y)
         }

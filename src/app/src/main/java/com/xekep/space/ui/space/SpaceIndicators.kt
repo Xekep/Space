@@ -9,10 +9,10 @@ import com.xekep.space.sim.Vec2
 import com.xekep.space.sim.toOffset
 import kotlin.math.abs
 
-fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
-    val camera = game.camera
+fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.camera,
+    renderedPosition: (com.xekep.space.sim.CelestialBody) -> Vec2 = { it.position }) {
     game.bodies.firstOrNull { it.id == game.controlledVehicleId }?.let { body ->
-        val point = worldToScreen(body.position, game.viewport, camera.center, camera.zoom, game.cameraRotation)
+        val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val radius = bodyScreenRadius(body, camera.zoom, density, game.largeVehicleIcons) + 5.dp.toPx()
         // Four small brackets identify the pilot's craft without a text banner.
         repeat(4) { index ->
@@ -23,7 +23,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
     }
     (game.selectedBody ?: game.orbitSource)?.let {
             drawCircle(Color(0xFF8BD3FF), bodyScreenRadius(it, camera.zoom, density, game.largeVehicleIcons).coerceAtLeast(12f) + 8f,
-                worldToScreen(it.position, game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                worldToScreen(renderedPosition(it), game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
     }
     if (game.mode == AppMode.Sandbox) {
         return
@@ -31,7 +31,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState) {
     val marginX = 24.dp.toPx(); val marginY = 160.dp.toPx().coerceAtMost(size.height * 0.28f)
     val center = Offset(size.width / 2, size.height / 2)
     (game.bodies.filter { it.kind == BodyKind.Meteor } + game.arcade?.pending.orEmpty().map { it.body }).forEach { body ->
-        val point = worldToScreen(body.position, game.viewport, camera.center, camera.zoom, game.cameraRotation)
+        val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val warning = game.arcade?.pending?.any { it.body.id == body.id } == true
         if (body.kind == BodyKind.Meteor) {
             val velocity=rotateVector(body.velocity*camera.zoom.toDouble(),game.cameraRotation)

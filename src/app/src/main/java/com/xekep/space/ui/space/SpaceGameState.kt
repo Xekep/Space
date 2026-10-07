@@ -131,10 +131,13 @@ class SpaceGameState(
     }
     private var accumulator = 0.0
     private var sandboxRevision = 0L
+    val sandboxEditRevision: Long get() = sandboxRevision
     private val history = ArrayDeque<SandboxSession>()
     private var movedCameraInTutorial = false
     val hasSession: Boolean get() = if (mode == AppMode.Arcade) arcade != null else sandbox != null
     val bodies: List<CelestialBody> get() = if (mode == AppMode.Arcade) arcade?.bodies.orEmpty() else sandbox?.bodies.orEmpty()
+    val cameraTarget: CelestialBody? get() = if (following) selectedBody else if (pilotCameraFollowing && touchPreview == null)
+        bodies.firstOrNull { it.id == controlledVehicleId } else null
     val camera: SpaceCamera get() = if (mode == AppMode.Arcade) arcade?.camera ?: SpaceCamera() else sandbox?.camera ?: SpaceCamera()
     val selectedBody: CelestialBody? get() {
         val id = selectedBodyId ?: return null
@@ -247,16 +250,24 @@ class SpaceGameState(
 
     /** Called from the main thread. Only immutable body snapshots leave it; UI edits never wait
      * for the solver, and an obsolete result cannot overwrite a newer scene. */
-    suspend fun updateSandboxAsync(dt: Double) {
+    fun updateSandboxPresentation(dt: Double) {
         updateCameraRotation(dt)
+        if (!menuOpen && hasSession && dt.isFinite() && dt > 0) updatePresentation(dt)
+    }
+    suspend fun updateSandboxAsync(dt: Double, budgeted: Boolean = false) {
+        if (!budgeted) updateCameraRotation(dt)
         if (mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen || !dt.isFinite() || dt <= 0.0) return
-        updatePresentation(dt)
+        if (!budgeted) updatePresentation(dt)
         val current = sandbox ?: return
         if (current.paused || orbitSourceId != null) { resetFrameClock(); return }
         accumulator += dt
-        if (accumulator > 2.0) { pauseAfterStall(); return }
-        val seconds = 1.0 / 60.0
-        val steps = ((accumulator + 1e-9) / seconds).toInt().coerceAtMost(15)
+        if (!budgeted && accumulator > 2.0) { pauseAfterStall(); return }
+        val large=budgeted && current.bodies.size >= BARNES_HUT_THRESHOLD
+        val seconds = if (large) 1.0/30.0 else 1.0/60.0
+        // Do not build an ever growing catch-up batch when a dense scene is slower than real time.
+        // Keep fixed physics steps; shed old wall-clock debt instead of skipping through contacts.
+        if (budgeted) accumulator=accumulator.coerceAtMost(4*seconds)
+        val steps = ((accumulator + 1e-9) / seconds).toInt().coerceAtMost(if (large) 1 else if (budgeted) 2 else 15)
         if (steps == 0) return
         val revision = sandboxRevision
         val initialEffects = explosions
@@ -300,6 +311,12 @@ class SpaceGameState(
     }
     fun worldAt(position: Offset): Vec2 = screenToWorld(position, viewport, camera.center, camera.zoom, cameraRotation)
     fun previewAt(start: Offset, end: Offset, startedAt: Long) = TouchPreview(worldAt(start), worldAt(end), startedAt, (end - start) / density)
+    internal fun bodyAt(point: Vec2): CelestialBody? = visibleSolarBodies(bodies,camera.zoom,density)
+        .filter { body ->
+            val radius=if (body.isVehicle) maxOf(20.0*density,bodyScreenRadius(body,camera.zoom,density,largeVehicleIcons)*1.35)/camera.zoom
+                else maxOf(body.radius.toDouble(),20.0*density/camera.zoom)
+            (body.position-point).magnitude() <= radius
+        }.minByOrNull { (it.position-point).magnitude() }
     fun launchVelocity(preview: TouchPreview): Vec2 = preview.dragDp?.let { drag ->
         rotateVector(SimulationEngine.velocityFromGesture(drag), -cameraRotation)
     }
@@ -379,12 +396,12 @@ class SpaceGameState(
     }
     fun finishGesture(preview: TouchPreview, holdSeconds: Double) {
         if (holdSeconds < 0.3 && (preview.dragDp?.getDistance() ?: 0f) < 12f && orbitSourceId == null && preview.waypoints.isEmpty()) {
-            val body = visibleSolarBodies(bodies,camera.zoom,density).minByOrNull { (it.position - preview.startWorld).magnitude() }
-            val hitRadius = body?.let { if (it.isVehicle) maxOf(20.0*density,bodyScreenRadius(it,camera.zoom,density,largeVehicleIcons)*1.35)/camera.zoom
-                else maxOf(it.radius.toDouble(),20.0*density/camera.zoom) } ?: 0.0
-            if (body != null && (body.position - preview.startWorld).magnitude() <= hitRadius) {
-                selectedBodyId = body.id; feedback = null; return
+            // Resolve the object touched on pointer down, even if it moved away before release.
+            if (preview.tapBodyId != null) {
+                if (bodies.any { it.id == preview.tapBodyId }) { selectedBodyId=preview.tapBodyId; feedback=null }
+                return
             }
+            bodyAt(preview.startWorld)?.let { selectedBodyId=it.id; feedback=null; return }
         }
         launch(preview, holdSeconds)
     }

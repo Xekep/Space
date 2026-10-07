@@ -50,6 +50,27 @@ class SatelliteOrbitTest {
         }
     }
 
+    @Test fun fastParentIsSelectedAtPointerDownAndItsSatelliteInheritsItsFullVelocity() {
+        val parent=CelestialBody(9101,Vec2.Zero,Vec2(1400.0,-900.0),1000.0,10f,androidx.compose.ui.graphics.Color.Cyan)
+        val game=SpaceGameState().apply {
+            loadSandbox(com.xekep.space.storage.SandboxSnapshot(listOf(parent),Vec2.Zero,4f,SimulationEngine.totalEnergy(listOf(parent)),0))
+        }
+        val tap=TouchPreview(parent.position,parent.position,0,tapBodyId=game.bodyAt(parent.position)!!.id)
+        game.update(.2)
+        assertTrue((game.bodies.single().position-parent.position).magnitude() > 100)
+        game.finishGesture(tap,.2)
+        assertEquals(parent.id,game.selectedBodyId); assertEquals(1,game.bodies.size)
+        game.prepareOrbit()
+        val center=game.orbitSource!!
+        val point=center.position+Vec2(40.0,0.0)
+        game.launch(TouchPreview(point,point,0),0.0)
+        val moon=game.bodies.last()
+        val orbitSpeed=SimulationEngine.orbitVelocity(center.copy(velocity=Vec2.Zero),point,moon.mass)
+        assertEquals(center.velocity+orbitSpeed,moon.velocity)
+        assertTrue("Satellite speed must not be clamped to the normal launch limit",moon.velocity.magnitude() > 1000)
+        assertBound(game.bodies,parent.id,moon.id,40.0,8.0,.03)
+    }
+
     private fun assertBound(initial: List<CelestialBody>,parentId: Long,satelliteId: Long,radius: Double,seconds: Double,tolerance: Double) {
         var scene=initial
         var minimum=Double.POSITIVE_INFINITY; var maximum=0.0

@@ -1,6 +1,5 @@
 package com.xekep.space.ui.space
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -46,6 +45,7 @@ fun SpaceMenu(
     options: GameOptions? = null,
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
+    orbitPhase: State<Float>? = null,
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -83,7 +83,7 @@ fun SpaceMenu(
 
     val header: @Composable () -> Unit = {
                 Row(Modifier.fillMaxWidth().padding(top=8.dp),verticalAlignment=Alignment.CenterVertically) {
-                    OrbitGlyph(Modifier.size(32.dp),accent)
+                    OrbitGlyph(Modifier.size(32.dp),accent,orbitPhase)
                     Text("SPACE",Modifier.weight(1f).padding(start=10.dp),style=MaterialTheme.typography.titleMedium,
                         letterSpacing=3.sp,color=accent)
                     IconButton(onClick={ panel=MenuPanel.Settings },modifier=Modifier.testTag("open-settings")
@@ -165,7 +165,7 @@ fun SpaceMenu(
                 }
                 LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
     }
-    BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(if (orbitPhase != null) Color(0x2802040B) else Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
         val wide=maxHeight < 380.dp && maxWidth >= 500.dp
         Surface(Modifier.widthIn(max=if (wide) 680.dp else 420.dp).fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xF20B1425)) {
             if (wide) Row(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()).testTag("menu-content"),
@@ -277,13 +277,12 @@ private fun InfoButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun OrbitGlyph(modifier: Modifier,color: Color) {
-    val transition=rememberInfiniteTransition(label="menu-orbit")
-    val phase by transition.animateFloat(0f,(2*PI).toFloat(),infiniteRepeatable(tween(48000,easing=LinearEasing)),label="orbit-phase")
+private fun OrbitGlyph(modifier: Modifier,color: Color,phase: State<Float>?) {
     Canvas(modifier) {
+        val angle=phase?.value ?: .4f
         drawOval(color.copy(alpha=.4f),Offset(size.width*.06f,size.height*.28f),Size(size.width*.88f,size.height*.44f),style=Stroke(1.dp.toPx()))
         drawCircle(color,size.minDimension*.12f)
-        drawCircle(color.copy(alpha=.8f),size.minDimension*.06f,Offset(center.x+cos(phase)*size.width*.44f,center.y+sin(phase)*size.height*.22f))
+        drawCircle(color.copy(alpha=.8f),size.minDimension*.06f,Offset(center.x+cos(angle)*size.width*.44f,center.y+sin(angle)*size.height*.22f))
     }
 }
 

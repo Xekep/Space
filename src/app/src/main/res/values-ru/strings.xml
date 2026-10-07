@@ -201,6 +201,6 @@
     <string name="new_game">Новая игра</string>
     <string name="how_to_play">Как играть</string>
     <string name="random_systems_short">Системы · 500 тел</string>
-    <string name="random_systems_description">Десять случайных систем: звёзды, планеты, спутники и астероиды.</string>
+    <string name="random_systems_description">500 тел: одиночные и двойные звёзды, вытянутые орбиты, астероидные пояса и пересекающиеся потоки.</string>
     <string name="pilot_target_speed">Заданная скорость</string>
 </resources>

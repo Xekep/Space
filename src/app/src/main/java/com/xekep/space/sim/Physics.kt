@@ -100,7 +100,7 @@ enum class SandboxPresetKind(val title: String, val description: String) {
     SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
     ClassicOrbits("Orbits", "A star and eight planets in a playful gravity scale."),
-    RandomSystems("Random systems", "Ten random stellar systems with 500 bodies."),
+    RandomSystems("Random systems", "A varied cluster with single and binary stars and 500 bodies."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
@@ -492,19 +492,24 @@ object SimulationEngine {
     /** Sweep relative motion so fast vehicles cannot tunnel through small targets.
      * Impacts destroy vehicles; the celestial target remains a gravitational body. */
     private fun vehicleCollisions(bodies: List<CelestialBody>, previous: List<CelestialBody>, arcade: Boolean = false): StepResult {
+        if (bodies.none { it.isVehicle }) return StepResult(bodies,emptyList())
         val before=previous.associateBy { it.id }
         val removed = mutableSetOf<Long>()
         val events = mutableListOf<CollisionEvent>()
         val candidates = mutableListOf<Triple<Int, Int, BodyContact>>()
-        for (i in bodies.indices) {
-            val first = bodies[i]
-            if (!first.isVehicle) continue
-            for (j in bodies.indices) {
-                val second = bodies[j]
-                if (i == j || (second.isVehicle && j < i)) continue
-                val contact = bodyContact(before[first.id] ?: first, first, before[second.id] ?: second, second) ?: continue
-                candidates += Triple(i, j, contact)
+        fun consider(i: Int,j: Int) {
+            val first=bodies[i]; val second=bodies[j]
+            val contact=bodyContact(before[first.id] ?: first,first,before[second.id] ?: second,second) ?: return
+            candidates+=Triple(i,j,contact)
+        }
+        if (bodies.size >= BARNES_HUT_THRESHOLD) {
+            for ((i,j) in collisionPairs(bodies,previous,before)) {
+                if (bodies[i].isVehicle) consider(i,j)
+                else if (bodies[j].isVehicle) consider(j,i)
             }
+        } else for (i in bodies.indices) {
+            if (!bodies[i].isVehicle) continue
+            for (j in bodies.indices) if (i != j && (!bodies[j].isVehicle || j > i)) consider(i,j)
         }
         for ((i, j, contact) in candidates.sortedBy { it.third.fraction }) {
                 val first = bodies[i]; val second = bodies[j]
@@ -533,7 +538,7 @@ object SimulationEngine {
 
         val before = previous.associateBy { it.id }
         val neighbours=if (bodies.size >= BARNES_HUT_THRESHOLD) {
-            Array(bodies.size) { ArrayList<Int>() }.also { lists -> collisionPairs(bodies,previous).forEach { (i,j) -> lists[i].add(j) } }
+            Array(bodies.size) { ArrayList<Int>() }.also { lists -> collisionPairs(bodies,previous,before,margin=1.4).forEach { (i,j) -> lists[i].add(j) } }
         } else null
         val merged = mutableListOf<CelestialBody>()
         val consumed = BooleanArray(bodies.size)

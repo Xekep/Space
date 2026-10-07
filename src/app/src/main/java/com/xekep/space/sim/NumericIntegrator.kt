@@ -12,13 +12,16 @@ internal object NumericIntegrator {
         val k3 = DoubleArray(count * 4); val k4 = DoubleArray(count * 4)
         val temporary = DoubleArray(count * 4); val thrust = DoubleArray(count * 2)
         val gravity=DoubleArray(count*2); val tree=BarnesHutGravity()
+        val cachedPositions=DoubleArray(count*2); val cachedMass=DoubleArray(count)
+        val cachedSoft=DoubleArray(count); val cachedFixed=BooleanArray(count)
+        var gravityValid=false
     }
     // Tests and gameplay can run on different threads; never share mutable RK4 buffers.
     private val buffers = ThreadLocal<Buffers>()
 
     fun advance(bodies: List<CelestialBody>, seconds: Double, limit: Double, fixedCore: Boolean = false,
         recordTrail: Boolean = true, alignRockets: Boolean = true, controlledId: Long? = null,
-        approximateGravity: Boolean = true): List<CelestialBody> {
+        approximateGravity: Boolean = true, cacheGravity: Boolean = true): List<CelestialBody> {
         if (bodies.isEmpty() || seconds <= 0.0) return bodies
         val count = bodies.size
         val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count).also { buffers.set(it) }
@@ -59,12 +62,12 @@ internal object NumericIntegrator {
             if (useTree) {
                 // Two tree evaluations per step; the symplectic kick-drift-kick scheme avoids
                 // four expensive RK stages while retaining good long-term orbital behaviour.
-                derivative(values,masses,fixed,smoothing,thrust,k1,workspace,true)
+                derivative(values,masses,fixed,smoothing,thrust,k1,workspace,true,cacheGravity)
                 for (i in masses.indices) if (!fixed[i]) {
                     values[i*4+2]+=k1[i*4+2]*dt*.5; values[i*4+3]+=k1[i*4+3]*dt*.5
                     values[i*4]+=values[i*4+2]*dt; values[i*4+1]+=values[i*4+3]*dt
                 }
-                derivative(values,masses,fixed,smoothing,thrust,k2,workspace,true)
+                derivative(values,masses,fixed,smoothing,thrust,k2,workspace,true,cacheGravity)
                 for (i in masses.indices) if (!fixed[i]) {
                     values[i*4+2]+=k2[i*4+2]*dt*.5; values[i*4+3]+=k2[i*4+3]*dt*.5
                 }
@@ -113,10 +116,24 @@ internal object NumericIntegrator {
             1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0
 
     private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray,
-        workspace: Buffers,useTree: Boolean) {
+        workspace: Buffers,useTree: Boolean,cacheGravity: Boolean = true) {
         result.fill(0.0)
         if (useTree) {
-            workspace.tree.compute(state,masses,smoothing,workspace.gravity,conserveMomentum=fixed.none { it })
+            var reuse=cacheGravity && workspace.gravityValid
+            if (reuse) for (i in masses.indices) {
+                if (workspace.cachedPositions[i*2] != state[i*4] || workspace.cachedPositions[i*2+1] != state[i*4+1] ||
+                    workspace.cachedMass[i] != masses[i] || workspace.cachedSoft[i] != smoothing[i] || workspace.cachedFixed[i] != fixed[i]) {
+                    reuse=false; break
+                }
+            }
+            if (!reuse) {
+                workspace.tree.compute(state,masses,smoothing,workspace.gravity,conserveMomentum=fixed.none { it })
+                for (i in masses.indices) {
+                    workspace.cachedPositions[i*2]=state[i*4]; workspace.cachedPositions[i*2+1]=state[i*4+1]
+                    workspace.cachedMass[i]=masses[i]; workspace.cachedSoft[i]=smoothing[i]; workspace.cachedFixed[i]=fixed[i]
+                }
+                workspace.gravityValid=true
+            }
             for (i in masses.indices) if (!fixed[i]) {
                 result[i*4]=state[i*4+2]; result[i*4+1]=state[i*4+3]
                 result[i*4+2]=workspace.gravity[i*2]+thrust[i*2]

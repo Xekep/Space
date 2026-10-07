@@ -193,7 +193,8 @@ internal fun Modifier.blockWorldTouches(): Modifier = pointerInput(Unit) {
         awaitFirstDown(requireUnconsumed = false)
         do {
             val event = awaitPointerEvent()
-            event.changes.forEach { it.consume() }
+            // This panel wins hit testing over the sibling world canvas. Leave child gestures
+            // untouched: consuming moves here cancels Slider's touch-slop detection.
         } while (event.changes.any { it.pressed })
     }
 }

@@ -201,6 +201,6 @@
     <string name="new_game">New game</string>
     <string name="how_to_play">How to play</string>
     <string name="random_systems_short">Systems · 500 bodies</string>
-    <string name="random_systems_description">Ten random systems: stars, planets, moons and asteroids.</string>
+    <string name="random_systems_description">500 bodies: single and binary stars, eccentric orbits, asteroid belts and crossing streams.</string>
     <string name="pilot_target_speed">Target speed</string>
 </resources>

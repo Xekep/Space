@@ -10,6 +10,25 @@ import org.junit.runner.RunWith
 /** Physics timing only: the emulator result is not a phone FPS measurement. */
 @RunWith(AndroidJUnit4::class)
 class PhysicsDeviceBenchmarkTest {
+    @Test fun profileFiveHundredBodyCollisionModesWithoutRendering() {
+        var nextId=1L
+        val initial=RandomSystems.create(kotlin.random.Random(17)) { nextId++ }
+        SimulationEngine.reserveBodyIds(initial)
+        val energy=SimulationEngine.totalEnergy(initial)
+        for ((enabled,mode) in listOf(false to SandboxCollisionMode.Merge,true to SandboxCollisionMode.Merge,true to SandboxCollisionMode.Debris)) {
+            var bodies=initial
+            repeat(10) { bodies=SimulationEngine.stepSandbox(bodies,1.0/30,energy,enabled,collisionMode=mode).bodies }
+            var contacts=0
+            val samples=List(30) {
+                val start=System.nanoTime()
+                val step=SimulationEngine.stepSandbox(bodies,1.0/30,energy,enabled,collisionMode=mode)
+                bodies=step.bodies; contacts+=step.collisions.size
+                (System.nanoTime()-start)/1_000_000.0
+            }.sorted()
+            Log.i("SpaceBenchmark","COLLISIONS_500,enabled=$enabled,mode=$mode,medianMs=${samples[15]},p95Ms=${samples[28]},bodies=${bodies.size},contacts=$contacts")
+            assertTrue(bodies.all { it.position.x.isFinite() && it.velocity.y.isFinite() })
+        }
+    }
     @Test fun profileSandboxPhysicsAtIncreasingBodyCounts() {
         for (count in listOf(9, 30, 60, 100)) {
             for (speed in listOf(1.0, 6.0)) {

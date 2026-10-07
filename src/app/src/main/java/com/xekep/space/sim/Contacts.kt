@@ -34,6 +34,13 @@ private fun contactCircles(body: CelestialBody): List<ContactCircle> {
 }
 
 fun bodyContact(firstStart: CelestialBody, firstEnd: CelestialBody, secondStart: CelestialBody, secondEnd: CelestialBody): BodyContact? {
+    if (!firstEnd.isVehicle && !secondEnd.isVehicle) {
+        val fraction=firstCircleContact(firstStart.position-secondStart.position,firstEnd.position-secondEnd.position,
+            firstEnd.radius.toDouble()+secondEnd.radius) ?: return null
+        val point=firstStart.position+(firstEnd.position-firstStart.position)*fraction
+        val target=secondStart.position+(secondEnd.position-secondStart.position)*fraction
+        return BodyContact(fraction,point+(target-point).normalized()*firstEnd.radius.toDouble())
+    }
     // Cheap conservative rejection before building hull shapes.
     if (firstCircleContact(firstStart.position - secondStart.position, firstEnd.position - secondEnd.position,
             (firstEnd.radius + secondEnd.radius) * 1.4) == null) return null

@@ -100,25 +100,47 @@ class MenuRedesignUiTest {
         compose.onNodeWithTag("confirm-action").performClick()
         compose.runOnIdle { assertEquals(1,imports) }
     }
-    @Test fun pilotSpeedHandleChangesTheTargetWithoutSpawningOrMovingTheCamera() {
+    @Test fun pilotSpeedHandleDragsContinuouslyInBothModesForShipsAndRockets() {
         val prefs=context.getSharedPreferences("space_options",android.content.Context.MODE_PRIVATE)
         val prior=prefs.getBoolean("motionControl",false)
         prefs.edit().putBoolean("motionControl",true).commit()
+        compose.mainClock.autoAdvance=false
         try {
-            val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause(); chooseSpawnKind(BodyKind.Ship) }
+            val game=SpaceGameState()
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
-            compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
-            compose.onNodeWithTag("pilot-speed").performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(300f)) }
-            compose.runOnIdle { assertEquals(300.0,game.bodies.single().pilotTargetSpeed!!,1e-5) }
-            val camera=game.camera
-            compose.onNodeWithTag("pilot-speed").performTouchInput { swipe(Offset(width*.8f,center.y),Offset(width*.25f,center.y),300) }
-            compose.runOnIdle {
-                assertEquals(1,game.bodies.size); assertEquals(camera,game.camera)
-                assertTrue(game.bodies.single().pilotTargetSpeed!! in 100.0..350.0)
+            for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+                compose.runOnIdle {
+                    if (mode == AppMode.Sandbox) { game.startSandbox(SandboxPresetKind.Empty); game.toggleSandboxPause() }
+                    else game.startArcade()
+                    game.chooseSpawnKind(kind)
+                }
+                compose.mainClock.advanceTimeByFrame()
+                compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(0f,-100f)) }
+                compose.mainClock.advanceTimeByFrame()
+                val id=game.controlledVehicleId!!
+                val count=game.bodies.size; val camera=game.camera
+                compose.onNodeWithTag("pilot-speed").performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(180f)) }
+                compose.mainClock.advanceTimeByFrame()
+                compose.onNodeWithTag("pilot-speed").performTouchInput { down(Offset(width*.2f,center.y)) }
+                var previous=180.0
+                for (fraction in listOf(.4f,.65f,.9f,.6f,.2f)) {
+                    compose.onNodeWithTag("pilot-speed").performTouchInput { moveTo(Offset(width*fraction,center.y),100) }
+                    compose.mainClock.advanceTimeByFrame()
+                    compose.runOnIdle {
+                        val target=game.bodies.first { it.id == id }.pilotTargetSpeed!!
+                        assertTrue("Speed must follow the finger before it lifts: $previous -> $target",kotlin.math.abs(target-previous) > 100)
+                        assertEquals(count,game.bodies.size)
+                        assertEquals(camera.zoom,game.camera.zoom)
+                        if (mode == AppMode.Sandbox) assertEquals(camera,game.camera)
+                        else assertEquals(game.bodies.first { it.id == id }.position,game.camera.center)
+                        previous=target
+                    }
+                }
+                compose.onNodeWithTag("pilot-speed").performTouchInput { up() }
+                compose.mainClock.advanceTimeByFrame()
+                compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
+                shot("pilot-speed-handle.png")
             }
-            shot("pilot-speed-handle.png")
-            compose.runOnIdle { game.toggleSandboxPause(); repeat(60) { game.update(1.0/60) } }
-            compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
         } finally { prefs.edit().putBoolean("motionControl",prior).commit() }
     }
     @Test fun stellarCollisionAndAStalledFrameKeepTheSandboxVisible() {
