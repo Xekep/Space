@@ -8,6 +8,7 @@ import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SandboxPresetKind
 import com.xekep.space.sim.Vec2
 import com.xekep.space.sim.SolarBody
+import com.xekep.space.sim.SandboxCollisionMode
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -22,6 +23,7 @@ data class SandboxSnapshot(
     val collisionsEnabled: Boolean = false,
     val preset: SandboxPresetKind = SandboxPresetKind.SolarSystem,
     val name: String = preset.title,
+    val collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
 )
 
 data class SandboxSlotSummary(
@@ -66,6 +68,7 @@ class SandboxStorage(context: Context) {
         root.put("timeScale", snapshot.timeScale)
         root.put("paused", snapshot.paused)
         root.put("collisionsEnabled", snapshot.collisionsEnabled)
+        root.put("collisionMode",snapshot.collisionMode.name)
         root.put("preset", snapshot.preset.name)
         root.put("name", snapshot.name)
         root.put(
@@ -202,6 +205,7 @@ class SandboxStorage(context: Context) {
                 SandboxPresetKind.valueOf(root.optString("preset", SandboxPresetKind.SolarSystem.name))
             }.getOrDefault(SandboxPresetKind.SolarSystem),
             name = root.optString("name", "Universe").take(40),
+            collisionMode=runCatching { SandboxCollisionMode.valueOf(root.optString("collisionMode","Merge")) }.getOrDefault(SandboxCollisionMode.Merge),
         )
     }
 

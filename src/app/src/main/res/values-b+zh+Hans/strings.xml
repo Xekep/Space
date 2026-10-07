@@ -42,7 +42,7 @@
     <string name="solar">"太阳系"</string>
     <string name="binary">"双星"</string>
     <string name="empty">"空白"</string>
-    <string name="merge_impact">"碰撞时合并"</string>
+    <string name="merge_impact">天体碰撞</string>
     <string name="current_universe">"当前宇宙"</string>
     <string name="unsaved_changes">" · 有未保存的更改"</string>
     <string name="rename">"重命名"</string>
@@ -112,7 +112,7 @@
     <string name="practice_hit">"练习陨石击中了核心。请重试，练习中不会损失生命。"</string>
     <string name="not_enough_energy">"能量不足，请等待补充。"</string>
     <string name="satellite_farther">"请将卫星放在远离附近天体的位置。"</string>
-    <string name="satellite_unstable">附近天体的引力过强，请将卫星放在更靠近母天体的位置。</string>
+    <string name="satellite_unstable">卫星已发射，附近天体的引力可能扰动其轨道。</string>
     <string name="satellite_parent_lost">母天体已消失，请选择其他天体。</string>
     <string name="practice_complete">"练习完成，简单难度游戏已开始。"</string>
     <string name="checkpoint_stored">"检查点已保存"</string>
@@ -184,4 +184,8 @@
     <string name="large_vehicle_icons">"放大飞行器图标"</string>
     <string name="loop_flight_route">"循环飞行路线"</string>
     <string name="large_vehicle_icons_description">"放大飞船和火箭图标"</string>
+    <string name="collision_merge">合并</string>
+    <string name="collision_debris">碎片</string>
+    <string name="generate_random_systems">生成星系 · 500 个天体</string>
+    <string name="random_systems_name">随机星系</string>
 </resources>

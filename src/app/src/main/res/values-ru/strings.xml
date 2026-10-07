@@ -48,7 +48,7 @@
     <string name="solar">"Система"</string>
     <string name="binary">"Две звезды"</string>
     <string name="empty">"Пусто"</string>
-    <string name="merge_impact">"Слияние при ударе"</string>
+    <string name="merge_impact">Столкновения тел</string>
 
     <string name="current_universe">"ТЕКУЩИЙ МИР"</string>
     <string name="unsaved_changes">" · Есть изменения"</string>
@@ -125,7 +125,7 @@
 
     <string name="not_enough_energy">"Недостаточно энергии. Дождитесь восстановления."</string>
     <string name="satellite_farther">"Разместите спутник подальше от соседних тел."</string>
-    <string name="satellite_unstable">Мешает притяжение соседей. Попробуйте ближе к выбранному телу.</string>
+    <string name="satellite_unstable">Спутник запущен. Притяжение соседей может изменить орбиту.</string>
     <string name="satellite_parent_lost">Центральное тело исчезло. Выберите другое.</string>
     <string name="practice_complete">"Обучение завершено. Началась попытка на лёгкой сложности."</string>
     <string name="checkpoint_stored">"Контрольный снимок сохранён"</string>
@@ -206,4 +206,8 @@
     <string name="large_vehicle_icons">Крупные значки</string>
     <string name="loop_flight_route">Зациклить маршрут</string>
     <string name="large_vehicle_icons_description">Увеличивать значки кораблей и ракет</string>
+    <string name="collision_merge">Слияние</string>
+    <string name="collision_debris">Обломки</string>
+    <string name="generate_random_systems">Создать системы · 500 тел</string>
+    <string name="random_systems_name">Случайные системы</string>
 </resources>

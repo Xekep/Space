@@ -38,6 +38,7 @@ data class ArcadeSession(
 data class SandboxSession(
     val bodies: List<CelestialBody>, val camera: SpaceCamera, val referenceEnergy: Double, val preset: SandboxPresetKind,
     val timeScale: Double = 1.0, val paused: Boolean = false, val collisionsEnabled: Boolean = false, val name: String = preset.title,
+    val collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
 )
 
 @Stable
@@ -194,7 +195,7 @@ class SpaceGameState(
         updateCameraRotation(dt)
         if (menuOpen || !hasSession || !dt.isFinite() || dt <= 0.0) return
         updatePresentation(dt)
-        if (mode == AppMode.Sandbox && (sandbox?.paused == true || sandboxOverlayOpen)) { resetFrameClock(); return }
+        if (mode == AppMode.Sandbox && (sandbox?.paused == true || sandboxOverlayOpen || orbitSourceId != null)) { resetFrameClock(); return }
         if (mode == AppMode.Arcade && (arcade?.lives ?: 0) <= 0) { resetFrameClock(); return }
         accumulator += dt
         if (accumulator > 2.0) { openMenu(); feedback = R.string.lag_paused; return }
@@ -205,7 +206,7 @@ class SpaceGameState(
                 val current = sandbox ?: break
                 val control = flightControl()
                 val steered = applyFlightControls(current.bodies, control, seconds * current.timeScale)
-                val next = SimulationEngine.stepSandbox(steered, seconds * current.timeScale, current.referenceEnergy, current.collisionsEnabled, control?.bodyId)
+                val next = SimulationEngine.stepSandbox(steered, seconds * current.timeScale, current.referenceEnergy, current.collisionsEnabled, control?.bodyId,current.collisionMode)
                 explosions = advanceExplosions(explosions, next.collisions, seconds)
                 if (next.collisions.any { it.vehicleExplosion }) sandbox = current.copy(referenceEnergy = SimulationEngine.totalEnergy(next.bodies))
                 publishSandboxBodies(advanceWaypoints(steered,next.bodies))
@@ -233,7 +234,7 @@ class SpaceGameState(
         if (mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen || !dt.isFinite() || dt <= 0.0) return
         updatePresentation(dt)
         val current = sandbox ?: return
-        if (current.paused) { resetFrameClock(); return }
+        if (current.paused || orbitSourceId != null) { resetFrameClock(); return }
         accumulator += dt
         if (accumulator > 2.0) { openMenu(); feedback = R.string.lag_paused; return }
         val seconds = 1.0 / 60.0
@@ -249,14 +250,14 @@ class SpaceGameState(
             repeat(steps) { step ->
                 currentCoroutineContext().ensureActive()
                 val steered=applyFlightControls(bodies,if (step == 0) control else control?.copy(boost=0.0),seconds*current.timeScale)
-                val result = SimulationEngine.stepSandbox(steered, seconds * current.timeScale, energy, current.collisionsEnabled, control?.bodyId)
+                val result = SimulationEngine.stepSandbox(steered, seconds * current.timeScale, energy, current.collisionsEnabled, control?.bodyId,current.collisionMode)
                 bodies = advanceWaypoints(steered,result.bodies)
                 if (result.collisions.any { it.vehicleExplosion }) energy = SimulationEngine.totalEnergy(bodies)
                 effects = advanceExplosions(effects, result.collisions, seconds)
             }
             Triple(bodies, effects, energy)
         }
-        if (revision != sandboxRevision || mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen ||
+        if (revision != sandboxRevision || mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen || orbitSourceId != null ||
             sandbox?.paused != false || sandbox?.bodies !== current.bodies) { resetFrameClock(); return }
         sandbox = sandbox?.copy(referenceEnergy = next.third)
         publishSandboxBodies(next.first)
@@ -377,10 +378,11 @@ class SpaceGameState(
         if (spawnCount >= spawnLimit) { feedback = null; return }
         val candidate = previewBody(preview, holdSeconds)
         if (candidate == null) { feedback = R.string.not_enough_energy; return }
+        var disturbedOrbit=false
         orbitSource?.let { parent ->
             when (satellitePlacement(parent,candidate,bodies)) {
                 SatellitePlacement.Overlap -> { feedback = R.string.satellite_farther; return }
-                SatellitePlacement.StrongTides -> { feedback = R.string.satellite_unstable; return }
+                SatellitePlacement.StrongTides -> disturbedOrbit=true
                 SatellitePlacement.Clear -> Unit
             }
         }
@@ -405,7 +407,7 @@ class SpaceGameState(
             sandbox = current.copy(bodies = next, referenceEnergy = SimulationEngine.totalEnergy(next)); selectedBodyId = null; orbitSourceId = null; dirty = true
             if (tutorialStep == 0) tutorialStep = 1
         }
-        feedback = null
+        feedback = if (disturbedOrbit) R.string.satellite_unstable else null
     }
     private fun rememberEdit() { sandbox?.let { if (history.size >= 20) history.removeFirst(); history.addLast(it); undoCount = history.size } }
     fun undo() {
@@ -421,7 +423,7 @@ class SpaceGameState(
     fun shakeSandbox(impulse: Vec2, shakeMode: ShakeMode = ShakeMode.Inertial, intensity: Double = 1.0): Boolean {
         val current = sandbox ?: return false
         if (shakeMode == ShakeMode.Off || !intensity.isFinite() || intensity !in .25..2.5) return false
-        if (mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen || controlledVehicleId != null || current.paused || current.bodies.isEmpty() ||
+        if (mode != AppMode.Sandbox || menuOpen || sandboxOverlayOpen || orbitSourceId != null || controlledVehicleId != null || current.paused || current.bodies.isEmpty() ||
             !impulse.x.isFinite() || !impulse.y.isFinite() || impulse.magnitude() !in 1.0..(ShakeImpulseDetector.MAX_IMPULSE + 1e-6)) return false
         sandboxRevision++; rememberEdit()
         val next = current.bodies.map { body ->
@@ -435,7 +437,10 @@ class SpaceGameState(
         return true
     }
     fun selectBody(id: Long) { selectedBodyId = id; orbitSourceId = null }
-    fun clearSelection() { selectedBodyId = null; following = false; orbitSourceId = null }
+    fun clearSelection() {
+        if (orbitSourceId != null) { feedback = null; resetFrameClock() }
+        selectedBodyId = null; following = false; orbitSourceId = null
+    }
     fun cycleSpawnKind() {
         val kinds = spawnKinds()
         chooseSpawnKind(kinds[(kinds.indexOf(spawnKind) + 1) % kinds.size])
@@ -466,7 +471,17 @@ class SpaceGameState(
         else setCamera(SpaceCamera(body.position,(minOf(viewport.width,viewport.height)*.65/body.radius.coerceAtLeast(1f)/12).toFloat().coerceIn(SandboxMinZoom,SandboxMaxZoom)))
         following=wasFollowing
     }
-    fun prepareOrbit() { selectedBody?.takeUnless { it.isVehicle }?.let { spawnKind = BodyKind.Ambient; orbitSourceId = it.id; selectedBodyId = null; following = false; feedback = R.string.place_satellite } }
+    fun prepareOrbit() {
+        val parent=selectedBody?.takeUnless { it.isVehicle } ?: return
+        sandboxRevision++; resetFrameClock()
+        spawnKind = BodyKind.Ambient; orbitSourceId = parent.id; selectedBodyId = null
+        following = false; pilotCameraFollowing = false; feedback = R.string.place_satellite
+        if (viewport != IntSize.Zero) {
+            val radius=maxOf(parent.radius*4.0,if (parent.physicalScale) .4 else 1.0)
+            val zoom=(minOf(viewport.width,viewport.height)*.20/radius).toFloat()
+            setCamera(SpaceCamera(parent.position,maxOf(camera.zoom,zoom).coerceIn(SandboxMinZoom,SandboxMaxZoom)))
+        }
+    }
     fun deleteSelected() { selectedBodyId?.let { id -> editBodies { it.filterNot { body -> body.id == id } }; clearSelection() } }
     fun editSelected(mass: Double, velocity: Vec2) {
         if (!mass.isFinite() || mass !in 1e-8..100000000.0 || !velocity.x.isFinite() || !velocity.y.isFinite() || velocity.magnitude() > 5000.0) return
@@ -487,6 +502,18 @@ class SpaceGameState(
     }
     fun setTimeScale(value: Double) { if (value in listOf(0.25, 1.0, 3.0, 6.0) && sandbox?.timeScale != value) { sandboxRevision++; rememberEdit(); sandbox = sandbox?.copy(timeScale = value); dirty = true } }
     fun setCollisions(enabled: Boolean) { sandbox?.let { if (it.collisionsEnabled != enabled) { sandboxRevision++; rememberEdit(); sandbox = it.copy(collisionsEnabled = enabled, referenceEnergy = SimulationEngine.totalEnergy(it.bodies)); dirty = true } } }
+    fun setCollisionMode(value: SandboxCollisionMode) {
+        sandbox?.let { if (it.collisionMode != value) { sandboxRevision++; rememberEdit(); sandbox=it.copy(collisionMode=value); dirty=true } }
+    }
+    fun generateRandomSystems(name: String) {
+        if (mode != AppMode.Sandbox || sandbox == null) return
+        sandboxRevision++; rememberEdit(); clearSelection(); resetFrameClock(); resetPresentation()
+        val scene=RandomSystems.create(random,SimulationEngine::newBodyId)
+        lastSandboxVehicleId=null; explosions=emptyList(); touchPreview=null
+        sandbox=sandbox?.copy(bodies=scene,referenceEnergy=SimulationEngine.totalEnergy(scene),name=name,
+            timeScale=1.0)
+        dirty=true; feedback=null; fitCamera()
+    }
     fun beginTutorial(nextMode: AppMode = mode, sandboxName: String = SandboxPresetKind.Empty.title) {
         if (nextMode == AppMode.Arcade) startArcade(ArcadeDifficulty.Easy) else { startSandbox(SandboxPresetKind.Empty, sandboxName); sandbox = sandbox?.copy(paused = true) }
         if (nextMode == AppMode.Arcade) arcade = arcade?.let { it.copy(bodies = listOf(it.bodies.first()), practice = true) }
@@ -494,13 +521,13 @@ class SpaceGameState(
     }
     fun skipTutorial() { if (mode == AppMode.Arcade && arcade?.practice == true) startArcade(ArcadeDifficulty.Easy); tutorialStep = -1 }
     fun snapshot(timestamp: Long): SandboxSnapshot? = sandbox?.let { SandboxSnapshot(it.bodies, it.camera.center, it.camera.zoom,
-        it.referenceEnergy, timestamp, it.timeScale, it.paused, it.collisionsEnabled, it.preset, it.name) }
+        it.referenceEnergy, timestamp, it.timeScale, it.paused, it.collisionsEnabled, it.preset, it.name,it.collisionMode) }
     fun loadSandbox(snapshot: SandboxSnapshot) {
         sandboxRevision++
         lastSandboxVehicleId = null; resetPresentation()
         SimulationEngine.reserveBodyIds(snapshot.bodies)
         sandbox = SandboxSession(snapshot.bodies, SpaceCamera(snapshot.cameraCenter, snapshot.zoom.coerceIn(SandboxMinZoom, SandboxMaxZoom)),
-            snapshot.referenceEnergy, snapshot.preset, snapshot.timeScale, snapshot.paused, snapshot.collisionsEnabled, snapshot.name)
+            snapshot.referenceEnergy, snapshot.preset, snapshot.timeScale, snapshot.paused, snapshot.collisionsEnabled, snapshot.name,snapshot.collisionMode)
         history.clear(); undoCount = 0; checkpoint = sandbox; dirty = false; clearSelection()
         mode = AppMode.Sandbox; touchPreview = null; menuOpen = false; tutorialStep = -1; feedback = null; resetFrameClock()
         spawnKind = BodyKind.Ambient; explosions = emptyList()

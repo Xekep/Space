@@ -50,9 +50,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -96,21 +94,22 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val music = remember(context) { AmbientMusic(context.applicationContext) }
     val musicEnabled = options.music
     SideEffect { music.setEnabled(musicEnabled) }
-    val haptic = LocalHapticFeedback.current
+    val haptic = remember(context) { com.xekep.space.input.GameHaptics(context) }
+    SideEffect { haptic.enabled=options.vibration && !game.menuOpen }
     val shakeCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { impulse ->
-        if (game.shakeSandbox(impulse,options.shakeMode,options.shakeIntensity.toDouble()) && options.vibration) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (game.shakeSandbox(impulse,options.shakeMode,options.shakeIntensity.toDouble())) haptic.impact()
     }
     val shake = remember(context, game) { SpaceShake(context) { shakeCallback(it) } }
     val controlledId by remember(game) { derivedStateOf { game.controlledVehicleId } }
     val tiltCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { game.setSteeringInput(it) }
     val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
     val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && hasSession &&
-        (if (game.mode == AppMode.Sandbox) sandboxPaused == false else (game.arcade?.lives ?: 0) > 0)
+        (if (game.mode == AppMode.Sandbox) sandboxPaused == false && game.orbitSourceId == null else (game.arcade?.lives ?: 0) > 0)
     val motionEnabled = options.motionControl && tilt.available
     SideEffect { game.setMotionControlEnabled(motionEnabled); tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
     LaunchedEffect(controlledId, game.mode) { tilt.recalibrate() }
     val shakeMode = options.shakeMode
-    val shakeEnabled = controlledId == null && shakeMode != com.xekep.space.sim.ShakeMode.Off && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false
+    val shakeEnabled = controlledId == null && shakeMode != com.xekep.space.sim.ShakeMode.Off && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false && game.orbitSourceId == null
     SideEffect { shake.setMode(shakeMode); shake.setEnabled(shakeEnabled) }
     val tone = remember(context) { runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 35) }.getOrNull() }
     DisposableEffect(tone) { onDispose { tone?.release() } }
@@ -151,14 +150,16 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
 
     DisposableEffect(lifecycleOwner, music) {
         music.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        haptic.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) music.setForeground(true)
-            if (event == Lifecycle.Event.ON_PAUSE) music.setForeground(false)
+            if (event == Lifecycle.Event.ON_RESUME) { music.setForeground(true); haptic.setForeground(true) }
+            if (event == Lifecycle.Event.ON_PAUSE) { music.setForeground(false); haptic.setForeground(false) }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             music.close()
+            haptic.close()
         }
     }
 
@@ -206,10 +207,15 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             val intercept = arcade.destroyed > lastDestroyed
             if (hit || intercept) {
                 if (options.sound) tone?.startTone(if (hit) ToneGenerator.TONE_PROP_NACK else ToneGenerator.TONE_PROP_ACK, 90)
-                if (options.vibration) haptic.performHapticFeedback(if (hit) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
+                haptic.impact(strong=hit)
             }
             lastLives = arcade.lives; lastDestroyed = arcade.destroyed
         }
+    }
+
+    val sandboxBurst=game.explosions.lastOrNull()
+    LaunchedEffect(sandboxBurst?.position,sandboxBurst?.seed) {
+        if (sandboxBurst != null && game.mode == AppMode.Sandbox) haptic.impact()
     }
     val accent = if (game.mode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val preview = game.touchPreview
@@ -225,7 +231,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     }
     val previewCost = candidate?.let(::launchCost)
     val orbitPlacement=candidate?.let { body -> game.orbitSource?.let { satellitePlacement(it,body,game.bodies) } }
-    val canLaunch = candidate != null && (orbitPlacement == null || orbitPlacement == SatellitePlacement.Clear) && (game.mode == AppMode.Sandbox ||
+    val canLaunch = candidate != null && orbitPlacement != SatellitePlacement.Overlap && (game.mode == AppMode.Sandbox ||
         (arcade != null && arcade.lives > 0 && (previewCost ?: 0.0) <= arcade.energy))
     val stars = remember(viewport) {
         val random = Random(73)
@@ -292,6 +298,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         ArcadeTopHud(game)
                         if (arcade?.resting == true) Text(
                             context.getString(R.string.rest),
+                            modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelMedium, color = accent)
                     }
                     Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).verticalScroll(rememberScrollState()),
@@ -304,7 +311,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                                 }
                             }
                         }
-                        game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
+                        game.feedback?.let { Text(context.getString(it),modifier=Modifier.fillMaxWidth(),
+                            textAlign=androidx.compose.ui.text.style.TextAlign.Center,style = MaterialTheme.typography.bodySmall, color = accent) }
                         PilotHud(game)
                         if (candidate == null) ArcadeSelectionHud(game)
                         else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally))
@@ -327,7 +335,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 onRetry = { game.startArcade(arcade.difficulty) }, onMenu = game::openMenu)
         }
         if (game.menuOpen) {
-            SpaceMenu(game, summaries, notice, options = options, motionAvailable = tilt.available,
+            SpaceMenu(game, summaries, notice, options = options,
                 onExport = { game.pendingExport = game.snapshot(System.currentTimeMillis()); exportScene.launch("${game.sandbox?.name?.replace(Regex("[^A-Za-z0-9_-]"), "_") ?: context.getString(R.string.space)}.space.json") },
                 onImport = { importScene.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onSaveSlot = { slot ->

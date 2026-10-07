@@ -3,7 +3,7 @@ package com.xekep.space.sim
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
-/** RK4 with reusable primitive buffers; each pair contributes to both bodies. */
+/** RK4 for small scenes; tree gravity with velocity Verlet for large scenes. Buffers are reused. */
 internal object NumericIntegrator {
     private class Buffers(count: Int) {
         val values = DoubleArray(count * 4); val masses = DoubleArray(count); val fixed = BooleanArray(count)
@@ -11,12 +11,14 @@ internal object NumericIntegrator {
         val k1 = DoubleArray(count * 4); val k2 = DoubleArray(count * 4)
         val k3 = DoubleArray(count * 4); val k4 = DoubleArray(count * 4)
         val temporary = DoubleArray(count * 4); val thrust = DoubleArray(count * 2)
+        val gravity=DoubleArray(count*2); val tree=BarnesHutGravity()
     }
     // Tests and gameplay can run on different threads; never share mutable RK4 buffers.
     private val buffers = ThreadLocal<Buffers>()
 
     fun advance(bodies: List<CelestialBody>, seconds: Double, limit: Double, fixedCore: Boolean = false,
-        recordTrail: Boolean = true, alignRockets: Boolean = true, controlledId: Long? = null): List<CelestialBody> {
+        recordTrail: Boolean = true, alignRockets: Boolean = true, controlledId: Long? = null,
+        approximateGravity: Boolean = true): List<CelestialBody> {
         if (bodies.isEmpty() || seconds <= 0.0) return bodies
         val count = bodies.size
         val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count).also { buffers.set(it) }
@@ -24,6 +26,7 @@ internal object NumericIntegrator {
         val headings = workspace.headings
         val hasVehicles = bodies.any { it.isVehicle }
         val hasRoutes = bodies.any { it.routePath != null }
+        val useTree=approximateGravity && count >= BARNES_HUT_THRESHOLD
         bodies.forEachIndexed { i, body ->
             headings[i * 2] = body.heading.x; headings[i * 2 + 1] = body.heading.y
             smoothing[i] = if (body.physicalScale) .01 else 18.0
@@ -53,14 +56,28 @@ internal object NumericIntegrator {
                 } else 0.0
                 thrust[i * 2] = headings[i * 2] * acceleration; thrust[i * 2 + 1] = headings[i * 2 + 1] * acceleration
             }
-            derivative(values, masses, fixed, smoothing, thrust, k1)
+            if (useTree) {
+                // Two tree evaluations per step; the symplectic kick-drift-kick scheme avoids
+                // four expensive RK stages while retaining good long-term orbital behaviour.
+                derivative(values,masses,fixed,smoothing,thrust,k1,workspace,true)
+                for (i in masses.indices) if (!fixed[i]) {
+                    values[i*4+2]+=k1[i*4+2]*dt*.5; values[i*4+3]+=k1[i*4+3]*dt*.5
+                    values[i*4]+=values[i*4+2]*dt; values[i*4+1]+=values[i*4+3]*dt
+                }
+                derivative(values,masses,fixed,smoothing,thrust,k2,workspace,true)
+                for (i in masses.indices) if (!fixed[i]) {
+                    values[i*4+2]+=k2[i*4+2]*dt*.5; values[i*4+3]+=k2[i*4+3]*dt*.5
+                }
+            } else {
+            derivative(values, masses, fixed, smoothing, thrust, k1,workspace,false)
             for (i in values.indices) temporary[i] = values[i] + k1[i] * dt * 0.5
-            derivative(temporary, masses, fixed, smoothing, thrust, k2)
+            derivative(temporary, masses, fixed, smoothing, thrust, k2,workspace,false)
             for (i in values.indices) temporary[i] = values[i] + k2[i] * dt * 0.5
-            derivative(temporary, masses, fixed, smoothing, thrust, k3)
+            derivative(temporary, masses, fixed, smoothing, thrust, k3,workspace,false)
             for (i in values.indices) temporary[i] = values[i] + k3[i] * dt
-            derivative(temporary, masses, fixed, smoothing, thrust, k4)
+            derivative(temporary, masses, fixed, smoothing, thrust, k4,workspace,false)
             for (i in values.indices) values[i] += (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) * dt / 6.0
+            }
             // The navigator compensates gravity and follows the same spline drawn in the preview.
             // Apply each physics substep so collision sweeps follow the curve, not its end-to-end chord.
             if (hasRoutes) bodies.forEachIndexed { i, body ->
@@ -94,8 +111,18 @@ internal object NumericIntegrator {
     private fun fuelRate(body: CelestialBody, controlledId: Long?) =
         1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0
 
-    private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray) {
+    private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray,
+        workspace: Buffers,useTree: Boolean) {
         result.fill(0.0)
+        if (useTree) {
+            workspace.tree.compute(state,masses,smoothing,workspace.gravity,conserveMomentum=fixed.none { it })
+            for (i in masses.indices) if (!fixed[i]) {
+                result[i*4]=state[i*4+2]; result[i*4+1]=state[i*4+3]
+                result[i*4+2]=workspace.gravity[i*2]+thrust[i*2]
+                result[i*4+3]=workspace.gravity[i*2+1]+thrust[i*2+1]
+            }
+            return
+        }
         for (i in masses.indices) {
             if (!fixed[i]) {
                 result[i * 4] = state[i * 4 + 2]; result[i * 4 + 1] = state[i * 4 + 3]

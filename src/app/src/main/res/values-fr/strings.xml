@@ -42,7 +42,7 @@
     <string name="solar">"Système"</string>
     <string name="binary">"Binaire"</string>
     <string name="empty">"Vide"</string>
-    <string name="merge_impact">"Fusion lors des collisions"</string>
+    <string name="merge_impact">Collisions des astres</string>
     <string name="current_universe">"UNIVERS ACTUEL"</string>
     <string name="unsaved_changes">" · Modifications non enregistrées"</string>
     <string name="rename">"Renommer"</string>
@@ -112,7 +112,7 @@
     <string name="practice_hit">"Le météore d'entraînement a atteint le noyau. Réessayez ; vos vies sont protégées."</string>
     <string name="not_enough_energy">"Énergie insuffisante. Attendez la recharge."</string>
     <string name="satellite_farther">"Éloignez le satellite des astres voisins."</string>
-    <string name="satellite_unstable">"La gravité des voisins est trop forte. Rapprochez le satellite de son astre parent."</string>
+    <string name="satellite_unstable">Satellite lancé. La gravité des voisins peut perturber son orbite.</string>
     <string name="satellite_parent_lost">"L’astre parent a disparu. Choisissez-en un autre."</string>
     <string name="practice_complete">"Entraînement terminé. Votre partie en mode Facile a commencé."</string>
     <string name="checkpoint_stored">"Point de sauvegarde créé"</string>
@@ -184,4 +184,8 @@
     <string name="large_vehicle_icons">"Grands vaisseaux"</string>
     <string name="loop_flight_route">"Boucler la trajectoire"</string>
     <string name="large_vehicle_icons_description">"Agrandir les icônes des vaisseaux et des fusées"</string>
+    <string name="collision_merge">Fusion</string>
+    <string name="collision_debris">Débris</string>
+    <string name="generate_random_systems">Générer des systèmes · 500 corps</string>
+    <string name="random_systems_name">Systèmes aléatoires</string>
 </resources>

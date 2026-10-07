@@ -79,6 +79,7 @@ data class CollisionEvent(
     val vehicleExplosion: Boolean = false,
     val velocity: Vec2 = Vec2.Zero,
     val seed: Int = 0,
+    val debrisImpact: Boolean = false,
 )
 
 data class StepResult(
@@ -377,23 +378,26 @@ object SimulationEngine {
         referenceEnergy: Double,
         collisionsEnabled: Boolean = false,
         controlledId: Long? = null,
+        collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
     ): StepResult {
         return stepInternal(
             bodies = bodies,
             dt = dt,
             collisionsEnabled = collisionsEnabled,
             // A powered scene is an open energy system; correcting to its launch energy cancels thrust.
-            energyReference = if (collisionsEnabled || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale }) null else referenceEnergy,
-            substepLimit = if (bodies.any { it.physicalScale }) min(
+            energyReference = if (collisionsEnabled || bodies.size >= BARNES_HUT_THRESHOLD || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale }) null else referenceEnergy,
+            substepLimit = if (bodies.size >= BARNES_HUT_THRESHOLD) sandboxStepLimit(bodies) else if (bodies.any { it.physicalScale }) min(
                 if (collisionsEnabled || bodies.size < 40) sandboxSubstep else 1.0/30.0,sandboxStepLimit(bodies))
                 else if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
             controlledId = controlledId,
+            collisionMode = collisionMode,
         )
     }
 
     /** Bound RK4 steps by local gravitational timescales and relative travel, keeping the
      * original minimum precision during close encounters. All pair forces remain exact. */
     internal fun sandboxStepLimit(bodies: List<CelestialBody>): Double {
+        if (bodies.size >= BARNES_HUT_THRESHOLD) return BarnesHutGravity.stepLimit(bodies)
         val physical = bodies.any { it.physicalScale }
         val fraction = if (physical) .2 else .05
         val rates = DoubleArray(bodies.size)
@@ -425,6 +429,7 @@ object SimulationEngine {
         val nextId = (bodies.maxOfOrNull { it.id } ?: 0L) + 1L
         idSource.updateAndGet { maxOf(it, nextId) }
     }
+    fun newBodyId(): Long = idSource.getAndIncrement()
 
     private fun stepInternal(
         bodies: List<CelestialBody>,
@@ -433,6 +438,7 @@ object SimulationEngine {
         energyReference: Double?,
         substepLimit: Double,
         controlledId: Long? = null,
+        collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
     ): StepResult {
         if (bodies.isEmpty() || dt <= 0.0) {
             return StepResult(bodies = bodies, collisions = emptyList())
@@ -463,7 +469,8 @@ object SimulationEngine {
             current = impacts.bodies
             collisions += impacts.collisions
             if (collisionsEnabled) {
-                val mergeResult = mergeCollisions(current, previous)
+                val mergeResult = if (collisionMode == SandboxCollisionMode.Debris)
+                    debrisCollisions(current,previous,substep,idSource::getAndIncrement) else mergeCollisions(current, previous)
                 current = mergeResult.bodies
                 collisions += mergeResult.collisions
             }
@@ -518,6 +525,9 @@ object SimulationEngine {
         }
 
         val before = previous.associateBy { it.id }
+        val neighbours=if (bodies.size >= BARNES_HUT_THRESHOLD) {
+            Array(bodies.size) { ArrayList<Int>() }.also { lists -> collisionPairs(bodies,previous).forEach { (i,j) -> lists[i].add(j) } }
+        } else null
         val merged = mutableListOf<CelestialBody>()
         val consumed = BooleanArray(bodies.size)
         val collisions = mutableListOf<CollisionEvent>()
@@ -528,7 +538,8 @@ object SimulationEngine {
             }
 
             var current = bodies[index]
-            for (otherIndex in (index + 1) until bodies.size) {
+            val candidates: Iterable<Int> = neighbours?.get(index)?.sorted() ?: ((index + 1) until bodies.size)
+            for (otherIndex in candidates) {
                 if (consumed[otherIndex]) {
                     continue
                 }

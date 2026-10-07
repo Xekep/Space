@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 
 private enum class SandboxPanel { Tools }
 private data class SandboxHudState(val name: String, val paused: Boolean, val timeScale: Double,
-    val collisionsEnabled: Boolean, val preset: com.xekep.space.sim.SandboxPresetKind)
+    val collisionsEnabled: Boolean, val preset: com.xekep.space.sim.SandboxPresetKind,val collisionMode: com.xekep.space.sim.SandboxCollisionMode)
 
 /** Keep the universe visible: two small bars, with creation and editing on demand. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -40,7 +40,7 @@ private data class SandboxHudState(val name: String, val paused: Boolean, val ti
 fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xekep.space.storage.GameOptions, shakeAvailable: Boolean, motionAvailable: Boolean = true) {
     val context = LocalContext.current
     val metadata by remember(game) { derivedStateOf { game.sandbox?.let {
-        SandboxHudState(it.name, it.paused, it.timeScale, it.collisionsEnabled, it.preset)
+        SandboxHudState(it.name, it.paused, it.timeScale, it.collisionsEnabled, it.preset,it.collisionMode)
     } } }
     val scene = metadata ?: return
     val selection by remember(game) { derivedStateOf { game.selectedBody?.let { Triple(it.id, it.labelId(), it.kind == BodyKind.Ship || it.kind == BodyKind.Rocket) } } }
@@ -79,10 +79,13 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
             }
             if (game.orbitSource != null) Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(context.getString(R.string.place_satellite), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    val message=game.feedback ?: R.string.place_satellite
+                    Text(context.getString(message), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                        color=if (message == R.string.place_satellite) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error)
                     HudButton("close", context.getString(R.string.cancel_orbit), "cancel-orbit", game::clearSelection)
                 }
-            } else game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.labelSmall, color = accent) }
+            } else game.feedback?.let { Text(context.getString(it),modifier=Modifier.fillMaxWidth(),
+                textAlign=androidx.compose.ui.text.style.TextAlign.Center,style = MaterialTheme.typography.labelSmall, color = accent) }
             candidate?.let {
                 BodyDetailsText(it, Modifier.align(Alignment.CenterHorizontally))
             }
@@ -147,6 +150,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                             Text(context.getString(R.string.merge_impact), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                             Switch(scene.collisionsEnabled, game::setCollisions, Modifier.testTag("sandbox-collisions"))
                         }
+                        if (scene.collisionsEnabled) CollisionModePicker(scene.collisionMode,game::setCollisionMode)
                         Text(context.getString(R.string.shake_universe), style = MaterialTheme.typography.titleSmall)
                         FlowRow(Modifier.fillMaxWidth().testTag("sandbox-shake"), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             com.xekep.space.sim.ShakeMode.entries.forEach { mode ->
@@ -166,6 +170,10 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                             modifier=Modifier.testTag("shake-intensity").semantics { contentDescription=context.getString(R.string.shake_intensity_label) })
                         if (!shakeAvailable) Text(context.getString(R.string.shake_unavailable), style = MaterialTheme.typography.bodySmall)
                         SandboxTools(game)
+                        OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.random_systems_name)); panel=null },
+                            modifier=Modifier.fillMaxWidth().testTag("generate-random-systems")) {
+                            Text(context.getString(R.string.generate_random_systems))
+                        }
                         Text(context.getString(R.string.body_count, game.bodies.size) + " · " + context.getString(R.string.zoom) + " " +
                             String.format(java.util.Locale.ROOT, "%.2fx", game.camera.zoom), style = MaterialTheme.typography.labelMedium)
                         if (game.bodies.size >= 30 && scene.timeScale > 1) Text(context.getString(R.string.large_system), style = MaterialTheme.typography.bodySmall)

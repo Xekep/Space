@@ -42,7 +42,7 @@
     <string name="solar">"System"</string>
     <string name="binary">"Binär"</string>
     <string name="empty">"Leer"</string>
-    <string name="merge_impact">"Bei Kollision verschmelzen"</string>
+    <string name="merge_impact">Körperkollisionen</string>
     <string name="current_universe">"AKTUELLES UNIVERSUM"</string>
     <string name="unsaved_changes">" · Ungespeicherte Änderungen"</string>
     <string name="rename">"Umbenennen"</string>
@@ -112,7 +112,7 @@
     <string name="practice_hit">"Der Übungsmeteor hat den Kern erreicht. Versuch es erneut; du verlierst kein Leben."</string>
     <string name="not_enough_energy">"Nicht genug Energie. Warte auf die Aufladung."</string>
     <string name="satellite_farther">"Platziere den Satelliten weiter von benachbarten Körpern entfernt."</string>
-    <string name="satellite_unstable">Die Nachbargravitation ist zu stark. Platziere den Satelliten näher am Zentralkörper.</string>
+    <string name="satellite_unstable">Satellit gestartet. Die Schwerkraft der Nachbarn kann seine Bahn stören.</string>
     <string name="satellite_parent_lost">Der Zentralkörper ist verschwunden. Wähle einen anderen.</string>
     <string name="practice_complete">"Übung abgeschlossen. Deine Runde auf Leicht hat begonnen."</string>
     <string name="checkpoint_stored">"Kontrollpunkt gespeichert"</string>
@@ -184,4 +184,8 @@
     <string name="large_vehicle_icons">"Große Flugobjekte"</string>
     <string name="loop_flight_route">"Flugroute wiederholen"</string>
     <string name="large_vehicle_icons_description">"Symbole für Raumschiffe und Raketen vergrößern"</string>
+    <string name="collision_merge">Verschmelzen</string>
+    <string name="collision_debris">Trümmer</string>
+    <string name="generate_random_systems">Systeme erzeugen · 500 Körper</string>
+    <string name="random_systems_name">Zufällige Systeme</string>
 </resources>

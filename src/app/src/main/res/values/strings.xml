@@ -48,7 +48,7 @@
     <string name="solar">"System"</string>
     <string name="binary">"Binary"</string>
     <string name="empty">"Empty"</string>
-    <string name="merge_impact">"Merge on impact"</string>
+    <string name="merge_impact">Body collisions</string>
 
     <string name="current_universe">"CURRENT UNIVERSE"</string>
     <string name="unsaved_changes">" · Unsaved changes"</string>
@@ -125,7 +125,7 @@
 
     <string name="not_enough_energy">"Not enough energy. Wait for recharge."</string>
     <string name="satellite_farther">"Place the satellite away from nearby bodies."</string>
-    <string name="satellite_unstable">Strong nearby gravity. Place the satellite closer to its parent.</string>
+    <string name="satellite_unstable">Satellite launched. Nearby gravity may disturb its orbit.</string>
     <string name="satellite_parent_lost">The parent body is gone. Select another one.</string>
     <string name="practice_complete">"Practice complete. Your Easy run has started."</string>
     <string name="checkpoint_stored">"Checkpoint stored"</string>
@@ -206,4 +206,8 @@
     <string name="large_vehicle_icons">Larger craft icons</string>
     <string name="loop_flight_route">Loop flight route</string>
     <string name="large_vehicle_icons_description">Enlarge ship and rocket icons</string>
+    <string name="collision_merge">Merge</string>
+    <string name="collision_debris">Debris</string>
+    <string name="generate_random_systems">Generate systems · 500 bodies</string>
+    <string name="random_systems_name">Random systems</string>
 </resources>

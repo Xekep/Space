@@ -79,7 +79,6 @@ fun SpaceMenu(
     onSaveSlot: (Int) -> Unit,
     onLoadSlot: (Int) -> Unit,
     options: GameOptions? = null,
-    motionAvailable: Boolean = true,
     onExport: () -> Unit = {},
     onImport: () -> Unit = {},
 ) {
@@ -91,6 +90,7 @@ fun SpaceMenu(
     var difficulty by rememberSaveable { mutableStateOf(game.arcade?.difficulty ?: ArcadeDifficulty.Normal) }
     var preset by rememberSaveable { mutableStateOf(game.sandbox?.preset?.takeUnless { it == SandboxPresetKind.Empty } ?: SandboxPresetKind.SolarSystem) }
     var collisions by rememberSaveable { mutableStateOf(game.sandbox?.collisionsEnabled ?: false) }
+    var collisionMode by rememberSaveable { mutableStateOf(game.sandbox?.collisionMode ?: com.xekep.space.sim.SandboxCollisionMode.Merge) }
     var confirmation by remember { mutableStateOf<MenuConfirmation?>(null) }
     var naming by remember { mutableStateOf(false) }
     var sceneName by remember { mutableStateOf(game.sandbox?.name.orEmpty()) }
@@ -98,7 +98,7 @@ fun SpaceMenu(
     val accent = if (selectedMode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val startNew: () -> Unit = {
         if (selectedMode == AppMode.Arcade) game.startArcade(difficulty)
-        else { game.startSandbox(preset, context.getString(preset.labelId())); game.setCollisions(collisions) }
+        else { game.startSandbox(preset, context.getString(preset.labelId())); game.setCollisions(collisions); game.setCollisionMode(collisionMode) }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xF202040B)).safeDrawingPadding().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -183,6 +183,7 @@ fun SpaceMenu(
                             }, modifier = Modifier.testTag("sandbox-collisions"))
                         }
                         options?.let { LargeVehicleSwitch(it) }
+                        if (collisions) CollisionModePicker(collisionMode) { collisionMode=it; game.setCollisionMode(it) }
                         if (game.sandbox != null) {
                             MenuLabel(context.getString(R.string.current_universe))
                             Text("${game.sandbox!!.name}${if (game.dirty) context.getString(R.string.unsaved_changes) else ""}", style = MaterialTheme.typography.bodySmall)
@@ -227,8 +228,6 @@ fun SpaceMenu(
                     game.feedback?.let { Text(context.getString(it), style = MaterialTheme.typography.bodySmall, color = accent) }
                     options?.let {
                         MenuLabel(context.getString(R.string.feedback_options))
-                        OptionSwitch(context.getString(R.string.motion_control), it.motionControl, Modifier.testTag("motion-control-switch"), enabled = motionAvailable) { enabled -> it.motionControl = enabled; it.save() }
-                        if (!motionAvailable) Text(context.getString(R.string.shake_unavailable), style = MaterialTheme.typography.bodySmall)
                         OptionSwitch(context.getString(R.string.music), it.music, Modifier.testTag("ambient-music-switch")) { enabled -> it.music = enabled; it.save() }
                         OptionSwitch(context.getString(R.string.sound), it.sound) { enabled -> it.sound = enabled; it.save() }
                         OptionSwitch(context.getString(R.string.vibration), it.vibration) { enabled -> it.vibration = enabled; it.save() }
