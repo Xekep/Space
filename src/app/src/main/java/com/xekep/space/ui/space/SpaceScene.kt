@@ -283,10 +283,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, renderCamera.center, renderCamera.zoom, game.hiddenSolarOrbits)
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
-            bodies.forEach {
-                if (bodies.size < 160 || it.mass >= 2 || renderCamera.zoom >= .1f)
-                    drawTrail(it, viewport, renderCamera.center, renderCamera.zoom, detailed = bodies.size < 60,
-                        cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),stride=if (bodies.size >= 160) 6 else if (bodies.size < 60) 1 else 2)
+            visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId).forEach {
+                drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=bodies.size < 60,
+                    cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),dense=bodies.size >= 160,
+                    highlighted=it.id == game.selectedBodyId || it.id == controlledId)
             }
             drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
                 controlledId,largeVehicleIcons,interpolation,bodies.size >= 160)

@@ -111,7 +111,6 @@ object SimulationEngine {
     private const val sandboxSubstep = 1.0 / 240.0
     private const val maxLaunchSpeed = 260.0
     private const val launchVelocityScale = 1.1
-    private const val trailLength = 42
     private const val meteorSpawnInset = 64.0
     private const val energyCorrectionBlend = 0.18
     private const val largeDistanceThreshold = 600.0
@@ -460,6 +459,7 @@ object SimulationEngine {
         var remaining = dt
         var current = bodies
         val collisions = mutableListOf<CollisionEvent>()
+        val ejecta=EjectaBudget(if (bodies.size >= BARNES_HUT_THRESHOLD) 16 else if (bodies.size >= 80) 32 else 1000)
         while (remaining > 1e-6) {
             val substep = min(remaining, substepLimit)
             val previous = current
@@ -477,7 +477,7 @@ object SimulationEngine {
             collisions += impacts.collisions
             if (collisionsEnabled) {
                 val mergeResult = if (collisionMode == SandboxCollisionMode.Debris)
-                    debrisCollisions(current,previous,substep,idSource::getAndIncrement) else mergeCollisions(current, previous)
+                    debrisCollisions(current,previous,substep,ejecta,idSource::getAndIncrement) else mergeCollisions(current, previous)
                 current = mergeResult.bodies
                 collisions += mergeResult.collisions
             }
@@ -485,8 +485,7 @@ object SimulationEngine {
         }
 
         // Collision substeps must not allocate a 42-point trail for every intermediate state.
-        val originalTrails = bodies.associate { it.id to it.trail }
-        return StepResult(bodies = current.map { it.copy(trail = appendTrail(originalTrails[it.id].orEmpty(), it.position)) }, collisions = collisions)
+        return StepResult(bodies = current.map { it.copy(trail = appendMotionTrail(it,it.position,current.size >= BARNES_HUT_THRESHOLD)) }, collisions = collisions)
     }
 
     /** Sweep relative motion so fast vehicles cannot tunnel through small targets.
@@ -601,7 +600,7 @@ object SimulationEngine {
             kind = nextKind,
             burnRemaining = 0.0,
             solar = null,
-            trail = dominant.trail,
+            trail = listOf(nextPosition),
         )
     }
 
@@ -623,15 +622,6 @@ object SimulationEngine {
             color = color,
             kind = BodyKind.Ambient,
         )
-    }
-
-    private fun appendTrail(trail: List<Vec2>, point: Vec2): List<Vec2> {
-        val nextTrail = trail + point
-        return if (nextTrail.size > trailLength) {
-            nextTrail.drop(nextTrail.size - trailLength)
-        } else {
-            nextTrail
-        }
     }
 
     private fun body(

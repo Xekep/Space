@@ -5,13 +5,13 @@ import kotlin.math.sqrt
 
 /** RK4 for small scenes; tree gravity with velocity Verlet for large scenes. Buffers are reused. */
 internal object NumericIntegrator {
-    private class Buffers(count: Int) {
+    private class Buffers(count: Int,val tree: BarnesHutGravity) {
         val values = DoubleArray(count * 4); val masses = DoubleArray(count); val fixed = BooleanArray(count)
         val smoothing = DoubleArray(count); val headings = DoubleArray(count * 2)
         val k1 = DoubleArray(count * 4); val k2 = DoubleArray(count * 4)
         val k3 = DoubleArray(count * 4); val k4 = DoubleArray(count * 4)
         val temporary = DoubleArray(count * 4); val thrust = DoubleArray(count * 2)
-        val gravity=DoubleArray(count*2); val tree=BarnesHutGravity()
+        val gravity=DoubleArray(count*2)
         val cachedPositions=DoubleArray(count*2); val cachedMass=DoubleArray(count)
         val cachedSoft=DoubleArray(count); val cachedFixed=BooleanArray(count)
         var gravityValid=false
@@ -24,7 +24,7 @@ internal object NumericIntegrator {
         approximateGravity: Boolean = true, cacheGravity: Boolean = true): List<CelestialBody> {
         if (bodies.isEmpty() || seconds <= 0.0) return bodies
         val count = bodies.size
-        val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count).also { buffers.set(it) }
+        val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count,buffers.get()?.tree ?: BarnesHutGravity()).also { buffers.set(it) }
         val values = workspace.values; val masses = workspace.masses; val fixed = workspace.fixed; val smoothing = workspace.smoothing
         val headings = workspace.headings
         val hasVehicles = bodies.any { it.isVehicle }
@@ -107,7 +107,7 @@ internal object NumericIntegrator {
                     body.routePath.normalizeDistance(body.routeDistance+body.routeSpeed*powered) else 0.0,
                 routePath = body.routePath.takeIf { fuel > 1e-9 },
                 waypoints = if (body.isVehicle && fuel <= 1e-9) emptyList() else body.waypoints,
-                trail = if (recordTrail) (body.trail.takeLast(41) + point) else body.trail)
+                trail = if (recordTrail) appendMotionTrail(body,point,count >= BARNES_HUT_THRESHOLD) else body.trail)
         }
     }
 

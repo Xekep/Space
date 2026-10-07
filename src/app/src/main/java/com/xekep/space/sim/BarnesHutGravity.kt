@@ -140,14 +140,14 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
     }
 
     companion object {
-        private class Estimate(val count: Int) {
-            val tree=BarnesHutGravity(); val state=DoubleArray(count*4); val mass=DoubleArray(count)
+        private class Estimate(val count: Int,val tree: BarnesHutGravity) {
+            val state=DoubleArray(count*4); val mass=DoubleArray(count)
             val soft=DoubleArray(count); val acceleration=DoubleArray(count*2)
             val rates=DoubleArray(count); val travel=DoubleArray(count)
         }
         private val estimate=ThreadLocal<Estimate>()
         fun stepLimit(bodies: List<CelestialBody>): Double {
-            val work=estimate.get()?.takeIf { it.count == bodies.size } ?: Estimate(bodies.size).also(estimate::set)
+            val work=estimate.get()?.takeIf { it.count == bodies.size } ?: Estimate(bodies.size,estimate.get()?.tree ?: BarnesHutGravity()).also(estimate::set)
             var physical=false
             bodies.forEachIndexed { i,b ->
                 work.state[i*4]=b.position.x; work.state[i*4+1]=b.position.y

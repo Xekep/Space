@@ -21,4 +21,4 @@ data class Explosion(val position: Vec2, val drift: Vec2, val particles: List<De
 
 fun advanceExplosions(current: List<Explosion>, events: List<CollisionEvent>, seconds: Double): List<Explosion> =
     (current.map { it.copy(age = it.age + seconds) }.filter { it.age < Explosion.DURATION } +
-        events.filter { it.vehicleExplosion || it.debrisImpact }.map(Explosion::from)).takeLast(Explosion.MAX_BURSTS)
+        events.filter { it.vehicleExplosion || it.debrisImpact }.takeLast(Explosion.MAX_BURSTS).map(Explosion::from)).takeLast(Explosion.MAX_BURSTS)

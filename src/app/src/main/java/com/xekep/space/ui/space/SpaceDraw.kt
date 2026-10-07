@@ -199,47 +199,33 @@ fun DrawScope.drawTrail(
     detailed: Boolean = true,
     cameraRotation: Double = 0.0,
     renderPosition: com.xekep.space.sim.Vec2 = body.position,
-    stride: Int = if (detailed) 1 else 2,
+    dense: Boolean = false,
+    highlighted: Boolean = false,
 ) {
-    if (body.trail.size < 2) {
-        return
+    val length=(if (body.isDebris) 20f else if (dense && !highlighted) 48f else 96f)*density
+    val points=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
+        (if (dense) 4f else 2f)*density)
+    if (points.size < 2 || points.zipWithNext().sumOf { (a,b) -> (b-a).getDistance().toDouble() } < 1.5) return
+    val curves=smoothTrail(points)
+    val bands=if (detailed && !dense) 4 else 3
+    val paths=Array(bands) { Path() }
+    var previousBand=-1
+    curves.forEachIndexed { i,curve ->
+        val band=((i+1)*bands/curves.size-1).coerceIn(0,bands-1)
+        val path=paths[band]
+        if (band != previousBand) path.moveTo(curve.start.x,curve.start.y)
+        val control=curve.control
+        if (control == null) path.lineTo(curve.end.x,curve.end.y)
+        else path.quadraticBezierTo(control.x,control.y,curve.end.x,curve.end.y)
+        previousBand=band
     }
-    var minX = Double.POSITIVE_INFINITY; var maxX = Double.NEGATIVE_INFINITY
-    var minY = Double.POSITIVE_INFINITY; var maxY = Double.NEGATIVE_INFINITY
-    for (point in body.trail) {
-        minX = minOf(minX, point.x); maxX = maxOf(maxX, point.x)
-        minY = minOf(minY, point.y); maxY = maxOf(maxY, point.y)
+    val boost=if (body.kind == BodyKind.Meteor) .08f else if (highlighted) .1f else 0f
+    for (band in paths.indices) {
+        val age=(band+1f)/bands
+        val opacity=.025f+(if (dense && !highlighted) .15f else .28f)*age*age+boost*age
+        drawPath(paths[band],body.color.copy(alpha=opacity),style=Stroke(
+            (if (dense && !highlighted) .65f else .85f)*density,cap=StrokeCap.Round,join=androidx.compose.ui.graphics.StrokeJoin.Round))
     }
-    val width=if (cameraRotation == 0.0) viewport.width.toDouble() else hypot(viewport.width.toDouble(),viewport.height.toDouble())
-    val height=if (cameraRotation == 0.0) viewport.height.toDouble() else width
-    val left = cameraCenter.x - width / (2.0 * zoom); val top = cameraCenter.y - height / (2.0 * zoom)
-    if (maxX < left || maxY < top || minX > left + width / zoom || minY > top + height / zoom) return
-
-    if (!detailed && (maxX-minX)*zoom < 1.5 && (maxY-minY)*zoom < 1.5) return
-
-    val trailBoost = when (body.kind) {
-        BodyKind.Meteor -> 0.08f
-        BodyKind.Player -> 0.05f
-        else -> 0f
-    }
-
-    val first = worldToScreen(body.trail.first(), viewport, cameraCenter, zoom)
-    val last = worldToScreen(renderPosition, viewport, cameraCenter, zoom)
-    val path = Path().apply {
-        moveTo(first.x, first.y)
-        for (index in 1 until body.trail.lastIndex step stride) {
-            val point = worldToScreen(body.trail[index], viewport, cameraCenter, zoom)
-            lineTo(point.x, point.y)
-        }
-        lineTo(last.x, last.y)
-    }
-    if (!detailed) {
-        drawPath(path, body.color.copy(alpha = 0.24f + trailBoost), style = Stroke(2f, cap = StrokeCap.Round))
-        return
-    }
-    drawPath(path, Brush.linearGradient(listOf(body.color.copy(alpha = 0.04f), body.color.copy(alpha = 0.32f + trailBoost)),
-        first, if ((last - first).getDistance() > 0.01f) last else first + Offset(1f, 0f)),
-        style = Stroke(if (body.kind == BodyKind.Meteor) 2.6f else 2.0f, cap = StrokeCap.Round))
 }
 
 fun DrawScope.drawArrow(start: Offset, end: Offset, color: Color) {
