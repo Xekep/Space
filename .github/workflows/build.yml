@@ -24,14 +24,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v6
-      - name: Install Android SDK packages
-        run: |
-          cli="$ANDROID_HOME/cmdline-tools/latest/bin/android"
-          if [[ -x "$cli" ]]; then
-            "$cli" --no-metrics sdk install 'platforms;android-35' 'build-tools;35.0.0'
-          else
-            sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-          fi
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
       - name: Check and build
         run: |
           python3 scripts/check-localizations.py
