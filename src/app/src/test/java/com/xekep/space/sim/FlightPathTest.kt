@@ -34,7 +34,7 @@ class FlightPathTest {
     @Test fun shipsAndRocketsRepeatMultipleLapsInBothModesAndStillExhaustTheirFuel() {
         val path=FlightPath.through(Vec2.Zero,points,true)!!
         for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (arcade in listOf(false,true)) {
-            val body=CelestialBody(1,Vec2.Zero,path.sample(0.0).direction*100.0,24.0,1f,Color.Cyan,kind,
+            val body=CelestialBody(1,Vec2.Zero,path.sample(0.0).direction*100.0,if (kind == BodyKind.Rocket) 12.0 else 24.0,1f,Color.Cyan,kind,
                 routePath=path,waypoints=path.remainingPoints(0.0),routeSpeed=100.0)
             val time=path.length*3/100.0
             val result=if (arcade) SimulationEngine.stepArcade(listOf(body),time)

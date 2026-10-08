@@ -116,7 +116,7 @@ class PilotCameraTest {
         val template=pilot().bodies.single()
         listOf(BodyKind.Ship,BodyKind.Rocket).forEach { kind ->
             listOf(Vec2(1.0,0.0),Vec2(0.0,-1.0),Vec2(-1.0,0.0),Vec2(0.0,1.0)).forEach { heading ->
-                val body=template.copy(kind=kind,heading=heading,velocity=heading*600.0)
+                val body=template.copy(kind=kind,mass=if (kind == BodyKind.Rocket) 12.0 else 24.0,heading=heading,velocity=heading*600.0)
                 val boosted=steerManually(listOf(body),ManualFlightControl(body.id,0.0,1.0),.02).single()
                 assertEquals(heading.x*606.6,boosted.velocity.x,1e-6)
                 assertEquals(heading.y*606.6,boosted.velocity.y,1e-6)

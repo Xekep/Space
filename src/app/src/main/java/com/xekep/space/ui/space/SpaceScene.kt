@@ -103,13 +103,21 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     }
     val shake = remember(context, game) { SpaceShake(context) { shakeCallback(it) } }
     val controlledId by remember(game) { derivedStateOf { game.controlledVehicleId } }
-    val tiltCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { game.setSteeringInput(it) }
+    val tiltCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { input ->
+        if (options.flightControl == com.xekep.space.input.FlightControlMode.Tilt)
+            game.setSteeringInput(com.xekep.space.sim.Vec2(input.x*options.tiltSensitivity,input.y))
+    }
     val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
     val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && !game.arcadeUpgradePending && hasSession &&
         (if (game.mode == AppMode.Sandbox) sandboxPaused == false && game.orbitSourceId == null else (game.arcade?.lives ?: 0) > 0)
-    val motionEnabled = options.motionControl && tilt.available
-    SideEffect { game.setMotionControlEnabled(motionEnabled); tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
+    val motionEnabled = game.motionSteeringEnabled && tilt.available && options.flightControl == com.xekep.space.input.FlightControlMode.Tilt
+    SideEffect { tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
     LaunchedEffect(controlledId, game.mode) { tilt.recalibrate() }
+    LaunchedEffect(options.flightControl,game) {
+        game.setSteeringInput(com.xekep.space.sim.Vec2.Zero)
+        if (options.flightControl == com.xekep.space.input.FlightControlMode.Tilt && !tilt.available)
+            game.setMotionControlEnabled(false)
+    }
     val shakeMode = options.shakeMode
     val shakeEnabled = controlledId == null && shakeMode != com.xekep.space.sim.ShakeMode.Off && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false && game.orbitSourceId == null
     SideEffect { shake.setMode(shakeMode); shake.setEnabled(shakeEnabled) }
@@ -215,7 +223,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val solarLabels = remember(game, game.sceneGeneration) { SolarLabelLayout() }
     val viewport = game.viewport
     val camera by remember(game) { derivedStateOf { game.camera } }
-    val arcade = game.arcade
+    // Both sessions are retained, but only the active one contributes effects.
+    val arcade = game.arcade.takeIf { game.mode == AppMode.Arcade }
     val coreId = arcade?.bodies?.firstOrNull { it.kind == com.xekep.space.sim.BodyKind.Core }?.id
     var lastLives by remember(coreId) { mutableIntStateOf(arcade?.lives ?: 0) }
     var lastDestroyed by remember(coreId) { mutableIntStateOf(arcade?.destroyed ?: 0) }
@@ -249,7 +258,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     }
     val previewCost = candidate?.let(::launchCost)
     val orbitPlacement=candidate?.let { body -> game.orbitSource?.let { satellitePlacement(it,body,game.bodies) } }
-    val canLaunch = candidate != null && orbitPlacement != SatellitePlacement.Overlap && (game.mode == AppMode.Sandbox ||
+    val canLaunch = candidate != null && (orbitPlacement == null || orbitPlacement == SatellitePlacement.Clear) && (game.mode == AppMode.Sandbox ||
         (arcade != null && arcade.lives > 0 && (previewCost ?: 0.0) <= arcade.energy))
     val stars = remember(viewport) {
         val random = Random(73)
@@ -281,6 +290,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 }
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, renderCamera.center, renderCamera.zoom, game.hiddenSolarOrbits)
+            else drawArcadeEncounterRoutes(game,renderCamera)
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
             visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId).forEach {
@@ -308,13 +318,13 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             preview?.let {
                 val radius = (SimulationEngine.radiusForMass(previewMass ?: 70.0) * renderCamera.zoom).coerceIn(6f, 42f)
                 val color = if (canLaunch) Color(0xFF9BE7FF) else Color(0xFFFF7A6B)
-                val start = worldToScreen(it.startWorld, viewport, renderCamera.center, renderCamera.zoom)
+                val start = worldToScreen(candidate?.position ?: it.startWorld, viewport, renderCamera.center, renderCamera.zoom)
                 val end = worldToScreen(it.currentWorld, viewport, renderCamera.center, renderCamera.zoom)
                 drawCircle(color.copy(alpha = 0.12f), radius * 2.6f, start)
                 if (candidate != null && candidate.kind in listOf(com.xekep.space.sim.BodyKind.Ship,com.xekep.space.sim.BodyKind.Rocket,com.xekep.space.sim.BodyKind.Star,com.xekep.space.sim.BodyKind.BlackHole))
                     drawBody(candidate, viewport, renderCamera.center, renderCamera.zoom, game.cameraRotation, largeVehicleIcons=largeVehicleIcons)
                 else drawCircle(color.copy(alpha = 0.88f), radius, start, style = Stroke(width = 2.5f))
-                if (distance(start, end) > 6f) { drawArrow(start, end, color); drawFingerDirection(end, end - start, color) }
+                if (game.orbitSourceId == null && distance(start, end) > 6f) { drawArrow(start, end, color); drawFingerDirection(end, end - start, color) }
             }
             }
             drawSolarLabels(bodies, viewport, renderCamera.center, renderCamera.zoom, context, solarLabels, game.presentationAge, game.cameraRotation)
@@ -332,6 +342,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     verticalArrangement = Arrangement.SpaceBetween) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ArcadeTopHud(game)
+                        ArcadeEncounterHud(game)
                         arcade?.challenge?.takeIf { it.ids.isNotEmpty() }?.let { challenge ->
                             Text(if (challenge.parentId in challenge.ids) context.getString(R.string.challenge_giant) else
                                 context.getString(R.string.challenge_parts,challenge.ids.size),
@@ -356,9 +367,9 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         }
                         game.feedback?.let { Text(context.getString(it),modifier=Modifier.fillMaxWidth(),
                             textAlign=androidx.compose.ui.text.style.TextAlign.Center,style = MaterialTheme.typography.bodySmall, color = accent) }
-                        PilotHud(game)
+                        PilotHud(game, options.flightControl == com.xekep.space.input.FlightControlMode.Joystick)
                         if (candidate == null) ArcadeSelectionHud(game)
-                        else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally))
+                        else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally), showHullClass=true)
                         ArcadeSpawnControls(game, options, tilt.available)
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
                         if (game.mode == AppMode.Arcade && arcade != null) {

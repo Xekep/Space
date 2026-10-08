@@ -5,7 +5,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VehicleFuelTest {
-    private fun craft(kind:BodyKind) = CelestialBody(1,Vec2.Zero,Vec2(0.0,-100.0),24.0,2f,Color.Cyan,kind)
+    private fun craft(kind:BodyKind) = CelestialBody(1,Vec2.Zero,Vec2(0.0,-100.0),if (kind == BodyKind.Rocket) 12.0 else 24.0,2f,Color.Cyan,kind)
 
     @Test fun freeShipsAndRocketsAlignWithGravityDeflectedVelocityWhilePilotsAndRoutesKeepTheirHeading() {
         val star=CelestialBody(2,Vec2(500.0,0.0),Vec2.Zero,6000.0,5f,Color.Yellow,BodyKind.Star)

@@ -97,7 +97,7 @@
     <string name="practice_hit">"练习陨石击中了核心。请重试，练习中不会损失生命。"</string>
     <string name="not_enough_energy">"能量不足，请等待补充。"</string>
     <string name="satellite_farther">"请将卫星放在远离附近天体的位置。"</string>
-    <string name="satellite_unstable">卫星已发射，附近天体的引力可能扰动其轨道。</string>
+    <string name="satellite_unstable">此处没有稳定轨道，请选择其他天体。</string>
     <string name="satellite_parent_lost">母天体已消失，请选择其他天体。</string>
     <string name="practice_complete">"练习完成，简单难度游戏已开始。"</string>
     <string name="checkpoint_stored">"检查点已保存"</string>
@@ -168,7 +168,7 @@
     <string name="collision_merge">合并</string>
     <string name="collision_debris">碎片</string>
     <string name="generate_random_systems">生成星系 · 500 个天体</string>
-    <string name="random_systems_name">随机星系</string>
+    <string name="random_systems_name">星系</string>
     <string name="settings">设置</string>
     <string name="worlds">世界</string>
     <string name="details">详情</string>
@@ -179,7 +179,7 @@
     <string name="new_game">新游戏</string>
     <string name="how_to_play">玩法说明</string>
     <string name="random_systems_short">星系 · 500 个天体</string>
-    <string name="random_systems_description">500 个天体：十个彼此分开的恒星系统，包含行星、卫星和小行星带，初始轨道稳定。</string>
+    <string name="random_systems_description">由 500 个天体组成的旋转星系：紧凑核心、旋臂与多样的恒星聚集区。</string>
     <string name="pilot_target_speed">目标速度</string>
     <string name="spawn_guardian">守卫舰</string>
     <string name="guardian_unlocked">已解锁守卫舰 · 巡逻保护核心</string>
@@ -197,4 +197,27 @@
     <string name="upgrade_repair_help">恢复1点核心耐久</string>
     <string name="challenge_giant">碎裂巨型小行星</string>
     <string name="challenge_parts">碎片 · %1$d</string>
+    <string name="arcade_planet">轨道行星</string>
+    <string name="planet_arrived">一颗行星进入了轨道</string>
+    <string name="convoy">运输船</string>
+    <string name="convoy_hull">运输船 · %1$d/3</string>
+    <string name="find_convoy">跟随运输船</string>
+    <string name="convoy_delivered">运输船已抵达</string>
+    <string name="convoy_lost">运输船已损失</string>
+    <string name="convoy_upgrade_title">运输船已抵达 · 额外升级</string>
+    <string name="convoy_upgrade_description">护航奖励：选择一项额外升级。</string>
+    <string name="wave_approach">威胁正在接近</string>
+    <string name="wave_swarm">小型威胁群</string>
+    <string name="wave_siege">重型目标及其掩护</string>
+    <string name="wave_pincer">双向夹击</string>
+    <string name="wave_recovery">平缓波次</string>
+    <string name="wave_escort">可选护航任务</string>
+    <string name="spawn_heavy_ship">重型飞船</string>
+    <string name="spawn_heavy_rocket">重型火箭</string>
+    <string name="spawn_heavy_guardian">重型守卫</string>
+    <string name="flight_controls">操控方式</string>
+    <string name="control_tilt">倾斜</string>
+    <string name="control_joystick">摇杆</string>
+    <string name="tilt_sensitivity">倾斜灵敏度</string>
+    <string name="virtual_joystick">虚拟摇杆</string>
 </resources>

@@ -30,11 +30,15 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import com.xekep.space.sim.hullClass
+import com.xekep.space.sim.VehicleHullClass
 import com.xekep.space.sim.CelestialBody
 
 @Composable
-fun BodyDetailsText(body: CelestialBody, modifier: Modifier = Modifier) {
-    Text(LocalContext.current.getString(R.string.body_details, body.mass.roundToInt(), body.velocity.magnitude().roundToInt()),
+fun BodyDetailsText(body: CelestialBody, modifier: Modifier = Modifier, showHullClass: Boolean = false) {
+    val context=LocalContext.current
+    val prefix=if (showHullClass && body.hullClass == VehicleHullClass.Heavy) context.getString(body.labelId())+" · " else ""
+    Text(prefix+context.getString(R.string.body_details, body.mass.roundToInt(), body.velocity.magnitude().roundToInt()),
         modifier.testTag("body-details"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
 }
 

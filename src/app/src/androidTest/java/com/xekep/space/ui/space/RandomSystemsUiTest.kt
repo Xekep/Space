@@ -34,7 +34,7 @@ class RandomSystemsUiTest {
         compose.onNodeWithTag("generate-random-systems").performScrollTo().performClick()
         compose.mainClock.advanceTimeByFrame()
         compose.runOnIdle {
-            assertEquals(500,game.bodies.size); assertEquals(10,game.bodies.count { it.kind == BodyKind.Star })
+            assertEquals(500,game.bodies.size); assertTrue(game.bodies.count { it.kind == BodyKind.Star } > 400); assertEquals(1,game.bodies.count { it.kind == BodyKind.BlackHole })
             assertEquals(SandboxCollisionMode.Debris,game.sandbox!!.collisionMode); assertTrue(game.sandbox!!.paused)
             val storage=SandboxStorage(context); val decoded=storage.decode(storage.encode(game.snapshot(123)!!))
             assertEquals(500,decoded.bodies.size); assertEquals(SandboxCollisionMode.Debris,decoded.collisionMode)

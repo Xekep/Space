@@ -3,6 +3,7 @@ package com.xekep.space.ui.space
 import androidx.annotation.StringRes
 import com.xekep.space.R
 import com.xekep.space.sim.SandboxPresetKind
+import com.xekep.space.sim.hullClass
 import com.xekep.space.sim.BodyKind
 
 @StringRes
@@ -11,6 +12,8 @@ fun BodyKind.labelId(): Int = when (this) {
     BodyKind.Rocket -> R.string.spawn_rocket
     BodyKind.Core, BodyKind.Star -> R.string.spawn_star
     BodyKind.BlackHole -> R.string.spawn_black_hole
+    BodyKind.ArcadePlanet -> R.string.arcade_planet
+    BodyKind.Convoy -> R.string.convoy
     else -> R.string.spawn_body
 }
 
@@ -71,7 +74,13 @@ fun com.xekep.space.sim.CelestialBody.labelId(): Int = when (solar) {
     com.xekep.space.sim.SolarBody.Callisto -> R.string.callisto
     com.xekep.space.sim.SolarBody.Titan -> R.string.titan
     com.xekep.space.sim.SolarBody.Triton -> R.string.triton
-    null -> if (kind == BodyKind.Ship && shipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_guardian else kind.labelId()
+    null -> when {
+        hullClass == com.xekep.space.sim.VehicleHullClass.Heavy && kind == BodyKind.Ship ->
+            if (shipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_heavy_guardian else R.string.spawn_heavy_ship
+        hullClass == com.xekep.space.sim.VehicleHullClass.Heavy && kind == BodyKind.Rocket -> R.string.spawn_heavy_rocket
+        kind == BodyKind.Ship && shipClass == com.xekep.space.sim.ShipClass.Guardian -> R.string.spawn_guardian
+        else -> kind.labelId()
+    }
 }
 
 

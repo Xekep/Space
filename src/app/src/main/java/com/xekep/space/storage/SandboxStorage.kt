@@ -93,6 +93,7 @@ class SandboxStorage(context: Context) {
                     .put("solar", body.solar?.name ?: "")
                     .put("physicalScale", body.physicalScale)
                     .put("isDebris",body.isDebris)
+                    .put("galaxyParticle",body.galaxyParticle)
                     .put("shipClass",body.shipClass.name)
                     .put("fuelConsumptionScale",body.fuelConsumptionScale)
                     .put("pilotTargetSpeed",body.pilotTargetSpeed)
@@ -191,6 +192,7 @@ class SandboxStorage(context: Context) {
                         pilotThrottle = pilotThrottle,
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
                         shipClass=shipClass,fuelConsumptionScale=fuelScale,
+                        galaxyParticle=body.optBoolean("galaxyParticle",false),
                         fuelRemaining = fuel,
                         driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),

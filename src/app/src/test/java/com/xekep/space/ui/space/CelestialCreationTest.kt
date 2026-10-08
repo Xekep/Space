@@ -46,4 +46,17 @@ class CelestialCreationTest {
             val velocity=craft.velocity.normalized(); assertTrue(velocity.x*craft.heading.x+velocity.y*craft.heading.y > .99)
         }
     }
+    @Test fun solarBlackHoleMassUsesSolarUnitsWhilePlaygroundMassStaysCompatible() {
+        val game=SpaceGameState().apply { startSandbox() }
+        val preview=TouchPreview(Vec2(9000.0,0.0),Vec2(9000.0,0.0),0)
+        game.chooseSpawnKind(BodyKind.BlackHole)
+        val light=game.previewBody(preview,0.0)!!
+        val heavy=game.previewBody(preview,4.0)!!
+        assertEquals(3*SolarBody.Sun.worldMass,light.mass,0.0)
+        assertEquals(11*SolarBody.Sun.worldMass,heavy.mass,0.0)
+        assertTrue(light.physicalScale && light.radius > 0)
+        game.startSandbox(SandboxPresetKind.Empty); game.chooseSpawnKind(BodyKind.BlackHole)
+        assertEquals(12000.0,game.previewBody(preview,0.0)!!.mass,0.0)
+    }
+
 }

@@ -13,7 +13,7 @@ class BarnesHutTest {
         bodies.forEachIndexed { i,b ->
             state[i*4]=b.position.x; state[i*4+1]=b.position.y
             state[i*4+2]=b.velocity.x; state[i*4+3]=b.velocity.y
-            masses[i]=b.gravityMass; soft[i]=if (b.physicalScale) .01 else 18.0
+            masses[i]=b.gravityMass; soft[i]=b.gravitySoftening
         }
         val out=DoubleArray(bodies.size*2); val tree=BarnesHutGravity(theta)
         tree.compute(state,masses,soft,out,conserveMomentum=conserve)
@@ -32,7 +32,7 @@ class BarnesHutTest {
     }
     @Test fun zeroOpeningAngleMatchesExactMixedScaleForcesAndCoincidentBodies() {
         val bodies=List(180) { i -> CelestialBody(i.toLong(),if (i < 20) Vec2.Zero else Vec2(i*3.0,i%11*7.0),Vec2.Zero,
-            1.0+i%7,1f,Color.Cyan,physicalScale=i%3 == 0) }
+            1.0+i%7,1f,Color.Cyan,physicalScale=i%3 == 0,galaxyParticle=i%3 == 1) }
         val actual=force(bodies,0.0).first; val exact=direct(bodies)
         for (i in exact.indices) assertEquals("force[$i]",exact[i],actual[i],max(1e-7,abs(exact[i])*1e-10))
     }
@@ -51,11 +51,11 @@ class BarnesHutTest {
             assertTrue("Interactions: $cost",cost < 500*499*.4)
         }
     }
-    @Test fun randomGeneratorCreatesTenDistinctNonOverlappingSystemsAndExactlyFiveHundredBodies() {
+    @Test fun randomGeneratorCreatesAStellarGalaxyAndExactlyFiveHundredBodies() {
         for (seed in listOf(17,53,99)) {
             val bodies=scene(seed)
             assertEquals(500,bodies.size); assertEquals(500,bodies.map { it.id }.distinct().size)
-            assertEquals(10,bodies.count { it.kind == BodyKind.Star })
+            assertTrue(bodies.count { it.kind == BodyKind.Star } > 400); assertEquals(1,bodies.count { it.kind == BodyKind.BlackHole })
             assertTrue(bodies.all { it.mass > 0 && it.radius > 0 && it.position.x.isFinite() && it.velocity.y.isFinite() })
             for (i in bodies.indices) for (j in i+1 until bodies.size)
                 assertTrue("Initial overlap: ${bodies[i].id}, ${bodies[j].id}",(bodies[i].position-bodies[j].position).magnitude() > bodies[i].radius+bodies[j].radius)

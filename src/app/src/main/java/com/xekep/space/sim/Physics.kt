@@ -45,6 +45,8 @@ enum class BodyKind {
     Rocket,
     Star,
     BlackHole,
+    ArcadePlanet,
+    Convoy,
 }
 
 enum class ShipClass { Interceptor, Guardian }
@@ -74,6 +76,7 @@ data class CelestialBody(
     val pilotTargetSpeed: Double? = null,
     val shipClass: ShipClass = ShipClass.Interceptor,
     val fuelConsumptionScale: Double = 1.0,
+    val galaxyParticle: Boolean = false, // Coarse stellar population, not a close two-body star system.
 )
 
 data class CollisionEvent(
@@ -105,7 +108,7 @@ enum class SandboxPresetKind(val title: String, val description: String) {
     SolarSystem("Solar system", "Start near the star. Pinch out to explore eight planets."),
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
     ClassicOrbits("Orbits", "A star and eight planets in a playful gravity scale."),
-    RandomSystems("Random systems", "A varied cluster with single and binary stars and 500 bodies."),
+    RandomSystems("Galaxy", "A rotating stellar disk with a nucleus, arms and varied clusters."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
@@ -173,7 +176,7 @@ object SimulationEngine {
     fun sandboxPreset(kind: SandboxPresetKind = SandboxPresetKind.SolarSystem): SandboxPreset {
         if (kind == SandboxPresetKind.RandomSystems) {
             val bodies=RandomSystems.create(Random.Default,::newBodyId)
-            return SandboxPreset(bodies,Vec2.Zero,.02f,totalEnergy(bodies))
+            return SandboxPreset(bodies,Vec2.Zero,.09f,totalEnergy(bodies))
         }
         if (kind == SandboxPresetKind.Empty) {
             return SandboxPreset(emptyList(), Vec2.Zero, 1f, 0.0)
@@ -319,22 +322,25 @@ object SimulationEngine {
             val fuel = expireVehicles(moved)
             moved = fuel.bodies.toMutableList(); events += fuel.collisions
             val removed = mutableSetOf<Long>()
+            val prior = current.associateBy { it.id }
             // Core contact takes precedence, so a single threat has exactly one outcome.
             val core = moved.firstOrNull { it.kind == BodyKind.Core }
             for (i in moved.indices) {
                 val meteor = moved[i]
                 if (meteor.kind != BodyKind.Meteor || meteor.id in removed) continue
-                val defenderIndex = if (core != null && (meteor.position - core.position).magnitude() <= meteor.radius + core.radius)
+                fun contact(target: CelestialBody) = bodyContact(prior.getValue(meteor.id), meteor, prior.getValue(target.id), target)
+                val defenderIndex = if (core != null && contact(core) != null)
                     moved.indexOf(core)
-                else moved.indexOfFirst { it.id !in removed && (it.kind == BodyKind.Player || it.kind == BodyKind.Ambient) &&
-                    (it.position - meteor.position).magnitude() <= it.radius + meteor.radius }
+                else moved.withIndex().filter { it.value.id !in removed && it.value.kind in
+                    listOf(BodyKind.Player,BodyKind.Ambient,BodyKind.ArcadePlanet,BodyKind.Convoy) }
+                    .mapNotNull { (index,body) -> contact(body)?.let { index to it.fraction } }.minByOrNull { it.second }?.first ?: -1
                 if (defenderIndex < 0) continue
                 val defender = moved[defenderIndex]
                 removed += meteor.id
                 events += CollisionEvent(meteor.kind, defender.kind, meteor.position, meteor.id, defender.id,
                     vehicleExplosion = defender.isVehicle, velocity = defender.velocity * .12, seed = defender.id.toInt())
                 if (defender.isVehicle) removed += defender.id
-                else if (defender.kind != BodyKind.Core) {
+                else if (defender.kind !in listOf(BodyKind.Core,BodyKind.ArcadePlanet,BodyKind.Convoy)) {
                     val mass = defender.mass - meteor.mass * 0.6
                     if (mass < 35.0) removed += defender.id
                     else moved[defenderIndex] = defender.copy(mass = mass, radius = radiusForMass(mass),
@@ -342,7 +348,6 @@ object SimulationEngine {
                 }
             }
             val survivors = moved.filter { it.id !in removed }
-            val prior = current.associateBy { it.id }
             val impacts = vehicleCollisions(survivors, survivors.map { prior.getValue(it.id) }, arcade = true)
             events += impacts.collisions
             current = impacts.bodies.filter { it.id !in removed && (it.kind == BodyKind.Core || core == null ||
@@ -375,8 +380,11 @@ object SimulationEngine {
                 val square = delta.x * delta.x + delta.y * delta.y + smoothing * smoothing
                 acceleration += delta * (gravitationalConstant * other.gravityMass / (square * sqrt(square)))
             }
-            if (body.kind == BodyKind.Rocket) acceleration += body.heading *
-                (80.0 * ((body.fuelRemaining - index * 0.06) / 0.06).coerceIn(0.0, 1.0))
+            if (body.kind == BodyKind.Rocket && body.enginePowered) {
+                val burnRate=body.fuelConsumptionScale*body.vehicleFuelBurnScale
+                acceleration += body.heading * (80.0 * body.vehicleAccelerationScale *
+                    ((body.fuelRemaining - index * 0.06 * burnRate) / (.06 * burnRate)).coerceIn(0.0, 1.0))
+            }
             velocity += acceleration * 0.06
             point += velocity * 0.06
             point
@@ -519,7 +527,7 @@ object SimulationEngine {
         }
         for ((i, j, contact) in candidates.sortedBy { it.third.fraction }) {
                 val first = bodies[i]; val second = bodies[j]
-                if (first.id in removed || second.id in removed) continue
+                if (first.id in removed || second.id in removed || (arcade && second.kind == BodyKind.Convoy)) continue
                 if (arcade && second.kind == BodyKind.Meteor) {
                     if (second.id in removed) continue
                     removed += second.id
@@ -591,7 +599,7 @@ object SimulationEngine {
             BodyKind.BlackHole -> Color(0xFFCB9BFF)
             BodyKind.Meteor -> Color(0xFFFF8A5B)
             BodyKind.Player -> dominant.color
-            BodyKind.Ambient -> dominant.color
+            BodyKind.Ambient, BodyKind.ArcadePlanet, BodyKind.Convoy -> dominant.color
             BodyKind.Ship, BodyKind.Rocket -> dominant.color
         }
 
@@ -756,4 +764,4 @@ fun Offset.toVec2(): Vec2 = Vec2(x.toDouble(), y.toDouble())
 val CelestialBody.isVehicle: Boolean get() = kind == BodyKind.Ship || kind == BodyKind.Rocket
 
 // Spacecraft act as test particles; their hull mass is used for launch cost, not planetary gravity.
-val CelestialBody.gravityMass: Double get() = if (isVehicle) mass * 1e-9 else mass
+val CelestialBody.gravityMass: Double get() = if (isVehicle || kind == BodyKind.Convoy) mass * 1e-9 else mass

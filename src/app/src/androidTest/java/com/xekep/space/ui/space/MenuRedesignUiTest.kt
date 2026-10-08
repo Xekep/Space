@@ -61,7 +61,7 @@ class MenuRedesignUiTest {
         shot("menu-redesign-sandbox.png")
         compose.onNodeWithTag("menu-primary").performClick()
         compose.runOnIdle {
-            assertEquals(500,game.bodies.size); assertEquals(10,game.bodies.count { it.kind == BodyKind.Star })
+            assertEquals(500,game.bodies.size); assertTrue(game.bodies.count { it.kind == BodyKind.Star } > 400); assertEquals(1,game.bodies.count { it.kind == BodyKind.BlackHole })
             assertEquals(SandboxPresetKind.RandomSystems,game.sandbox!!.preset); assertFalse(game.menuOpen)
             game.openMenu()
         }
@@ -115,6 +115,7 @@ class MenuRedesignUiTest {
                     game.chooseSpawnKind(kind)
                 }
                 compose.mainClock.advanceTimeByFrame()
+                compose.onNodeWithTag(if (mode == AppMode.Sandbox) "sandbox-motion-control" else "arcade-motion-control").performClick()
                 compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(0f,-100f)) }
                 compose.mainClock.advanceTimeByFrame()
                 val id=game.controlledVehicleId!!

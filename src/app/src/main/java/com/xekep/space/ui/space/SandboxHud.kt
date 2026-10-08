@@ -28,6 +28,8 @@ import com.xekep.space.R
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.SatellitePlacement
+import com.xekep.space.sim.satellitePlacement
 import kotlin.math.roundToInt
 
 private enum class SandboxPanel { Tools }
@@ -79,7 +81,13 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
             }
             if (game.orbitSource != null) Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val message=game.feedback ?: R.string.place_satellite
+                    val placement=candidate?.let { satellite -> game.orbitSource?.let { satellitePlacement(it,satellite,game.bodies) } }
+                    val message=when (placement) {
+                        SatellitePlacement.Clear -> R.string.place_satellite
+                        SatellitePlacement.Overlap -> R.string.satellite_farther
+                        SatellitePlacement.StrongTides -> R.string.satellite_unstable
+                        null -> game.feedback ?: R.string.place_satellite
+                    }
                     Text(context.getString(message), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                         color=if (message == R.string.place_satellite) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error)
                     HudButton("close", context.getString(R.string.cancel_orbit), "cancel-orbit", game::clearSelection)
@@ -87,9 +95,9 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
             } else game.feedback?.let { Text(context.getString(it),modifier=Modifier.fillMaxWidth(),
                 textAlign=androidx.compose.ui.text.style.TextAlign.Center,style = MaterialTheme.typography.labelSmall, color = accent) }
             candidate?.let {
-                BodyDetailsText(it, Modifier.align(Alignment.CenterHorizontally))
+                BodyDetailsText(it, Modifier.align(Alignment.CenterHorizontally), showHullClass=true)
             }
-            PilotHud(game)
+            PilotHud(game, options.flightControl == com.xekep.space.input.FlightControlMode.Joystick)
             selection?.let { body ->
                 Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = Color(0xEF14223A), contentColor = MaterialTheme.colorScheme.onSurface) {
                     Column(Modifier.padding(horizontal = 4.dp).testTag("body-toolbar")) {
@@ -116,7 +124,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                     Text(speedLabel(scene.timeScale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     SpawnCycleButton(game, Modifier.weight(1f), "sandbox-spawn")
                     FlightLoopButton(game)
-                    MotionControlButton(options, motionAvailable, "sandbox-motion-control")
+                    MotionControlButton(game, options, motionAvailable, "sandbox-motion-control")
                     HudButton("tools", context.getString(R.string.sandbox_tools), "sandbox-tools", { panel = SandboxPanel.Tools })
                 }
             }

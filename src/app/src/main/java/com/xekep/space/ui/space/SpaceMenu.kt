@@ -191,6 +191,7 @@ fun SpaceMenu(
                     verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 if (openPanel == MenuPanel.Settings) {
                     options?.let { settings ->
+                        FlightControlSettings(settings)
                         OptionSwitch(context.getString(R.string.music),settings.music,"ambient-music-switch") { settings.music=it; settings.save() }
                         OptionSwitch(context.getString(R.string.sound),settings.sound,"sound-switch") { settings.sound=it; settings.save() }
                         OptionSwitch(context.getString(R.string.vibration),settings.vibration,"vibration-switch") { settings.vibration=it; settings.save() }

@@ -19,14 +19,16 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PilotHud(game: SpaceGameState) {
+fun PilotHud(game: SpaceGameState, joystick: Boolean = false) {
     val craft=game.bodies.firstOrNull { it.id == game.controlledVehicleId } ?: return
     val context=LocalContext.current
     val speed=craft.velocity.magnitude()
     val fuel=craft.fuelFraction
     val fuelColor=if (fuel <= .1f) Color(0xFFFF7A6B) else if (fuel <= .25f) Color(0xFFFFD166) else Color(0xFF80FFDF)
     Surface(Modifier.fillMaxWidth().blockWorldTouches().testTag("pilot-hud"),shape=RoundedCornerShape(16.dp),color=Color(0xEF0B1425),contentColor=MaterialTheme.colorScheme.onSurface) {
-        Row(Modifier.padding(horizontal=12.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.padding(horizontal=12.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(if (joystick) 10.dp else 16.dp)) {
+            if (joystick) VirtualJoystick(game, enabled=craft.fuelRemaining > 1e-9 && !game.sandboxOverlayOpen &&
+                !game.arcadeUpgradePending && (game.mode != AppMode.Sandbox || game.sandbox?.paused == false))
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(context.getString(R.string.pilot_speed,speed.roundToInt()),style=MaterialTheme.typography.labelSmall,color=Color(0xFF8BD3FF))
                 Slider(value=(craft.pilotTargetSpeed ?: speed).coerceIn(0.0,900.0).toFloat(),

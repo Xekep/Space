@@ -24,6 +24,7 @@ class CoreDirectionUiTest {
         try {
             val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("arcade-motion-control").assertIsOff().performClick()
             compose.runOnIdle {
                 val point=game.bodies.first { it.kind == com.xekep.space.sim.BodyKind.Core }.position+
                     com.xekep.space.sim.Vec2(0.0,-4000.0)

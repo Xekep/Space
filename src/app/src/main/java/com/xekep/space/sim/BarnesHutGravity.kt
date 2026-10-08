@@ -5,13 +5,14 @@ import kotlin.math.*
 internal const val BARNES_HUT_THRESHOLD = 160
 
 /** Pooled quadtree. Near neighbours remain exact; distant cells use their centres of mass.
- * Physical and playground masses are accumulated separately to preserve pair softening.
+ * Physical, playground and coarse stellar masses retain their own pair softening.
  * https://introcs.cs.princeton.edu/java/assignments/barnes-hut.html */
 internal class BarnesHutGravity(private val theta: Double = .5) {
     private class Node {
         var x=0.0; var y=0.0; var width=0.0
         var mass=0.0; var mx=0.0; var my=0.0
         var physical=0.0; var px=0.0; var py=0.0
+        var stellar=0.0; var sx=0.0; var sy=0.0; var stellarX=0.0; var stellarY=0.0
         var total=0.0; var cx=0.0; var cy=0.0; var nx=0.0; var ny=0.0
         var physicalX=0.0; var physicalY=0.0; var openingSquared=0.0; var branch=false
         var head=-1
@@ -32,6 +33,7 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
         nodes[index].apply {
             this.x=x; this.y=y; this.width=width
             mass=0.0; mx=0.0; my=0.0; physical=0.0; px=0.0; py=0.0; head=-1
+            stellar=0.0; sx=0.0; sy=0.0
             branch=false
             children.fill(-1)
         }
@@ -48,6 +50,7 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
         val n=nodes[index]
         val mass=masses[i]
         if (smoothing[i] < 1) { n.physical+=mass; n.px+=state[i*4]*mass; n.py+=state[i*4+1]*mass }
+        else if (smoothing[i] > 18.0) { n.stellar+=mass; n.sx+=state[i*4]*mass; n.sy+=state[i*4+1]*mass }
         else { n.mass+=mass; n.mx+=state[i*4]*mass; n.my+=state[i*4+1]*mass }
         if (n.branch) { child(n,i,depth); return }
         if (n.head < 0 || depth >= 48 || n.width < 1e-7) { links[i]=n.head; n.head=i; return }
@@ -80,14 +83,24 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
         }
         node(minX+(maxX-minX)*.5,minY+(maxY-minY)*.5,max(maxX-minX,maxY-minY).coerceAtLeast(1e-6)*1.000001)
         for (i in 0 until count) insert(0,i,0)
+        // Coarse galaxy tracers in a nucleus-dominated field tolerate wider distant cells.
+        // Resolve all other worlds normally, including a second massive attractor or theta=0.
+        var coarse=0; var totalMass=0.0
+        for (i in weights.indices) {
+            if (smoothing[i] > 18.0) coarse++
+            totalMass+=weights[i]
+        }
+        val openingTheta=if (theta > 0 && coarse > count*.8 &&
+            (weights.maxOrNull() ?: 0.0) > totalMass*.99) maxOf(theta,1.2) else theta
         for (index in 0 until used) {
             val n=nodes[index]
-            n.total=n.mass+n.physical
-            n.cx=(n.mx+n.px)/n.total; n.cy=(n.my+n.py)/n.total
+            n.total=n.mass+n.physical+n.stellar
+            n.cx=(n.mx+n.px+n.sx)/n.total; n.cy=(n.my+n.py+n.sy)/n.total
             if (n.mass > 0) { n.nx=n.mx/n.mass; n.ny=n.my/n.mass }
+            if (n.stellar > 0) { n.stellarX=n.sx/n.stellar; n.stellarY=n.sy/n.stellar }
             if (n.physical > 0) { n.physicalX=n.px/n.physical; n.physicalY=n.py/n.physical }
             val x=n.cx-n.x; val y=n.cy-n.y
-            val opening=if (theta > 0) n.width/theta+sqrt(x*x+y*y) else Double.POSITIVE_INFINITY
+            val opening=if (openingTheta > 0) n.width/openingTheta+sqrt(x*x+y*y) else Double.POSITIVE_INFINITY
             n.openingSquared=opening*opening
         }
         for (i in 0 until count) {
@@ -134,8 +147,9 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
         val dx=n.cx-state[i*4]; val dy=n.cy-state[i*4+1]
         val contains=abs(state[i*4]-n.x) <= n.width*.5 && abs(state[i*4+1]-n.y) <= n.width*.5
         if (!contains && dx*dx+dy*dy > n.openingSquared) {
-            if (n.mass > 0) add(i,n.nx,n.ny,n.mass,smoothing[i],out,rates)
+            if (n.mass > 0) add(i,n.nx,n.ny,n.mass,min(smoothing[i],18.0),out,rates)
             if (n.physical > 0) add(i,n.physicalX,n.physicalY,n.physical,.01,out,rates)
+            if (n.stellar > 0) add(i,n.stellarX,n.stellarY,n.stellar,min(smoothing[i],GALAXY_SOFTENING),out,rates)
         } else for (child in n.children) if (child >= 0) visit(child,i,out,rates,travel)
     }
 
@@ -152,7 +166,7 @@ internal class BarnesHutGravity(private val theta: Double = .5) {
             bodies.forEachIndexed { i,b ->
                 work.state[i*4]=b.position.x; work.state[i*4+1]=b.position.y
                 work.state[i*4+2]=b.velocity.x; work.state[i*4+3]=b.velocity.y
-                work.mass[i]=b.gravityMass; work.soft[i]=if (b.physicalScale) .01 else 18.0
+                work.mass[i]=b.gravityMass; work.soft[i]=b.gravitySoftening
                 physical=physical || b.physicalScale
             }
             work.tree.compute(work.state,work.mass,work.soft,work.acceleration,work.rates,work.travel)

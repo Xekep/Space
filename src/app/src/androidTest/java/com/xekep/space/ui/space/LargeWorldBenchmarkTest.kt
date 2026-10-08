@@ -36,7 +36,7 @@ class LargeWorldBenchmarkTest {
         var nextId=1L
         val snapshot=if (reuse) storage.decode(fixture.readText()) else {
             val bodies=RandomSystems.create(Random(17)) { nextId++ }
-            SandboxSnapshot(bodies,Vec2.Zero,.025f,SimulationEngine.totalEnergy(bodies),0,
+            SandboxSnapshot(bodies,Vec2.Zero,.09f,SimulationEngine.totalEnergy(bodies),0,
                 preset=SandboxPresetKind.RandomSystems).also { fixture.writeText(storage.encode(it)) }
         }
         try {
@@ -80,6 +80,7 @@ class LargeWorldBenchmarkTest {
                     }
                     instrumentation.runOnMainSync {
                         game.loadSandbox(snapshot.copy(collisionsEnabled=collisions,collisionMode=SandboxCollisionMode.Debris))
+                        game.fitCamera()
                         game.setTimeScale(speed)
                     }
                     SystemClock.sleep(800)

@@ -30,6 +30,7 @@ class PilotZoomUiTest {
                     game.chooseSpawnKind(if (mode == AppMode.Sandbox) BodyKind.Ship else BodyKind.Rocket)
                 }
                 compose.mainClock.advanceTimeByFrame()
+                compose.onNodeWithTag(if (mode == AppMode.Sandbox) "sandbox-motion-control" else "arcade-motion-control").assertIsOff().performClick()
                 compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(230f,-300f)) }
                 compose.mainClock.advanceTimeByFrame()
                 val id=game.controlledVehicleId!!

@@ -32,7 +32,7 @@ internal object NumericIntegrator {
         val useTree=approximateGravity && count >= BARNES_HUT_THRESHOLD
         bodies.forEachIndexed { i, body ->
             headings[i * 2] = body.heading.x; headings[i * 2 + 1] = body.heading.y
-            smoothing[i] = if (body.physicalScale) .01 else 18.0
+            smoothing[i] = body.gravitySoftening
             masses[i] = body.gravityMass; fixed[i] = fixedCore && body.kind == BodyKind.Core
             values[i * 4] = body.position.x; values[i * 4 + 1] = body.position.y
             values[i * 4 + 2] = if (fixed[i]) 0.0 else body.velocity.x
@@ -48,13 +48,14 @@ internal object NumericIntegrator {
                 if (alignRockets && body.isVehicle && body.enginePowered && body.id != controlledId && body.waypoints.isEmpty()) {
                     val velocity = Vec2(values[i * 4 + 2], values[i * 4 + 3])
                     if (velocity.magnitude() > 2.0) {
-                        val heading = turnHeading(Vec2(headings[i * 2], headings[i * 2 + 1]), velocity, dt, 2.8)
+                        val heading = turnHeading(Vec2(headings[i * 2], headings[i * 2 + 1]), velocity, dt, 2.8 * body.vehicleTurnScale)
                         headings[i * 2] = heading.x; headings[i * 2 + 1] = heading.y
                     }
                 }
                 val acceleration = if (body.kind == BodyKind.Rocket && body.enginePowered && body.id != controlledId && body.routePath == null) {
                     val speed = Vec2(values[i*4+2], values[i*4+3]).magnitude()
-                    minOf(80.0 * ((body.fuelRemaining-step*dt)/dt).coerceIn(0.0,1.0),
+                    val burnRate=fuelRate(body,controlledId)
+                    minOf(80.0 * body.vehicleAccelerationScale * ((body.fuelRemaining-step*dt*burnRate)/(dt*burnRate)).coerceIn(0.0,1.0),
                         (900.0-speed).coerceAtLeast(0.0)/dt)
                 } else 0.0
                 thrust[i * 2] = headings[i * 2] * acceleration; thrust[i * 2 + 1] = headings[i * 2 + 1] * acceleration
@@ -113,7 +114,7 @@ internal object NumericIntegrator {
 
     private fun fuelRate(body: CelestialBody, controlledId: Long?) =
         (if (body.pilotTargetSpeed == 0.0) 0.0 else if (body.id == controlledId && body.pilotTargetSpeed != null) .12+1.38*body.pilotThrottle else
-            1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0) * body.fuelConsumptionScale
+            1.0 + if (body.id == controlledId) .5*body.pilotThrottle else 0.0) * body.fuelConsumptionScale * body.vehicleFuelBurnScale
 
     private fun derivative(state: DoubleArray, masses: DoubleArray, fixed: BooleanArray, smoothing: DoubleArray, thrust: DoubleArray, result: DoubleArray,
         workspace: Buffers,useTree: Boolean,cacheGravity: Boolean = true) {

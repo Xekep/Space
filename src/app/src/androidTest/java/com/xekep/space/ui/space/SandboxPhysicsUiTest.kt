@@ -73,7 +73,7 @@ class SandboxPhysicsUiTest {
     }
     @Test fun satelliteAndSubSatelliteAreSmallerAndLaunchThroughTheActualGesture() {
         compose.mainClock.autoAdvance=false
-        val parent=CelestialBody(60010,Vec2.Zero,Vec2(200.0,-100.0),1.0,2f,Color.Yellow)
+        val parent=CelestialBody(60010,Vec2.Zero,Vec2(200.0,-100.0),1.0,2f,Color.Yellow,physicalScale=true)
         val game=SpaceGameState().apply { loadSandbox(SandboxSnapshot(listOf(parent),Vec2.Zero,5f,0.0,0,paused=true)) }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.mainClock.advanceTimeByFrame()
@@ -83,7 +83,13 @@ class SandboxPhysicsUiTest {
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("orbit-helper").performClick()
             compose.mainClock.advanceTimeByFrame()
-            val point=worldToScreen(center.position+Vec2(center.radius*4.0,0.0),game.viewport,game.camera.center,game.camera.zoom)
+            val radius=center.radius*(if (it == 0) 16.0 else 4.0)
+            compose.runOnIdle {
+                game.transformCamera(androidx.compose.ui.geometry.Offset.Zero,androidx.compose.ui.geometry.Offset.Zero,
+                    minOf(1f,game.viewport.width*.25f/radius.toFloat()/game.camera.zoom))
+            }
+            compose.mainClock.advanceTimeByFrame()
+            val point=worldToScreen(center.position+Vec2(radius,0.0),game.viewport,game.camera.center,game.camera.zoom)
             compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle {

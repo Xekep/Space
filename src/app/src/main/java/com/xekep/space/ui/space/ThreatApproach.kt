@@ -1,17 +1,35 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.Vec2
 import kotlin.math.abs
 
 internal data class ThreatView(val viewport: IntSize, val rotation: Double = 0.0)
+internal data class ThreatDirectionMarker(val position: Offset, val direction: Offset)
+
+/** Mark the entry point when available, always pointing back toward the off-screen threat.
+ * The fallback has the same meaning even when gravity or camera movement changes the path.
+ */
+internal fun threatDirectionMarker(point: Offset, velocity: Vec2, radius: Float,
+    viewport: IntSize, bounds: Rect): ThreatDirectionMarker? {
+    val fallback = coreDirectionMarker(point, radius, viewport, bounds) ?: return null
+    val entry = incomingScreenEntry(Vec2(point.x.toDouble(), point.y.toDouble()), velocity,
+        viewport.width.toDouble(), viewport.height.toDouble())
+    val position = entry?.let {
+        Offset(it.x.toFloat().coerceIn(bounds.left, bounds.right), it.y.toFloat().coerceIn(bounds.top, bounds.bottom))
+    } ?: fallback.position
+    val delta = point - position
+    return ThreatDirectionMarker(position, delta / delta.getDistance())
+}
 
 /** Move the incoming trajectory back beyond both the arena and the currently visible world. */
-internal fun distantThreat(body: CelestialBody, session: ArcadeSession, view: ThreatView?): CelestialBody {
-    val center=Vec2(session.arena.width/2.0,session.arena.height/2.0)
+internal fun distantThreat(body: CelestialBody, session: ArcadeSession, view: ThreatView?, target: Vec2? = null): CelestialBody {
+    val center=target ?: Vec2(session.arena.width/2.0,session.arena.height/2.0)
     val corners=mutableListOf(Vec2.Zero,Vec2(session.arena.width.toDouble(),session.arena.height.toDouble()))
+    corners+=center
     if (view != null && view.viewport != IntSize.Zero) {
         for (x in listOf(0f,view.viewport.width.toFloat())) for (y in listOf(0f,view.viewport.height.toFloat()))
             corners += screenToWorld(Offset(x,y),view.viewport,session.camera.center,session.camera.zoom,view.rotation)

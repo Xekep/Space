@@ -6,7 +6,7 @@ import kotlin.random.Random
 
 enum class ArcadeUpgrade { Fleet, Engines, Guns, Reactor, Repair }
 
-data class ArcadeUpgradeOffer(val wave: Int, val choices: List<ArcadeUpgrade>)
+data class ArcadeUpgradeOffer(val wave: Int, val choices: List<ArcadeUpgrade>, val convoyBonus: Boolean = false)
 data class ArcadeChallenge(val parentId: Long, val ids: Set<Long>, val failed: Boolean = false, val rewarded: Boolean = false)
 
 internal fun ArcadeSession.level(upgrade: ArcadeUpgrade) = upgrades[upgrade] ?: 0
@@ -25,20 +25,24 @@ internal fun ArcadeSession.launchLimit(kind: BodyKind): Int {
 }
 
 internal fun offerUpgrade(run: ArcadeSession, random: Random): ArcadeSession {
-    if (run.practice || run.lives <= 0 || run.upgradeOffer != null || !run.resting || run.wave in run.offeredUpgradeWaves) return run
-    if (run.wave !in listOf(3,6,10) && (run.wave < 15 || run.wave % 5 != 0)) return run
+    if (run.practice || run.lives <= 0 || run.upgradeOffer != null) return run
+    val bonus=run.convoy?.let { it.status == ConvoyStatus.Delivered && !it.bonusAwarded } == true
+    if (!bonus && (!run.resting || run.wave in run.offeredUpgradeWaves ||
+        (run.wave !in listOf(3,6,10) && (run.wave < 15 || run.wave % 5 != 0)))) return run
     val choices=ArcadeUpgrade.entries.filter {
         run.level(it) < 2 && (it != ArcadeUpgrade.Repair || run.lives < run.difficulty.lives)
     }.shuffled(random).take(3)
-    if (choices.isEmpty()) return run
-    return run.copy(upgradeOffer=ArcadeUpgradeOffer(run.wave,choices),offeredUpgradeWaves=run.offeredUpgradeWaves+run.wave)
+    if (choices.isEmpty()) return if (bonus) run.copy(convoy=run.convoy!!.copy(bonusAwarded=true),energy=run.maxEnergy) else run
+    return run.copy(upgradeOffer=ArcadeUpgradeOffer(run.wave,choices,bonus),
+        offeredUpgradeWaves=if (bonus) run.offeredUpgradeWaves else run.offeredUpgradeWaves+run.wave,
+        convoy=if (bonus) run.convoy!!.copy(bonusAwarded=true) else run.convoy)
 }
 
 internal fun selectUpgrade(run: ArcadeSession, upgrade: ArcadeUpgrade): ArcadeSession {
     val offer=run.upgradeOffer ?: return run
     if (upgrade !in offer.choices) return run
     val levels=run.upgrades+(upgrade to run.level(upgrade)+1)
-    val next=run.copy(upgrades=levels,upgradeOffer=null,chosenUpgradeWaves=run.chosenUpgradeWaves+offer.wave,
+    val next=run.copy(upgrades=levels,upgradeOffer=null,chosenUpgradeWaves=if (offer.convoyBonus) run.chosenUpgradeWaves else run.chosenUpgradeWaves+offer.wave,
         lives=if (upgrade == ArcadeUpgrade.Repair) (run.lives+1).coerceAtMost(run.difficulty.lives) else run.lives)
     return next.copy(energy=(run.energy+if (upgrade == ArcadeUpgrade.Reactor) 20.0 else 0.0).coerceAtMost(next.maxEnergy),
         bodies=run.bodies.map { if (it.isVehicle) it.copy(fuelConsumptionScale=next.fuelScale) else it })

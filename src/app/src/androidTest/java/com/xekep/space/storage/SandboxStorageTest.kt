@@ -133,13 +133,12 @@ class SandboxStorageTest {
         assertTrue(runCatching { storage.decode(storage.encode(invalid)) }.isFailure)
     }
 
-    @Test fun tiltControlOptionPersistsAndDefaultsToOff() {
-        val options=GameOptions(context)
-        assertFalse(options.motionControl)
-        options.motionControl=true; options.save()
-        assertTrue(GameOptions(context).motionControl)
-        options.motionControl=false; options.save()
-        assertFalse(GameOptions(context).motionControl)
+    @Test fun legacyTiltPreferenceIsIgnoredAndRemovedWhenSavingOptions() {
+        val prefs=context.getSharedPreferences("space_options",android.content.Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("motionControl",true).commit()
+        GameOptions(context).save()
+        assertFalse(prefs.contains("motionControl"))
+        assertFalse(com.xekep.space.ui.space.SpaceGameState().motionSteeringEnabled)
     }
 
     @Test fun authoredVehicleRoutesRoundTripAndRejectExcessiveOrInvalidPoints() {
@@ -263,14 +262,15 @@ class SandboxStorageTest {
         val ship=com.xekep.space.sim.CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,1f,
             androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,pilotTargetSpeed=320.0)
         val fragment=com.xekep.space.sim.CelestialBody(2,Vec2(100.0,0.0),Vec2.Zero,1.0,.5f,
-            androidx.compose.ui.graphics.Color.Gray,isDebris=true)
+            androidx.compose.ui.graphics.Color.Gray,isDebris=true,galaxyParticle=true)
         val snapshot=SandboxSnapshot(listOf(ship,fragment),Vec2.Zero,1f,0.0,0,preset=SandboxPresetKind.RandomSystems)
         assertEquals(snapshot,storage.decode(storage.encode(snapshot)))
         val raw=org.json.JSONObject(storage.encode(snapshot))
         raw.getJSONArray("bodies").getJSONObject(0).remove("pilotTargetSpeed")
         raw.getJSONArray("bodies").getJSONObject(1).remove("isDebris")
+        raw.getJSONArray("bodies").getJSONObject(1).remove("galaxyParticle")
         val old=storage.decode(raw.toString())
-        assertNull(old.bodies[0].pilotTargetSpeed); assertFalse(old.bodies[1].isDebris)
+        assertNull(old.bodies[0].pilotTargetSpeed); assertFalse(old.bodies[1].isDebris); assertFalse(old.bodies[1].galaxyParticle)
         raw.getJSONArray("bodies").getJSONObject(0).put("pilotTargetSpeed",901.0)
         assertThrows(IllegalArgumentException::class.java) { storage.decode(raw.toString()) }
     }
@@ -282,6 +282,18 @@ class SandboxStorageTest {
         assertEquals(scene,storage.decode(storage.encode(scene)))
         for (bad in listOf(body.copy(mass=0.0),body.copy(mass=-1.0),body.copy(radius=0f)))
             assertTrue(runCatching { storage.decode(storage.encode(scene.copy(bodies=listOf(bad)))) }.isFailure)
+    }
+
+    @Test fun inputModeAndSensitivityPersistAndInvalidValuesUseSafeDefaults() {
+        val prefs=context.getSharedPreferences("space_options",0)
+        val options=GameOptions(context)
+        options.flightControl=com.xekep.space.input.FlightControlMode.Joystick
+        options.tiltSensitivity=1.5f; options.save()
+        assertEquals(com.xekep.space.input.FlightControlMode.Joystick,GameOptions(context).flightControl)
+        assertEquals(1.5f,GameOptions(context).tiltSensitivity,0f)
+        prefs.edit().putString("flightControl","unknown").putFloat("tiltSensitivity",Float.NaN).commit()
+        assertEquals(com.xekep.space.input.FlightControlMode.Tilt,GameOptions(context).flightControl)
+        assertEquals(1f,GameOptions(context).tiltSensitivity,0f)
     }
 
 }

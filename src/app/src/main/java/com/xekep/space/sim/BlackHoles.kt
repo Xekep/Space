@@ -14,7 +14,7 @@ fun absorbBlackHoles(before: List<CelestialBody>, after: List<CelestialBody>): S
         var absorber=bodies[index]
         val contacts=after.filter { it.id != hole.id && it.id !in removed }.mapNotNull { target ->
             val oldHole=previous[hole.id] ?: hole; val oldTarget=previous[target.id] ?: target
-            firstCircleContact(oldTarget.position-oldHole.position,target.position-hole.position,hole.radius.toDouble())?.let { it to target }
+            firstCircleContact(oldTarget.position-oldHole.position,target.position-hole.position,hole.radius.toDouble()+target.radius)?.let { it to target }
         }.sortedWith(compareBy<Pair<Double,CelestialBody>> { it.first }.thenBy { it.second.id })
         for ((fraction,contact) in contacts) {
             val target=bodies.first { it.id == contact.id }

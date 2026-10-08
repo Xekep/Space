@@ -68,7 +68,7 @@ fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailabl
                 }
             }
             Spacer(Modifier.weight(1f))
-            MotionControlButton(options,tiltAvailable,"arcade-motion-control")
+            MotionControlButton(game, options,tiltAvailable,"arcade-motion-control")
             }
         }
     }

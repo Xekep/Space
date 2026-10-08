@@ -6,7 +6,7 @@ import org.junit.Test
 import kotlin.math.*
 
 class SatelliteOrbitTest {
-    @Test fun satellitesOfSatellitesCanLaunchEvenWhenTheMainBodyPerturbsTheirOrbit() {
+    @Test fun physicallyImpossibleSubmoonIsRejectedRatherThanLaunchedAroundTheMainStar() {
         val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars) }
         val primary=game.bodies.first()
         game.selectBody(primary.id); game.prepareOrbit()
@@ -19,12 +19,9 @@ class SatelliteOrbitTest {
         val preview=TouchPreview(point,point,0)
         assertEquals(SatellitePlacement.StrongTides,satellitePlacement(moon,game.previewBody(preview,0.0)!!,game.bodies))
         game.launch(preview,0.0)
-        assertEquals("An unstable orbit must not prevent sandbox creation",4,game.bodies.size)
-        val submoon=game.bodies.last()
-        assertEquals(point,submoon.position)
-        assertTrue(submoon.mass <= moon.mass*.02)
-        assertNull(game.orbitSourceId)
-        game.undo(); assertEquals(3,game.bodies.size)
+        assertEquals(3,game.bodies.size)
+        assertEquals(com.xekep.space.R.string.satellite_unstable, game.feedback)
+        assertEquals(moon.id, game.orbitSourceId)
     }
 
     @Test fun preparingSatelliteKeepsMovingParentStillAndResumesAfterLaunchOrCancel() {
@@ -77,7 +74,8 @@ class SatelliteOrbitTest {
         repeat((seconds*120).roundToInt()) {
             scene=SimulationEngine.stepSandbox(scene,1.0/120,0.0,true).bodies
             val center=scene.firstOrNull { it.id == parentId }; val moon=scene.firstOrNull { it.id == satelliteId }
-            assertNotNull("Parent must survive",center); assertNotNull("Satellite must survive",moon)
+            assertNotNull("Parent must survive",center)
+            assertNotNull("Satellite must survive: radius=$radius, step=$it, parent=$parentId, satellite=$satelliteId",moon)
             val distance=(moon!!.position-center!!.position).magnitude()
             minimum=minOf(minimum,distance); maximum=maxOf(maximum,distance)
         }
@@ -107,17 +105,21 @@ class SatelliteOrbitTest {
         val point=parent.position+Vec2(-80.0,0.0)
         game.launch(TouchPreview(point,point,0),0.0)
         assertEquals(83,game.bodies.size)
-        assertBound(game.bodies,parent.id,game.bodies.last().id,80.0,8.0,.12)
+        assertBound(game.bodies,parent.id,game.bodies.last().id,(game.bodies.last().position-parent.position).magnitude(),8.0,.12)
     }
 
-    @Test fun disturbedOrbitsWarnButOnlyOverlappingPlacementsAreRejected() {
+    @Test fun wideOrbitIsNarrowedButOverlappingPlacementsAreStillRejected() {
         val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars) }
         val parent=game.bodies.first()
         game.selectBody(parent.id); game.prepareOrbit()
         val initial=game.bodies
         val far=parent.position+Vec2(-300.0,0.0)
         game.launch(TouchPreview(far,far,0),0.0)
-        assertEquals(3,game.bodies.size); assertEquals(com.xekep.space.R.string.satellite_unstable,game.feedback)
+        assertEquals(3,game.bodies.size); assertNull(game.feedback)
+        val satellite=game.bodies.last()
+        val radius=(satellite.position-parent.position).magnitude()
+        assertTrue(radius < 150.0)
+        assertBound(game.bodies,parent.id,satellite.id,radius,12.0,.12)
         assertNull(game.orbitSourceId)
         game.undo(); assertEquals(initial,game.bodies)
         game.selectBody(parent.id); game.prepareOrbit()
@@ -168,7 +170,7 @@ class SatelliteOrbitTest {
         val point=parent.position+Vec2(-80.0,0.0)
         game.launch(TouchPreview(point,point,0),0.0)
         assertTrue(game.bodies.last().physicalScale)
-        assertBound(game.bodies,parent.id,game.bodies.last().id,80.0,8.0,.12)
+        assertBound(game.bodies,parent.id,game.bodies.last().id,(game.bodies.last().position-parent.position).magnitude(),8.0,.12)
     }
     @Test fun closeEarthSatelliteRemainsBoundInTheFullSolarSystem() {
         val game=SpaceGameState().apply { startSandbox() }
@@ -191,14 +193,14 @@ class SatelliteOrbitTest {
         }
         assertTrue("Orbit radius range: $minimum..$maximum",minimum > .18 && maximum < .22)
     }
-    @Test fun satelliteRadiusUsesTheParentsDensityEvenForTinyBodiesAndNestedMoons() {
+    @Test fun satelliteRadiusUsesTheParentsDensityEvenForTinyBodies() {
         for ((mass,radius) in listOf(70.0 to 8f,1.0 to .4f,1e-8 to .00001f)) {
             val parent=CelestialBody(100000,Vec2.Zero,Vec2(180.0,-90.0),mass,radius,androidx.compose.ui.graphics.Color.Cyan)
             val game=SpaceGameState().apply {
                 loadSandbox(com.xekep.space.storage.SandboxSnapshot(listOf(parent),Vec2.Zero,1f,0.0,0))
             }
             var center=parent
-            repeat(3) {
+            repeat(1) {
                 game.selectBody(center.id); game.prepareOrbit()
                 val point=center.position+Vec2(maxOf(center.radius*4.0,.1),0.0)
                 val preview=TouchPreview(point,point,0)
@@ -214,5 +216,78 @@ class SatelliteOrbitTest {
                 center=game.bodies.last()
             }
         }
+    }
+
+    @Test fun distantTapProducesABoundMoonAroundAMovingPlanetInsteadOfAnIndependentSolarOrbit() {
+        val game=SpaceGameState().apply { startSandbox() }
+        repeat(120) { game.update(1.0/60) }
+        val parent=game.bodies.first { it.solar == SolarBody.Earth }
+        game.selectBody(parent.id); game.prepareOrbit()
+        val point=parent.position+Vec2(-50.0,0.0)
+        val preview=TouchPreview(point,point,0)
+        val candidate=game.previewBody(preview,0.0)!!
+        val radius=(candidate.position-parent.position).magnitude()
+        assertTrue(radius > parent.radius && radius < 4.0)
+        assertEquals(SatellitePlacement.Clear,satellitePlacement(parent,candidate,game.bodies))
+        game.launch(preview,0.0)
+        assertEquals(candidate.position,game.bodies.last().position)
+        assertBound(game.bodies,parent.id,game.bodies.last().id,radius,60.0,.15)
+    }
+
+    @Test fun theSolarMoonCanHostABoundSatelliteOnAnAutomaticallyNarrowedOrbit() {
+        val game=SpaceGameState().apply { startSandbox() }
+        var parent=game.bodies.first { it.solar == SolarBody.Moon }
+        repeat(1) {
+            game.selectBody(parent.id); game.prepareOrbit()
+            val point=parent.position+Vec2(-.8,0.0)
+            game.launch(TouchPreview(point,point,0),0.0)
+            assertEquals(18+it,game.bodies.size)
+            val satellite=game.bodies.last()
+            val radius=(satellite.position-parent.position).magnitude()
+            assertTrue(radius < .8 && satellite.radius < parent.radius)
+            assertBound(game.bodies,parent.id,satellite.id,radius,10.0,.2)
+            parent=satellite
+        }
+    }
+
+    @Test fun aSatelliteOfASatelliteStaysBoundWhenTheHierarchyHasRoomForBothOrbits() {
+        val primary=CelestialBody(200000,Vec2.Zero,Vec2(200.0,-100.0),1.0,2f,
+            androidx.compose.ui.graphics.Color.Yellow,physicalScale=true)
+        val game=SpaceGameState().apply {
+            loadSandbox(com.xekep.space.storage.SandboxSnapshot(listOf(primary),Vec2.Zero,1f,0.0,0))
+        }
+        var parent=primary
+        repeat(2) {
+            game.selectBody(parent.id); game.prepareOrbit()
+            val point=parent.position+Vec2(parent.radius*(if (it == 0) 16.0 else 4.0),0.0)
+            game.launch(TouchPreview(point,point,0),0.0)
+            assertEquals(it+2,game.bodies.size)
+            val satellite=game.bodies.last()
+            assertBound(game.bodies,parent.id,satellite.id,(satellite.position-parent.position).magnitude(),30.0,.15)
+            parent=satellite
+        }
+    }
+
+    @Test fun anOuterPlanetInFiveHundredBodiesKeepsAnAssistedSatelliteWithBarnesHutGravity() {
+        var id=300000L
+        val scene=RandomSystems.create(kotlin.random.Random(17)) { id++ }
+        val star=scene.first { it.kind == BodyKind.BlackHole }
+        val parent=scene.filter { it.kind == BodyKind.Ambient && it.mass > 5 &&
+            (it.position-star.position).magnitude() < 5500 }.maxBy { (it.position-star.position).magnitude() }
+        val game=SpaceGameState().apply {
+            loadSandbox(com.xekep.space.storage.SandboxSnapshot(scene,Vec2.Zero,1f,0.0,0))
+        }
+        game.selectBody(parent.id); game.prepareOrbit()
+        val point=parent.position+(parent.position-star.position).normalized()*300.0
+        game.launch(TouchPreview(point,point,0),0.0)
+        assertEquals(501,game.bodies.size)
+        val satellite=game.bodies.last()
+        val radius=(satellite.position-parent.position).magnitude()
+        assertTrue(radius < 300.0)
+        assertFalse(game.bodies.first { it.id == parent.id }.galaxyParticle)
+        assertBound(game.bodies,parent.id,satellite.id,radius,30.0,.15)
+        game.undo()
+        assertEquals(500,game.bodies.size)
+        assertTrue(game.bodies.first { it.id == parent.id }.galaxyParticle)
     }
 }

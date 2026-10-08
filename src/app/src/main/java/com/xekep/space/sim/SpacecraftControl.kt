@@ -20,14 +20,14 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
             // A stopped engine provides neither steering torque nor braking thrust.
             if (target == 0.0) return@map body.copy(pilotThrottle=0.0)
             // Like a steering wheel: input changes turn rate relative to the craft's course.
-            val angle = atan2(body.heading.y, body.heading.x) + control.steering.coerceIn(-1.0, 1.0) * 3.6 * seconds
+            val angle = atan2(body.heading.y, body.heading.x) + control.steering.coerceIn(-1.0, 1.0) * 3.6 * body.vehicleTurnScale * seconds
             val heading = Vec2(cos(angle), sin(angle))
             target?.let { target ->
                 val throttle=target/900
                 val desired=heading*target
                 val difference=desired-body.velocity
-                val acceleration=120+420*throttle
-                val powered=minOf(seconds,body.fuelRemaining/(.12+1.38*throttle))
+                val acceleration=(120+420*throttle)*body.vehicleAccelerationScale
+                val powered=minOf(seconds,body.fuelRemaining/((.12+1.38*throttle)*body.fuelConsumptionScale*body.vehicleFuelBurnScale))
                 val change=difference.normalized()*minOf(difference.magnitude(),acceleration*powered)
                 return@map body.copy(heading=heading,velocity=body.velocity+change,pilotThrottle=throttle,pilotTargetSpeed=target)
             }
@@ -35,7 +35,8 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
             val throttle=(body.pilotThrottle+control.boost.coerceIn(0.0,1.0)*.5).coerceIn(0.0,1.0)
             // Active manoeuvring thrusters cancel lateral drift so turns also change the flight path.
             val aligned=body.velocity+(heading*speed-body.velocity)*(1-exp(-seconds/.10))
-            val forwardThrust=(120+420*throttle)*minOf(seconds,body.fuelRemaining/(1+.5*throttle))
+            val forwardThrust=(120+420*throttle)*body.vehicleAccelerationScale*
+                minOf(seconds,body.fuelRemaining/((1+.5*throttle)*body.fuelConsumptionScale*body.vehicleFuelBurnScale))
             val velocity=aligned.normalized()*speed+heading*minOf(forwardThrust,(900-speed).coerceAtLeast(0.0))
             body.copy(heading = heading, velocity = velocity, pilotThrottle = throttle)
         }

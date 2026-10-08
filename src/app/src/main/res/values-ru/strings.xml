@@ -110,7 +110,7 @@
 
     <string name="not_enough_energy">"Недостаточно энергии. Дождитесь восстановления."</string>
     <string name="satellite_farther">"Разместите спутник подальше от соседних тел."</string>
-    <string name="satellite_unstable">Спутник запущен. Притяжение соседей может изменить орбиту.</string>
+    <string name="satellite_unstable">Здесь нет устойчивой орбиты. Выберите другое тело.</string>
     <string name="satellite_parent_lost">Центральное тело исчезло. Выберите другое.</string>
     <string name="practice_complete">"Обучение завершено. Началась попытка на лёгкой сложности."</string>
     <string name="checkpoint_stored">"Контрольный снимок сохранён"</string>
@@ -189,8 +189,8 @@
     <string name="large_vehicle_icons_description">Увеличивать значки кораблей и ракет</string>
     <string name="collision_merge">Слияние</string>
     <string name="collision_debris">Обломки</string>
-    <string name="generate_random_systems">Создать системы · 500 тел</string>
-    <string name="random_systems_name">Случайные системы</string>
+    <string name="generate_random_systems">Создать галактику · 500 тел</string>
+    <string name="random_systems_name">Галактика</string>
     <string name="settings">Настройки</string>
     <string name="worlds">Миры</string>
     <string name="details">Подробнее</string>
@@ -200,8 +200,8 @@
     <string name="start_game">Начать игру</string>
     <string name="new_game">Новая игра</string>
     <string name="how_to_play">Как играть</string>
-    <string name="random_systems_short">Системы · 500 тел</string>
-    <string name="random_systems_description">500 тел: десять разнесённых звёздных систем, планеты, спутники и астероидные пояса с устойчивыми начальными орбитами.</string>
+    <string name="random_systems_short">Галактика · 500 тел</string>
+    <string name="random_systems_description">Вращающаяся галактика из 500 тел: компактное ядро, рукава и разнообразные звёздные скопления.</string>
     <string name="pilot_target_speed">Заданная скорость</string>
     <string name="spawn_guardian">Страж</string>
     <string name="guardian_unlocked">Открыт Страж · патрулирует ядро</string>
@@ -219,4 +219,27 @@
     <string name="upgrade_repair_help">Восстановить одну единицу прочности</string>
     <string name="challenge_giant">Осколочный гигант</string>
     <string name="challenge_parts">Осколки · %1$d</string>
+    <string name="arcade_planet">Орбитальная планета</string>
+    <string name="planet_arrived">Планета вышла на орбиту</string>
+    <string name="convoy">Конвой</string>
+    <string name="convoy_hull">Конвой · %1$d/3</string>
+    <string name="find_convoy">Следить за конвоем</string>
+    <string name="convoy_delivered">Конвой доставлен</string>
+    <string name="convoy_lost">Конвой потерян</string>
+    <string name="convoy_upgrade_title">Конвой доставлен · дополнительное улучшение</string>
+    <string name="convoy_upgrade_description">Награда за сопровождение. Выберите ещё одно улучшение.</string>
+    <string name="wave_approach">Подлёт угроз</string>
+    <string name="wave_swarm">Рой</string>
+    <string name="wave_siege">Тяжёлая цель под прикрытием</string>
+    <string name="wave_pincer">Встречные атаки</string>
+    <string name="wave_recovery">Спокойная волна</string>
+    <string name="wave_escort">Необязательное сопровождение</string>
+    <string name="spawn_heavy_ship">Тяжёлый корабль</string>
+    <string name="spawn_heavy_rocket">Тяжёлая ракета</string>
+    <string name="spawn_heavy_guardian">Тяжёлый страж</string>
+    <string name="flight_controls">Управление</string>
+    <string name="control_tilt">Наклон</string>
+    <string name="control_joystick">Джойстик</string>
+    <string name="tilt_sensitivity">Чувствительность наклона</string>
+    <string name="virtual_joystick">Виртуальный джойстик</string>
 </resources>

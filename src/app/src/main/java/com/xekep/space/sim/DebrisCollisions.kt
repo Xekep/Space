@@ -97,7 +97,7 @@ internal fun debrisCollisions(bodies: List<CelestialBody>,previous: List<Celesti
                 for (sign in listOf(-1.0,1.0)) result+=CelestialBody(newId(),
                     position+direction*(sign*(remnantRadius+radius*2.5)),velocity+direction*(sign*spread),loss/count,radius,
                     Color((a.color.red+b.color.red)*.5f,(a.color.green+b.color.green)*.5f,(a.color.blue+b.color.blue)*.5f),
-                    physicalScale=a.physicalScale || b.physicalScale,isDebris=true)
+                    physicalScale=a.physicalScale || b.physicalScale,isDebris=true,galaxyParticle=a.galaxyParticle && b.galaxyParticle)
             }
         }
         val dominant=if (a.mass >= b.mass) a else b

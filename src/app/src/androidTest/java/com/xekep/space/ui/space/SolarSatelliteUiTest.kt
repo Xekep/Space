@@ -53,7 +53,7 @@ class SolarSatelliteUiTest {
         }
     }
 
-    @Test fun moonCanHaveASatelliteAndOnlyOverlapsPreventCreation() {
+    @Test fun moonOrbitIsNarrowedAndAnImpossibleExtraLevelIsRejectedClearly() {
         compose.mainClock.autoAdvance=false
         val game=SpaceGameState().apply { startSandbox() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
@@ -65,14 +65,30 @@ class SolarSatelliteUiTest {
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         fun place(offset: Vec2) {
             val point=worldToScreen(parent.position+offset,game.viewport,game.camera.center,game.camera.zoom)
-            compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
+            compose.onNodeWithTag("space-scene").performTouchInput { down(point) }
+            compose.mainClock.advanceTimeBy(160)
+            if (offset == Vec2(.8,0.0)) {
+                compose.runOnIdle {
+                    val candidate=game.previewBody(game.touchPreview!!,.16)!!
+                    assertTrue((candidate.position-parent.position).magnitude() < .8)
+                }
+                compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_farther)).assertDoesNotExist()
+                compose.onNodeWithText(context.getString(com.xekep.space.R.string.place_satellite)).assertIsDisplayed()
+                File(context.externalCacheDir,"satellite-adjusted-preview.png").outputStream().use {
+                    assertTrue(compose.onRoot().captureToImage().asAndroidBitmap()
+                        .compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
+                }
+            }
+            compose.onNodeWithTag("space-scene").performTouchInput { up() }
             compose.mainClock.advanceTimeByFrame()
         }
         place(Vec2.Zero)
         compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_farther)).assertIsDisplayed()
         place(Vec2(.8,0.0))
-        compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_unstable)).assertIsDisplayed()
-        compose.runOnIdle { assertEquals(18,game.bodies.size); assertNull(game.orbitSourceId) }
+        compose.runOnIdle {
+            assertEquals(18,game.bodies.size); assertNull(game.orbitSourceId); assertNull(game.feedback)
+            assertTrue((game.bodies.last().position-parent.position).magnitude() < .8)
+        }
         val firstSatellite=game.bodies.last()
         compose.runOnIdle { game.selectBody(firstSatellite.id) }
         compose.mainClock.advanceTimeByFrame()
@@ -81,7 +97,8 @@ class SolarSatelliteUiTest {
         val point=worldToScreen(game.orbitSource!!.position+Vec2(.2,0.0),game.viewport,game.camera.center,game.camera.zoom)
         compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
         compose.mainClock.advanceTimeByFrame()
-        compose.runOnIdle { assertEquals(19,game.bodies.size); assertNull(game.orbitSourceId) }
+        compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_unstable)).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(18,game.bodies.size); assertEquals(firstSatellite.id,game.orbitSourceId) }
         compose.runOnIdle { game.selectBody(parent.id) }
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithTag("orbit-helper").performClick()

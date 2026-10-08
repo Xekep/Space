@@ -44,7 +44,7 @@ class BlackHoleTest {
         assertEquals(32100.0,absorbBlackHoles(bodies,bodies).bodies.single().mass,0.0)
         val rocket=target().copy(kind=BodyKind.Rocket)
         val result=absorbBlackHoles(listOf(large,rocket),listOf(large,rocket.copy(position=Vec2(100.0,0.0))))
-        assertEquals(-10.0,result.collisions.single().position.x,1e-8)
+        assertEquals(-12.0,result.collisions.single().position.x,1e-8)
     }
     @Test fun absorptionDoesNotCreatePhantomSweepsForSurvivingVehicles() {
         val swallowed=target().copy(position=Vec2.Zero,velocity=Vec2.Zero)
@@ -54,4 +54,36 @@ class BlackHoleTest {
         assertEquals(listOf(1L,3L,4L),result.bodies.map { it.id })
         assertTrue(result.collisions.isEmpty())
     }
+    @Test fun aFiniteBodyReachingTheHorizonIsSwallowedBeforeItsCenterCrosses() {
+        val hole=hole()
+        val grazing=target().copy(position=Vec2(0.0,11.0))
+        val miss=grazing.copy(position=Vec2(0.0,13.0))
+        assertEquals(1,absorbBlackHoles(listOf(hole,grazing),listOf(hole,grazing)).bodies.size)
+        assertEquals(2,absorbBlackHoles(listOf(hole,miss),listOf(hole,miss)).bodies.size)
+        val before=target().copy(position=Vec2(-100.0,11.0))
+        val after=before.copy(position=Vec2(100.0,11.0))
+        assertEquals(1,absorbBlackHoles(listOf(hole,before),listOf(hole,after)).bodies.size)
+    }
+    @Test fun spawnMassesPullStationaryBodiesInButAllowStableOrbitsWithMergingOff() {
+        for (mass in listOf(12000.0,44000.0)) for (galaxy in listOf(false,true)) {
+            val hole=hole(mass=mass)
+            val resting=target().copy(position=Vec2(300.0,0.0),velocity=Vec2.Zero,mass=1.0,galaxyParticle=galaxy)
+            var falling=listOf(hole,resting)
+            var ticks=0
+            while (falling.size > 1 && ticks++ < 1200)
+                falling=SimulationEngine.stepSandbox(falling,1.0/120,0.0,false).bodies
+            assertEquals("mass=$mass must capture a body released from rest",1,falling.size)
+            assertEquals(mass+1,falling.single().mass,1e-8)
+            val orbiting=resting.copy(velocity=SimulationEngine.orbitVelocity(hole,resting.position,resting.mass))
+            var orbit=listOf(hole,orbiting)
+            repeat(3600) {
+                orbit=SimulationEngine.stepSandbox(orbit,1.0/120,0.0,false).bodies
+                assertEquals(2,orbit.size)
+                val distance=(orbit[0].position-orbit[1].position).magnitude()
+                assertTrue("mass=$mass distance=$distance",distance in 298.0..302.0)
+            }
+            println("BLACK_HOLE mass=$mass galaxy=$galaxy infallSeconds=${ticks/120.0} orbitSeconds=30 stable=true")
+        }
+    }
+
 }

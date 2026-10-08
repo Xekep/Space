@@ -153,6 +153,7 @@ class NewGameplayUiTest {
         try {
             val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("sandbox-motion-control").assertIsOff().performClick()
             compose.onNodeWithTag("pilot-hud").assertDoesNotExist()
             compose.onNodeWithTag("sandbox-spawn").performClick()
             compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
@@ -160,8 +161,10 @@ class NewGameplayUiTest {
             compose.onNodeWithTag("pilot-speed").assertIsDisplayed()
             compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
             compose.runOnIdle {
+                val craft=game.bodies.single()
+                val expectedFuel=craft.fuelRemaining-60*craft.vehicleFuelBurnScale
                 game.toggleSandboxPause(); repeat(600) { game.update(.1) }; game.toggleSandboxPause()
-                assertEquals(120.0,game.bodies.single().fuelRemaining,1e-4)
+                assertEquals(expectedFuel,game.bodies.single().fuelRemaining,1e-4)
             }
             compose.mainClock.advanceTimeByFrame()
             java.io.File(context.externalCacheDir,"pilot-fuel-speed.png").outputStream().use {
@@ -176,6 +179,8 @@ class NewGameplayUiTest {
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("pilot-hud").assertDoesNotExist()
             compose.runOnIdle { game.startArcade(); game.chooseSpawnKind(BodyKind.Rocket) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("arcade-motion-control").assertIsOff().performClick()
             compose.onNodeWithTag("space-scene").performTouchInput { click(center+Offset(230f,-300f)) }
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("pilot-speed").assertIsDisplayed()
@@ -317,7 +322,7 @@ class NewGameplayUiTest {
             compose.onNodeWithTag("sandbox-tools").performClick()
             compose.mainClock.advanceTimeBy(500)
             compose.onNodeWithTag("focus-Earth").assertDoesNotExist()
-            compose.runOnIdle { assertTrue(preferences.getBoolean("motionControl", false)) }
+            compose.runOnIdle { assertTrue(game.motionSteeringEnabled) }
             compose.onNodeWithTag("close-sandbox-panel").performClick()
             compose.runOnIdle {
                 game.focusSolar(SolarBody.Saturn)
@@ -338,6 +343,7 @@ class NewGameplayUiTest {
         try {
             val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startSandbox(); toggleSandboxPause() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("sandbox-motion-control").assertIsOff().performClick()
             compose.onNodeWithTag("sandbox-spawn").performClick()
             compose.onNodeWithTag("space-scene").performTouchInput {
                 val point=Offset(center.x + 200f,center.y - 400f)
@@ -373,6 +379,7 @@ class NewGameplayUiTest {
             }
             val planet=game.bodies.first().id
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.onNodeWithTag("sandbox-motion-control").assertIsOff().performClick()
             compose.runOnIdle {
                 game.setSteeringInput(Vec2(1.0,0.0)); repeat(30) { game.update(1.0/60) }
                 game.setSteeringInput(Vec2.Zero); repeat(90) { game.update(1.0/60) }; game.toggleSandboxPause()
@@ -436,13 +443,17 @@ class NewGameplayUiTest {
             val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
             compose.onNodeWithTag("sandbox-motion-control").assertIsOff().performClick()
+            compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("sandbox-motion-control").assertIsOn()
             compose.runOnIdle { game.enterMode(AppMode.Arcade) }
+            compose.onNodeWithTag("arcade-motion-control").assertIsOff().performClick()
+            compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("arcade-motion-control").assertIsOn().performClick()
+            compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("arcade-motion-control").assertIsOff()
             compose.runOnIdle { game.enterMode(AppMode.Sandbox) }
             compose.onNodeWithTag("sandbox-motion-control").assertIsOff()
-            compose.runOnIdle { assertFalse(preferences.getBoolean("motionControl",true)) }
+            compose.runOnIdle { assertFalse(game.motionSteeringEnabled) }
         } finally { preferences.edit().putBoolean("motionControl",previous).commit() }
     }
 }

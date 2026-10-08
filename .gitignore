@@ -12,3 +12,6 @@ keystore.properties
 inst_user_settings.tmp
 *.log
 dist/
+
+# Local agent memory
+.agent/

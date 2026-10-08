@@ -20,8 +20,8 @@ internal fun ArcadeUpgradeDialog(game: SpaceGameState) {
         Surface(shape=RoundedCornerShape(24.dp),color=MaterialTheme.colorScheme.surface,
             modifier=Modifier.fillMaxWidth().heightIn(max=560.dp).testTag("arcade-upgrade-dialog")) {
             Column(Modifier.verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.upgrade_title,offer.wave),style=MaterialTheme.typography.titleLarge)
-                Text(stringResource(if (offer.wave == 3) R.string.guardian_unlocked else R.string.upgrade_description),
+                Text(if (offer.convoyBonus) stringResource(R.string.convoy_upgrade_title) else stringResource(R.string.upgrade_title,offer.wave),style=MaterialTheme.typography.titleLarge)
+                Text(stringResource(if (offer.convoyBonus) R.string.convoy_upgrade_description else if (offer.wave == 3) R.string.guardian_unlocked else R.string.upgrade_description),
                     style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 for (upgrade in offer.choices) {
                     Surface(onClick={ game.chooseArcadeUpgrade(upgrade) },shape=RoundedCornerShape(14.dp),

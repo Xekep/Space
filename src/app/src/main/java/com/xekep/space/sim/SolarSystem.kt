@@ -72,5 +72,11 @@ object SolarSystem {
     }
 }
 
+internal const val GALAXY_SOFTENING = 260.0
+internal val CelestialBody.gravitySoftening: Double get() = when {
+    physicalScale -> .01
+    galaxyParticle && (kind == BodyKind.Star || kind == BodyKind.Ambient) -> GALAXY_SOFTENING
+    else -> 18.0
+}
 internal fun forceSoftening(first: CelestialBody, second: CelestialBody): Double =
-    if (first.physicalScale || second.physicalScale) .01 else 18.0
+    minOf(first.gravitySoftening,second.gravitySoftening)

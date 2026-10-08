@@ -5,8 +5,9 @@ import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.Vec2
 import kotlin.random.Random
 
-internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
-    if (current.upgradeOffer != null || current.lives <= 0) return current
+internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
+    if (input.upgradeOffer != null || input.lives <= 0 || dt <= 0.0) return input
+    val current=prepareArcadeEncounters(input,dt,random)
     val routed=com.xekep.space.sim.applyFlightControls(current.bodies,control,dt)
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId,current.gunIntervalScale)
     val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId)
@@ -15,9 +16,12 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
     // Arena cleanup applies to spent threats. Player bodies belong to world space,
     // so a launch after camera travel must survive outside the initial arena.
     val corePosition=combatStep.bodies.firstOrNull { it.kind == BodyKind.Core }?.position ?: Vec2(450.0,700.0)
+    val convoyPosition=combatStep.bodies.firstOrNull { it.id == current.convoy?.bodyId }?.position
     var bodies = combatStep.bodies.filter {
         val offset=it.position-corePosition
+        val escort=convoyPosition?.minus(it.position)
         it.kind != BodyKind.Meteor || offset.x*it.velocity.x+offset.y*it.velocity.y < 0 ||
+            (escort != null && escort.x*it.velocity.x+escort.y*it.velocity.y > 0) ||
             (it.position.x in -CullMargin..(current.arena.width + CullMargin) &&
                 it.position.y in -CullMargin..(current.arena.height + CullMargin)) }
     var challenge=current.challenge
@@ -43,6 +47,7 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
     var lastIntercept = current.lastIntercept; var hit = false
     val successful = current.successfulLaunches.toMutableSet()
     events.filter { it.meteorId != null }.distinctBy { it.meteorId }.forEach { event ->
+        if (event.secondKind == BodyKind.Convoy) return@forEach
         if (event.secondKind == BodyKind.Core) {
             if (immunity <= 0.0) { if (!current.practice) lives = (lives - 1).coerceAtLeast(0); immunity = 0.6; hit = true; combo = 1.0 }
         } else {
@@ -69,27 +74,32 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
     var timer = current.spawnTimer - dt
     if (cycle >= 24.0) timer = 1.5
     if (lives > 0 && cycle < 24.0 && timer <= 0.0) {
-        repeat(if (current.practice || wave == 10) 1 else (1 + wave / 3).coerceAtMost(4)) {
+        val character=waveCharacter(wave,current.practice)
+        val attackSide=random.nextInt(4)
+        repeat(waveGroupSize(wave,character)) {
             if (pending.size + bodies.count { it.kind == BodyKind.Meteor } < (8 + wave).coerceAtMost(18)) {
                 if (current.practice && (pending.isNotEmpty() || bodies.any { it.kind == BodyKind.Meteor })) return@repeat
-                val side = if (wave == 1) wave % 4 else (wave + it + random.nextInt(2)) % 4
-                var meteor = SimulationEngine.spawnMeteor(Vec2(900.0, 1400.0), wave * 0.4, random, Vec2(450.0, 700.0), side)
+                val side = if (character == WaveCharacter.Pincer) (attackSide+(it%2)*2)%4
+                    else if (wave == 1) wave % 4 else (wave + it + random.nextInt(2)) % 4
+                val transport=if (character == WaveCharacter.Escort && it < 2)
+                    bodies.firstOrNull { body -> body.id == current.convoy?.bodyId } else null
+                val target=transport?.position ?: corePosition
+                var meteor = SimulationEngine.spawnMeteor(Vec2(900.0, 1400.0), wave * 0.4, random, target, side)
                 val boss=!current.practice && wave == 10 && challenge == null
                 if (boss) {
                     meteor=meteor.copy(mass=1800.0,radius=SimulationEngine.radiusForMass(1800.0),
                         color=androidx.compose.ui.graphics.Color(0xFFFF8B70),velocity=meteor.velocity*.65)
                     challenge=ArcadeChallenge(meteor.id,setOf(meteor.id))
                 }
-                if (!boss && !current.practice && wave >= 3 && wave % 2 == 1 && it == 0) {
-                    val mass = 500.0 + wave * 40.0
-                    meteor = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), velocity = meteor.velocity * 0.65)
-                }
+                if (!boss && !current.practice) meteor=shapeWaveMeteor(meteor,wave,it,character,random)
                 val incoming=if (current.practice) meteor.copy(position = Vec2(964.0, 700.0), velocity = Vec2(-40.0, 0.0), mass = 90.0,
                     radius = SimulationEngine.radiusForMass(90.0)) else meteor.copy(velocity = meteor.velocity * (0.60 + minOf(wave, 16) * 0.035))
-                pending += PendingThreat(distantThreat(incoming,current,view),current.difficulty.warningSeconds)
+                val distant=distantThreat(incoming,current,view,target)
+                val threat=if (transport != null) aimConvoyThreat(distant,transport,bodies,current.difficulty.warningSeconds) else distant
+                pending += PendingThreat(threat,current.difficulty.warningSeconds)
             }
         }
-        timer += (4.6 - wave * 0.25).coerceAtLeast(1.4) * current.difficulty.spawnDelay
+        timer += waveSpawnDelay(wave,waveCharacter(wave,current.practice)) * current.difficulty.spawnDelay
     }
     // A missed challenge fragment may leave the arena; it must not freeze the wave forever.
     challenge?.let { active ->
@@ -97,10 +107,11 @@ internal fun advanceArcade(current: ArcadeSession, dt: Double, random: Random, c
         val missing=active.ids-present
         if (missing.isNotEmpty()) challenge=active.copy(ids=active.ids-missing,failed=true)
     }
-    return offerUpgrade(current.copy(bodies = bodies, lives = lives, elapsed = elapsed, pending = pending, spawnTimer = timer,
+    val advanced=current.copy(bodies = bodies, lives = lives, elapsed = elapsed, pending = pending, spawnTimer = timer,
         waveDelay=waveDelay,challenge=challenge,
         energy = (current.energy + dt * current.energyRegen + stopped * 8.0).coerceAtMost(current.maxEnergy), score = score,
         destroyed = current.destroyed + stopped, combo = combo, lastIntercept = lastIntercept, immunity = immunity,
         combat = combatStep.combat, explosions = com.xekep.space.sim.advanceExplosions(current.explosions, events, dt),
-        hitFlash = if (hit) 1.0 else (current.hitFlash - dt * 1.8).coerceAtLeast(0.0), successfulLaunches = successful),random)
+        hitFlash = if (hit) 1.0 else (current.hitFlash - dt * 1.8).coerceAtLeast(0.0), successfulLaunches = successful)
+    return offerUpgrade(finishArcadeConvoy(current,advanced,events,dt),random)
 }
