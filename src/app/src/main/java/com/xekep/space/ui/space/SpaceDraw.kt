@@ -41,7 +41,7 @@ fun DrawScope.drawBody(
     simple: Boolean = false,
     pilotVisualZoom: Float? = null,
 ) {
-    val center = worldToScreen(renderPosition, viewport, cameraCenter, zoom)
+    val center = worldToScreen(flightRenderPosition(body,renderPosition,viewport,zoom,cameraRotation), viewport, cameraCenter, zoom)
     val margin = maxOf(120.dp.toPx(),bodyScreenRadius(body,zoom,density,largeVehicleIcons)*2f)
     val extent = hypot(size.width,size.height) / 2 + margin
     if (cameraRotation == 0.0) {
@@ -144,105 +144,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
     val r = vehicleRenderRadius(body,zoom,density,largeVehicleIcons,if (piloted) pilotVisualZoom else null)
     val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
     drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
-    rotate(angle, center) {
-      withTransform({
-          translate(center.x,center.y)
-          transform(vehiclePitchMatrix(body.pitch,r,body.roll))
-          translate(-center.x,-center.y)
-      }) {
-        fun hull(points: List<Offset>, color: Color) {
-            drawPath(Path().apply {
-                moveTo(center.x + points[0].x * r, center.y + points[0].y * r)
-                points.drop(1).forEach { lineTo(center.x + it.x * r, center.y + it.y * r) }
-                close()
-            }, color)
-        }
-        // A dark side face exposes the bank even when the narrow rocket barely changes width.
-        val bankSide=kotlin.math.sin(body.roll).toFloat()
-        if (kotlin.math.abs(bankSide) > .02f) {
-            val x=bankSide*.55f
-            hull(listOf(Offset(x-.22f,-1.12f),Offset(x+.22f,-.72f),Offset(x+.22f,.74f),Offset(x-.22f,.74f)),
-                if (bankSide > 0) Color(0xFF29465D) else Color(0xFF648BA2))
-        }
-        if (body.hullClass == VehicleHullClass.Heavy && body.kind == BodyKind.Ship) {
-            val guardian=body.shipClass == com.xekep.space.sim.ShipClass.Guardian
-            val trim=if (guardian) Color(0xFF81E5C4) else Color(0xFFE6B878)
-            // Broad armored hull, four engine pods, layered plates and twin gun shoulders.
-            hull(listOf(Offset(0f,-1.3f),Offset(.45f,-.85f),Offset(.48f,-.35f),Offset(1.15f,-.12f),
-                Offset(1.05f,.8f),Offset(.4f,.92f),Offset(0f,.68f),Offset(-.4f,.92f),
-                Offset(-1.05f,.8f),Offset(-1.15f,-.12f),Offset(-.48f,-.35f),Offset(-.45f,-.85f)),Color(0xFF354657))
-            for (side in listOf(-1f,1f)) {
-                hull(listOf(Offset(side*.45f,-.32f),Offset(side*1.08f,-.03f),Offset(side*.93f,.55f),Offset(side*.44f,.7f)),Color(0xFF8498A8))
-                hull(listOf(Offset(side*.45f,-.32f),Offset(side*.88f,-.11f),Offset(side*.7f,.15f),Offset(side*.44f,.09f)),trim)
-                drawLine(trim,center+Offset(side*.86f*r,-.09f*r),center+Offset(side*.86f*r,-.65f*r),r*.13f,StrokeCap.Round)
-                drawLine(Color(0xFF233647),center+Offset(side*.5f*r,.3f*r),center+Offset(side*.96f*r,.4f*r),r*.07f)
-            }
-            for (x in listOf(-.85f,-.35f,.35f,.85f)) {
-                hull(listOf(Offset(x-.11f,.48f),Offset(x+.11f,.48f),Offset(x+.11f,.98f),Offset(x-.11f,.98f)),body.color)
-                if (body.enginePowered) hull(listOf(Offset(x-.08f,.95f),Offset(x,1.24f+(if (piloted) body.pilotThrottle.toFloat()*.45f else .18f)),Offset(x+.08f,.95f)),Color(0xFF9EEAFF))
-            }
-            hull(listOf(Offset(0f,-1.25f),Offset(.32f,-.7f),Offset(.3f,.42f),Offset(0f,.68f),Offset(-.3f,.42f),Offset(-.32f,-.7f)),Color(0xFFD8E0E5))
-            hull(listOf(Offset(0f,-.87f),Offset(.19f,-.52f),Offset(.16f,-.12f),Offset(-.16f,-.12f),Offset(-.19f,-.52f)),Color(0xFF173D54))
-            drawLine(trim,center+Offset(-.23f*r,.2f*r),center+Offset(.23f*r,.2f*r),r*.09f)
-            drawLine(Color(0xFFA5E9FF),center+Offset(0f,-.74f*r),center+Offset(0f,-.31f*r),r*.07f,StrokeCap.Round)
-        } else if (body.hullClass == VehicleHullClass.Heavy && body.kind == BodyKind.Rocket) {
-            // Armored warhead with side boosters, segmented casing and gold identification bands.
-            hull(listOf(Offset(0f,-1.3f),Offset(.48f,-.65f),Offset(.48f,.76f),Offset(-.48f,.76f),Offset(-.48f,-.65f)),Color(0xFFA4AFBA))
-            hull(listOf(Offset(0f,-1.27f),Offset(.44f,-.69f),Offset(-.44f,-.69f)),Color(0xFFE6B878))
-            hull(listOf(Offset(-.26f,-.62f),Offset(.26f,-.62f),Offset(.26f,.73f),Offset(-.26f,.73f)),Color(0xFFE0E7EB))
-            for (x in listOf(-.65f,.65f)) {
-                hull(listOf(Offset(x,-.5f),Offset(x+.14f,-.22f),Offset(x+.14f,.9f),Offset(x-.14f,.9f),Offset(x-.14f,-.22f)),Color(0xFF50667B))
-                drawLine(body.color,center+Offset(x*r,-.17f*r),center+Offset(x*r,.45f*r),r*.08f)
-                if (body.enginePowered) hull(listOf(Offset(x-.1f,.87f),Offset(x,1.3f),Offset(x+.1f,.87f)),Color(0xFFFFB86E))
-            }
-            for (y in listOf(-.53f,.16f,.57f)) drawLine(Color(0xFFE6B878),center+Offset(-.46f*r,y*r),center+Offset(.46f*r,y*r),r*.08f)
-            drawCircle(Color(0xFF23465E),r*.15f,center+Offset(0f,-r*.27f))
-            if (body.enginePowered) {
-                hull(listOf(Offset(-.27f,.76f),Offset(0f,if (piloted) 1.5f+body.pilotThrottle.toFloat()*.7f else 1.8f),Offset(.27f,.76f)),Color(0xFFFF9851))
-                hull(listOf(Offset(-.12f,.76f),Offset(0f,1.25f),Offset(.12f,.76f)),Color(0xFFFFE6A3))
-            }
-        } else if (body.kind == BodyKind.Ship && body.shipClass == com.xekep.space.sim.ShipClass.Guardian) {
-            hull(listOf(Offset(0f,-1.15f),Offset(.65f,-.55f),Offset(.65f,.45f),Offset(0f,.8f),Offset(-.65f,.45f),Offset(-.65f,-.55f)),Color(0xFFD5F6EA))
-            hull(listOf(Offset(-.6f,-.25f),Offset(-1.1f,0f),Offset(-1.05f,.75f),Offset(-.5f,.5f)),body.color)
-            hull(listOf(Offset(.6f,-.25f),Offset(1.1f,0f),Offset(1.05f,.75f),Offset(.5f,.5f)),body.color)
-            drawCircle(Color(0xFF245C59),r*.3f,center-Offset(0f,r*.28f))
-            listOf(-.85f,.85f).forEach { x ->
-                drawLine(Color(0xFFE3FFF1),center+Offset(x*r,0f),center+Offset(x*r,-.5f*r),r*.12f,StrokeCap.Round)
-                if (body.enginePowered) drawLine(Color(0xFF81E5C4),center+Offset(x*r,.65f*r),
-                    center+Offset(x*r,(if (piloted) 1.15f+body.pilotThrottle.toFloat()*.5f else .95f)*r),r*.13f,StrokeCap.Round)
-            }
-        } else if (body.kind == BodyKind.Ship) {
-            // Twin nacelles, swept wings, central fuselage and luminous cockpit.
-            hull(listOf(Offset(-.22f, -.45f), Offset(-1.15f, .35f), Offset(-1.05f, .85f), Offset(-.28f, .45f)), Color(0xFF537A9A))
-            hull(listOf(Offset(.22f, -.45f), Offset(1.15f, .35f), Offset(1.05f, .85f), Offset(.28f, .45f)), Color(0xFF537A9A))
-            listOf(-.78f, .78f).forEach { x ->
-                hull(listOf(Offset(x - .14f, -.4f), Offset(x, -.65f), Offset(x + .14f, -.4f), Offset(x + .14f, .85f), Offset(x - .14f, .85f)), body.color)
-                if (body.enginePowered) drawLine(Color(0xFF72E9FF), center + Offset(x * r, .8f * r), center + Offset(x * r, 1.18f * r), r * .12f, StrokeCap.Round)
-            }
-            hull(listOf(Offset(0f, -1.35f), Offset(.32f, -.48f), Offset(.29f, .67f), Offset(0f, .9f), Offset(-.29f, .67f), Offset(-.32f, -.48f)), Color(0xFFD6EAF5))
-            hull(listOf(Offset(0f, -.92f), Offset(.18f, -.4f), Offset(.15f, .05f), Offset(-.15f, .05f), Offset(-.18f, -.4f)), Color(0xFF1D5E87))
-            drawLine(Color(0xFFB0FBFF), center + Offset(0f, -.72f * r), center + Offset(0f, -.25f * r), r * .07f, StrokeCap.Round)
-            if (piloted && body.enginePowered) listOf(-.78f,.78f).forEach { x ->
-                hull(listOf(Offset(x-.1f,.85f),Offset(x,1.45f+body.pilotThrottle.toFloat()*.7f),Offset(x+.1f,.85f)),Color(0xFF9EF8FF))
-            }
-        } else {
-            hull(listOf(Offset(0f, -1.3f), Offset(.35f, -.55f), Offset(.35f, .8f), Offset(-.35f, .8f), Offset(-.35f, -.55f)), Color(0xFFEAF3FF))
-            hull(listOf(Offset(-.35f, .15f), Offset(-.75f, .9f), Offset(-.35f, .75f)), body.color)
-            hull(listOf(Offset(.35f, .15f), Offset(.75f, .9f), Offset(.35f, .75f)), body.color)
-            drawCircle(Color(0xFF276B95), r * .19f, center + Offset(0f, -r * .3f))
-            if (body.enginePowered) {
-                hull(listOf(Offset(-.25f, .8f), Offset(0f, if (piloted) 1.6f+body.pilotThrottle.toFloat()*.8f else 1.9f), Offset(.25f, .8f)), Color(0xFFFF9851))
-                hull(listOf(Offset(-.13f, .8f), Offset(0f, 1.45f), Offset(.13f, .8f)), Color(0xFFFFE6A3))
-            }
-        }
-        if (piloted && body.enginePowered && kotlin.math.abs(body.roll) > .08) {
-            val side=if (body.roll > 0) -1f else 1f
-            val length=kotlin.math.abs(kotlin.math.sin(body.roll)).toFloat()
-            hull(listOf(Offset(side*.7f,.1f),Offset(side*(1.0f+length*.45f),.22f),Offset(side*.7f,.33f)),Color(0xFF8BD3FF))
-        }
-
-    }
-    }
+    rotate(angle,center) { drawVehicleMesh(body,center,r,piloted) }
 }
 
 private fun DrawScope.drawConvoy(body: CelestialBody, center: Offset, zoom: Float, heading: com.xekep.space.sim.Vec2) {
@@ -264,14 +166,18 @@ private fun DrawScope.drawConvoy(body: CelestialBody, center: Offset, zoom: Floa
 
 internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: IntSize,camera: SpaceCamera,rotation: Double,
     controlledId: Long?,largeIcons: Boolean,interpolation: SandboxInterpolation,large: Boolean,
-    sceneBodies: List<CelestialBody> = bodies,pilotVisualZoom: Float? = null) {
+    sceneBodies: List<CelestialBody> = bodies,pilotVisualZoom: Float? = null,
+    vehicleTrail: (DrawScope.(CelestialBody)->Unit)? = null) {
     sceneBodies.filter { it.solar == SolarBody.Jupiter || it.solar == SolarBody.Saturn }.forEach {
         drawPlanetRings(it,sceneBodies,viewport,camera,interpolation.position(it))
     }
     val dots=if (large) LinkedHashMap<Pair<Color,Float>,MutableList<Offset>>() else null
     val stars=if (large) LinkedHashMap<Triple<Color,Float,Boolean>,MutableList<Offset>>() else null
-    fun vehicle(body: CelestialBody) = drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
-        interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large,pilotVisualZoom=pilotVisualZoom)
+    fun vehicle(body: CelestialBody) {
+        vehicleTrail?.invoke(this,body)
+        drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
+            interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large,pilotVisualZoom=pilotVisualZoom)
+    }
     val flying=bodies.filter { it.flightHeight != 0.0 }
     flying.filter { it.flightHeight < 0 }.sortedBy { it.flightHeight }.forEach { vehicle(it) }
     bodies.forEach { body ->
@@ -360,7 +266,7 @@ fun DrawScope.drawTrail(
 ) {
     if (body.orbitalDetail != null) return
     val length=(if (body.isDebris) minOf(20f,maxLengthDp) else maxLengthDp)*density
-    val history=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
+    val history=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),flightRenderPosition(body,renderPosition,viewport,zoom,cameraRotation),length,
         (if (dense) 4f else 2f)*density)
     val points=if (vehicleRadius != null) vehicleTrailPoints(history,body,renderHeading,vehicleRadius) else history
     if (points.size < 2 || points.zipWithNext().sumOf { (a,b) -> (b-a).getDistance().toDouble() } < 1.5) return

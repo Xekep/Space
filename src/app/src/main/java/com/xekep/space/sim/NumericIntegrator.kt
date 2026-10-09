@@ -21,7 +21,7 @@ internal object NumericIntegrator {
 
     fun advance(bodies: List<CelestialBody>, seconds: Double, limit: Double, fixedCore: Boolean = false,
         recordTrail: Boolean = true, alignRockets: Boolean = true, controlledId: Long? = null,
-        approximateGravity: Boolean = true, cacheGravity: Boolean = true): List<CelestialBody> {
+        approximateGravity: Boolean = true, cacheGravity: Boolean = true, manualDepthScale: Double = 1.0): List<CelestialBody> {
         if (bodies.isEmpty() || seconds <= 0.0) return bodies
         val count = bodies.size
         val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count,buffers.get()?.tree ?: BarnesHutGravity()).also { buffers.set(it) }
@@ -101,12 +101,16 @@ internal object NumericIntegrator {
             val point = Vec2(values[i * 4], values[i * 4 + 1])
             val powered = minOf(seconds, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
             val fuel = if (body.isVehicle) (body.fuelRemaining-seconds*fuelRate(body,controlledId)).coerceAtLeast(0.0) else body.fuelRemaining
+            val depthSeconds=if (body.id == controlledId && body.enginePowered && manualDepthScale.isFinite()) seconds*manualDepthScale.coerceIn(1.0/6.0,10000.0) else seconds
+            val heightStep=if (!body.isVehicle) 0.0 else if (body.id == controlledId && body.enginePowered)
+                (body.verticalVelocity+depth[i].vertical*depthSeconds)*depthSeconds
+                else body.verticalVelocity*depthSeconds+depth[i].vertical*depthSeconds*depthSeconds*.5
             body.copy(position = point, velocity = Vec2(values[i * 4 + 2], values[i * 4 + 3]),
                 heading = Vec2(headings[i * 2], headings[i * 2 + 1]),
                 burnRemaining = (body.burnRemaining - seconds).coerceAtLeast(0.0),
                 fuelRemaining = fuel,
-                flightHeight = if (body.isVehicle) (body.flightHeight+body.verticalVelocity*seconds+depth[i].vertical*seconds*seconds*.5).coerceIn(-1e6,1e6) else body.flightHeight,
-                verticalVelocity = if (body.isVehicle) (body.verticalVelocity+depth[i].vertical*seconds).coerceIn(-5000.0,5000.0) else body.verticalVelocity,
+                flightHeight = if (body.isVehicle) (body.flightHeight+heightStep).coerceIn(-1e6,1e6) else body.flightHeight,
+                verticalVelocity = if (body.isVehicle) (body.verticalVelocity+depth[i].vertical*depthSeconds).coerceIn(-5000.0,5000.0) else body.verticalVelocity,
                 driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(seconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
                 routeDistance = if (body.routePath != null && fuel > 1e-9) {
                     val direction=body.routePath.sample(body.routeDistance).direction

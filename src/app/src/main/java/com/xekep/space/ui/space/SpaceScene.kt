@@ -225,7 +225,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                                 calculation=launch { game.updateSandboxAsync(elapsed,budgeted=true) }
                             }
                         } else previousPhysics=0L
-                    } else game.update(dt)
+                    } else game.update(dt,budgeted=true)
                 }
                 previousFrame=frame
             }
@@ -308,7 +308,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             else drawArcadeEncounterRoutes(game,renderCamera)
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
-            visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId).forEach {
+            val trailBodies=visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId)
+            fun renderTrail(it: com.xekep.space.sim.CelestialBody) {
                 drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=bodies.size < 60,
                     cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),dense=bodies.size >= 160,
                     highlighted=it.id == game.selectedBodyId || it.id == controlledId,
@@ -317,8 +318,11 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         if (it.id == controlledId) game.pilotVisualZoom else null) else null,
                     renderHeading=if (it.id == controlledId) it.heading else interpolation.heading(it))
             }
+            trailBodies.filter { !it.isVehicle || it.flightHeight == 0.0 }.forEach(::renderTrail)
+            val flightTrailIds=trailBodies.filter { it.isVehicle && it.flightHeight != 0.0 }.map { it.id }.toSet()
             drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
-                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160,bodies,game.pilotVisualZoom)
+                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160,bodies,game.pilotVisualZoom,
+                vehicleTrail={ if (it.id in flightTrailIds) renderTrail(it) })
             arcade?.challenge?.let { challenge ->
                 bodies.filter { it.id in challenge.ids }.forEach { body ->
                     drawCircle(Color(0xFFFFA46B).copy(alpha=.7f),bodyScreenRadius(body,renderCamera.zoom,density)+4.dp.toPx(),

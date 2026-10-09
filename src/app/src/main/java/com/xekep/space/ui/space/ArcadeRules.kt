@@ -3,6 +3,7 @@ package com.xekep.space.ui.space
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.depthTimeScale
 import kotlin.random.Random
 
 internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
@@ -10,7 +11,7 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     val current=prepareArcadeEncounters(input,dt,random)
     val routed=com.xekep.space.sim.applyFlightControls(current.bodies,control,dt)
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId,current.gunIntervalScale)
-    val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId)
+    val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId,control?.depthTimeScale ?: 1.0)
     val combatStep = advanceProjectiles(com.xekep.space.sim.advanceWaypoints(prepared.bodies,step.bodies), prepared.combat, dt)
     val events = prepared.events + step.collisions + combatStep.events
     // Arena cleanup applies to spent threats. Player bodies belong to world space,

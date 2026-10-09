@@ -1,6 +1,7 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.*
 import org.junit.Assert.*
@@ -8,6 +9,14 @@ import org.junit.Test
 import kotlin.math.*
 
 class PilotCameraTest {
+    @Test fun pilotHasAQuietCentralAreaAndTheCameraOnlyFollowsASmallPartOfBank() {
+        val viewport=IntSize(1080,1920)
+        assertEquals(Vec2.Zero,pilotCameraCenter(Vec2.Zero,Vec2(10.0,0.0),1f,viewport))
+        assertTrue(pilotCameraCenter(Vec2.Zero,Vec2(100.0,0.0),1f,viewport).x > 0)
+        val body=CelestialBody(1,Vec2.Zero,Vec2.Zero,24.0,8f,Color.Cyan,BodyKind.Ship,heading=Vec2(0.0,-1.0),roll=1.0)
+        assertTrue(abs(pilotCameraTarget(body)) <= PI/22.5)
+        assertEquals(-pilotCameraTarget(body),pilotCameraTarget(body.copy(roll=-1.0)),1e-10)
+    }
     @Test fun maximumZoomKeepsTurningAndAcceleratingVehiclesInsideThePilotRegion() {
         for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
             val game=SpaceGameState().apply {
@@ -43,7 +52,8 @@ class PilotCameraTest {
                 val zoom=game.camera.zoom; val rotation=game.cameraRotation
                 game.transformCamera(Offset(150f,350f),Offset(130f,-80f),1.7f)
                 assertEquals(zoom*1.7f,game.camera.zoom,.001f)
-                assertEquals(game.bodies.first { it.id == id }.position,game.camera.center)
+                val anchored=worldToScreen(game.bodies.first { it.id == id }.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+                assertEquals(540f,anchored.x,.001f); assertEquals(960f+108f,anchored.y,.001f)
                 assertEquals(rotation,game.cameraRotation,0.0)
                 val center=game.camera.center
                 repeat(90) { game.update(1.0/60) }
@@ -64,8 +74,9 @@ class PilotCameraTest {
         var center=pilotCameraCenter(Vec2.Zero,target,1f,viewport)
         assertTrue(center != target && center != Vec2.Zero)
         val first=(target-center).magnitude()
-        repeat(120) { center=pilotCameraCenter(center,target,1f,viewport) }
-        assertTrue((target-center).magnitude() < first*.001)
+        repeat(180) { center=pilotCameraCenter(center,target,1f,viewport) }
+        assertEquals(1080*.02,(target-center).magnitude(),.01)
+        assertTrue((target-center).magnitude() < first)
         val close=pilotCameraCenter(Vec2.Zero,Vec2(10000.0,10000.0),6f,viewport)
         assertEquals(1080*.18,(Vec2(10000.0,10000.0)-close).magnitude()*6,1e-8)
     }
@@ -74,9 +85,10 @@ class PilotCameraTest {
         for (zoom in listOf(.001f,1f,6f)) {
             val offset=Vec2(80.0,-60.0)/zoom.toDouble()
             var center=point
-            repeat(120) { center=pilotCameraCenter(center,point,zoom,viewport,offset) }
+            repeat(180) { center=pilotCameraCenter(center,point,zoom,viewport,offset) }
             val onScreen=(point-center)*zoom.toDouble()
-            assertEquals(80.0,onScreen.x,.01); assertEquals(-60.0,onScreen.y,.01)
+            assertTrue(onScreen.x > 60 && onScreen.y < -40)
+            assertEquals(1080*.02,(Vec2(80.0,-60.0)-onScreen).magnitude(),.01)
             val first=pilotCameraCenter(center,point,zoom,viewport)
             assertTrue((point-first).magnitude() < (point-center).magnitude())
             assertNotEquals(point,first)
@@ -86,7 +98,7 @@ class PilotCameraTest {
         resize(IntSize(1080,1920)); startSandbox(SandboxPresetKind.Empty); setMotionControlEnabled(true)
         chooseSpawnKind(BodyKind.Ship); launch(TouchPreview(Vec2.Zero,Vec2.Zero,0),0.0)
         setSteeringInput(Vec2(1.0,0.0)); repeat(20) { update(1.0/60) }; setSteeringInput(Vec2.Zero)
-        repeat(90) { update(1.0/60) }
+        repeat(180) { update(1.0/60) }
     }
     @Test fun cameraMakesThePilotedCraftFaceUpAndReturnsAfterLeavingControl() {
         val game=pilot()
@@ -100,6 +112,24 @@ class PilotCameraTest {
         assertTrue(abs(game.cameraRotation) > 1)
         game.setMotionControlEnabled(false); repeat(100) { game.update(1.0/60) }
         assertEquals(0.0,game.cameraRotation,0.0)
+    }
+    @Test fun cameraLagsTurnsWithoutOvershootAndSettlesIndependentlyOfPublicationRate() {
+        val dt=1.0/60
+        var rotation=pilotCameraRotation(0.0,1.0,dt,true)
+        assertTrue(rotation in .04.. .07)
+        repeat(5) { rotation=pilotCameraRotation(rotation,1.0,dt,true) }
+        assertTrue(rotation in .25.. .30)
+        repeat(180) { rotation=pilotCameraRotation(rotation,1.0,dt,true) }
+        assertEquals(1.0,rotation,.001)
+        val wrap=pilotCameraRotation(PI-.01,-PI+.01,dt,true)
+        assertTrue(kotlin.math.abs(wrap-(PI-.01)) < .002)
+        for (zoom in listOf(.001f,1f,6f)) {
+            val target=Vec2(30.0,10.0)/zoom.toDouble()
+            var sixty=Vec2.Zero; var thirty=Vec2.Zero
+            repeat(60) { sixty=pilotCameraCenter(sixty,target,zoom,IntSize(1080,1920),seconds=dt) }
+            repeat(30) { thirty=pilotCameraCenter(thirty,target,zoom,IntSize(1080,1920),seconds=2*dt) }
+            assertEquals(sixty.x,thirty.x,1e-7); assertEquals(sixty.y,thirty.y,1e-7)
+        }
     }
     @Test fun destructionRestoresTheWorldOrientation() {
         val game=pilot()

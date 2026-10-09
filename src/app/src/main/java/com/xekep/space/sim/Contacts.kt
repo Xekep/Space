@@ -42,7 +42,11 @@ private fun contactCircles(body: CelestialBody): List<ContactCircle> {
     val r = body.radius.toDouble()
     val forward = body.heading
     val side = forward.perpendicular()
-    fun circle(front: Double, lateral: Double, radius: Double) = ContactCircle(body.position + forward * (front * r * cos(body.pitch)) + side * (lateral * r), radius * r, body.flightHeight+sin(body.pitch)*front*r)
+    fun circle(front: Double, lateral: Double, radius: Double): ContactCircle {
+        val forwardOffset=front*cos(body.pitch)-lateral*sin(body.roll)*sin(body.pitch)
+        return ContactCircle(body.position+forward*(forwardOffset*r)+side*(lateral*r*cos(body.roll)),radius*r,
+            body.flightHeight+(sin(body.pitch)*front+sin(body.roll)*cos(body.pitch)*lateral)*r)
+    }
     return when (body.kind) {
         BodyKind.Rocket -> listOf(circle(.88, 0.0, .38), circle(.1, 0.0, .38), circle(-.65, 0.0, .65))
         BodyKind.Ship -> listOf(circle(.83, 0.0, .32), circle(-.1, 0.0, .36), circle(-.15, .78, .30), circle(-.15, -.78, .30))

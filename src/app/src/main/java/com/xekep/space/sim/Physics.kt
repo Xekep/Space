@@ -328,13 +328,13 @@ object SimulationEngine {
     }
 
     /** Arcade contacts complete threats, while sandbox contacts retain mass merging. */
-    fun stepArcade(bodies: List<CelestialBody>, dt: Double, controlledId: Long? = null): StepResult {
+    fun stepArcade(bodies: List<CelestialBody>, dt: Double, controlledId: Long? = null, manualDepthScale: Double = 1.0): StepResult {
         var current = bodies
         var remaining = dt
         val events = mutableListOf<CollisionEvent>()
         while (remaining > 1e-9) {
             val step = min(remaining, maxSubstep)
-            var moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true, alignRockets = false, controlledId=controlledId).toMutableList()
+            var moved = NumericIntegrator.advance(current, step, maxSubstep, fixedCore = true, alignRockets = false, controlledId=controlledId,manualDepthScale=manualDepthScale).toMutableList()
             val fuel = expireVehicles(moved)
             moved = fuel.bodies.toMutableList(); events += fuel.collisions
             val removed = mutableSetOf<Long>()
@@ -367,7 +367,7 @@ object SimulationEngine {
             val impacts = vehicleCollisions(survivors, survivors.map { prior.getValue(it.id) }, arcade = true)
             events += impacts.collisions
             current = impacts.bodies.filter { it.id !in removed && (it.kind == BodyKind.Core || core == null ||
-                it.kind == BodyKind.Meteor || (it.position - core.position).magnitude() > it.radius + core.radius) }
+                it.kind == BodyKind.Meteor || it.isVehicle || (it.position - core.position).magnitude() > it.radius + core.radius) }
             remaining -= step
         }
         return StepResult(current, events)
@@ -414,10 +414,11 @@ object SimulationEngine {
         collisionsEnabled: Boolean = false,
         controlledId: Long? = null,
         collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
+        manualDepthScale: Double = 1.0,
     ): StepResult {
         if (bodies.any { it.orbitalDetail != null }) {
             val main = bodies.filter { it.orbitalDetail == null }
-            val result = stepSandbox(main, dt, referenceEnergy, collisionsEnabled, controlledId, collisionMode)
+            val result = stepSandbox(main, dt, referenceEnergy, collisionsEnabled, controlledId, collisionMode,manualDepthScale)
             return OrbitalDetails.advance(bodies, result, dt)
         }
         return stepInternal(
@@ -431,6 +432,7 @@ object SimulationEngine {
                 else if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),
             controlledId = controlledId,
             collisionMode = collisionMode,
+            manualDepthScale = manualDepthScale,
         )
     }
 
@@ -479,13 +481,14 @@ object SimulationEngine {
         substepLimit: Double,
         controlledId: Long? = null,
         collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
+        manualDepthScale: Double = 1.0,
     ): StepResult {
         if (bodies.isEmpty() || dt <= 0.0) {
             return StepResult(bodies = bodies, collisions = emptyList())
         }
 
         if (!collisionsEnabled && bodies.none { it.isVehicle || it.kind == BodyKind.BlackHole }) {
-            var next = NumericIntegrator.advance(bodies, dt, substepLimit, controlledId = controlledId)
+            var next = NumericIntegrator.advance(bodies, dt, substepLimit, controlledId = controlledId,manualDepthScale=manualDepthScale)
             if (energyReference != null && hasLargeDistances(next)) next = stabilizeEnergy(next, energyReference)
             return StepResult(next, emptyList())
         }
@@ -497,7 +500,7 @@ object SimulationEngine {
         while (remaining > 1e-6) {
             val substep = min(remaining, substepLimit)
             val previous = current
-            current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false, controlledId = controlledId)
+            current = NumericIntegrator.advance(current, substep, substepLimit, recordTrail = false, controlledId = controlledId,manualDepthScale=manualDepthScale)
             val fuel = expireVehicles(current)
             current = fuel.bodies; collisions += fuel.collisions
             if (energyReference != null && hasLargeDistances(current)) {

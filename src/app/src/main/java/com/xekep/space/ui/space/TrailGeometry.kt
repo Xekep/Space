@@ -106,20 +106,10 @@ internal fun adaptiveTrailLength(count: Int,solverLoad: Float = 0f,highlighted: 
 internal fun vehicleTrailPoints(points: List<Offset>,body: CelestialBody,heading: Vec2,radius: Float): List<Offset> {
     if (!body.isVehicle || points.size < 2 || !radius.isFinite() || radius <= 0f) return points
     val centre=points.last()
-    val stern=when {
-        body.kind == BodyKind.Rocket -> if (body.hullClass == VehicleHullClass.Heavy) .76f else .8f
-        body.hullClass == VehicleHullClass.Heavy -> .98f
-        body.shipClass == ShipClass.Guardian -> .65f
-        else -> .85f
-    }
-    val matrix=vehiclePitchMatrix(body.pitch,radius,body.roll)
     val angle=atan2(heading.y,heading.x)+PI/2
-    fun project(y: Float): Offset {
-        val p=matrix.map(Offset(0f,y*radius))
-        return centre+Offset((p.x*cos(angle)-p.y*sin(angle)).toFloat(),(p.x*sin(angle)+p.y*cos(angle)).toFloat())
-    }
-    val nozzle=project(stern)
-    val aft=project(stern+.25f)-nozzle
+    fun project(p: Offset): Offset = centre+Offset((p.x*cos(angle)-p.y*sin(angle)).toFloat(),(p.x*sin(angle)+p.y*cos(angle)).toFloat())
+    val nozzle=project(vehicleNozzlePoint(body,radius))
+    val aft=project(vehicleNozzlePoint(body,radius,.25f))-nozzle
     val direction=aft/(aft.getDistance().coerceAtLeast(.001f))
     // Samples through the visible hull look like a wake issuing from a wing or the nose.
     val outside=points.indexOfLast { (it-centre).getDistance() > radius*1.45f }

@@ -60,24 +60,25 @@ class TrailGeometryTest {
     }
     @Test fun vehicleWakeUsesTheProjectedSternForOrdinaryPilotAndInterpolatedPoses() {
         val viewport=IntSize(800,1200)
-        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (pitch in listOf(-.7,0.0,.7))
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (heavy in listOf(false,true))
+        for (guardian in listOf(false,true)) for (pitch in listOf(-.7,0.0,.7))
         for (roll in listOf(-.8,0.0,.8)) for (zoom in listOf(.1f,1f,6f)) for (pilot in listOf(false,true)) {
-            val body=CelestialBody(1,Vec2.Zero,Vec2(200.0,0.0),if (kind == BodyKind.Ship) 24.0 else 12.0,8f,Color.Cyan,kind,
+            val body=CelestialBody(1,Vec2.Zero,Vec2(200.0,0.0),if (heavy) heavyHullMass(kind) else if (kind == BodyKind.Ship) 24.0 else 12.0,8f,Color.Cyan,kind,
+                shipClass=if (guardian) ShipClass.Guardian else ShipClass.Interceptor,
                 heading=Vec2(1.0,0.0),pitch=pitch,roll=roll,pilotTargetSpeed=200.0,
                 trail=(-50..0).map { Vec2(it*100.0,0.0) })
             val head=Vec2(-25.0,0.0); val camera=SpaceCamera(Vec2.Zero,zoom)
             val history=trailScreenPoints(body,viewport,camera,head,Float.POSITIVE_INFINITY,2f)
             val radius=vehicleRenderRadius(body,zoom,2f,true,if (pilot) zoom else null)
             val points=vehicleTrailPoints(history,body,body.heading,radius)
-            val stern=if (kind == BodyKind.Ship) .85f else .8f
-            val local=vehiclePitchMatrix(pitch,radius,roll).map(Offset(0f,stern*radius))
+            val local=vehicleNozzlePoint(body,radius)
             val centre=worldToScreen(head,viewport,camera.center,camera.zoom)
             val expected=centre+Offset(-local.y,local.x) // heading right = local rotation +90 degrees.
             assertEquals(expected.x,points.last().x,.0001f); assertEquals(expected.y,points.last().y,.0001f)
             assertEquals(history.first(),points.first())
             assertTrue((points.last()-centre).getDistance() > radius*.2)
             val towardNozzle=points.last()-points[points.lastIndex-1]
-            val aft=vehiclePitchMatrix(pitch,radius,roll).map(Offset(0f,(stern+.25f)*radius))-local
+            val aft=vehicleNozzlePoint(body,radius,.25f)-local
             assertTrue(towardNozzle.x*(-aft.y)+towardNozzle.y*aft.x < 0)
         }
     }

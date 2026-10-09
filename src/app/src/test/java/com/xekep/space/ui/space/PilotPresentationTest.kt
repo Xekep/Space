@@ -58,8 +58,27 @@ class PilotPresentationTest {
         val left=vehiclePitchMatrix(.3,20f,-.8).map(point)
         assertTrue(right.x < point.x); assertNotEquals(right.x,left.x)
         val nose=Offset(0f,-20f)
-        assertTrue(vehiclePitchMatrix(0.0,20f,.8).map(nose).x < 0)
-        assertTrue(vehiclePitchMatrix(0.0,20f,-.8).map(nose).x > 0)
+        assertEquals(0f,vehiclePitchMatrix(0.0,20f,.8).map(nose).x,0f)
+        assertEquals(0f,vehiclePitchMatrix(0.0,20f,-.8).map(nose).x,0f)
+        assertTrue(right.y > 0); assertTrue(left.y < 0)
+    }
+
+    @Test fun hullPlaneAndSolidVerticesShareProjectionAndHeightDoesNotDependOnAttitude() {
+        for (pitch in listOf(-1.0,0.0,1.0)) for (roll in listOf(-1.0,0.0,1.0)) {
+            for (point in listOf(Offset(-15f,-25f),Offset(15f,18f),Offset.Zero)) {
+                val plane=vehiclePitchMatrix(pitch,20f,roll).map(point)
+                val solid=vehicleHullPoint(point,0f,pitch,roll,20f)
+                assertEquals(plane.x,solid.x,.00001f); assertEquals(plane.y,solid.y,.00001f)
+                val underside=vehicleHullPoint(point,-4f,pitch,roll,20f)
+                assertTrue(underside.x.isFinite()); assertTrue(underside.y.isFinite())
+                if (pitch != 0.0 || roll != 0.0) assertNotEquals(solid,underside)
+            }
+            assertEquals(craft().flightVisualScale(),craft().copy(pitch=pitch,roll=roll).flightVisualScale(),0f)
+        }
+        val up=vehicleHullPoint(Offset.Zero,-4f,.7,0.0,20f)
+        val down=vehicleHullPoint(Offset.Zero,-4f,-.7,0.0,20f)
+        assertEquals(up.x,down.x,0f); assertEquals(-up.y,down.y,.00001f)
+        assertTrue(up.y < 0)
     }
 
 }

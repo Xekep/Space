@@ -1,0 +1,26 @@
+# First game entry: Compose HUD/layout and the code-generated scene, including their lambdas.
+# Library profiles cover Compose internals; these rules cover Space's own cold paths.
+HSPLcom/xekep/space/MainActivity**->**(**)**
+HSPLcom/xekep/space/ui/theme/ThemeKt**->**(**)**
+HSPLcom/xekep/space/ui/space/SpaceSceneKt**->**(**)**
+HSPLcom/xekep/space/ui/space/ArcadeTopHudKt**->**(**)**
+HSPLcom/xekep/space/ui/space/ArcadeSpawnControlsKt**->**(**)**
+HSPLcom/xekep/space/ui/space/SpacePanelsKt**->**(**)**
+HSPLcom/xekep/space/ui/space/SpawnCycleButtonKt**->**(**)**
+HSPLcom/xekep/space/ui/space/RetroUiKt**->**(**)**
+HSPLcom/xekep/space/ui/space/RetroConsoleKt**->**(**)**
+HSPLcom/xekep/space/ui/space/SpaceDrawKt**->**(**)**
+HPLcom/xekep/space/ui/space/VehicleHullKt**->**(**)**
+HPLcom/xekep/space/ui/space/VehiclePerspectiveKt**->**(**)**
+HSPLcom/xekep/space/ui/space/TrailGeometryKt**->**(**)**
+HSPLcom/xekep/space/ui/space/SpaceGameState**->**(**)**
+# Frame-loop, navigation and physics paths should run without waiting for repeated JIT warming.
+HPLcom/xekep/space/ui/space/ArcadeRulesKt**->**(**)**
+HPLcom/xekep/space/ui/space/ArcadeCombatKt**->**(**)**
+HPLcom/xekep/space/sim/SimulationEngine**->**(**)**
+HPLcom/xekep/space/sim/NumericIntegrator**->**(**)**
+HPLcom/xekep/space/ui/space/ArcadeNavigation**->**(**)**
+HPLcom/xekep/space/ui/space/ArcadeTargeting**->**(**)**
+
+HPLcom/xekep/space/ui/space/HullBuilder**->**(**)**
+HPLcom/xekep/space/ui/space/HullWorkspace**->**(**)**

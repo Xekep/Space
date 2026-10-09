@@ -77,7 +77,67 @@ class ManualFlightPresentationUiTest {
         }
     }
 
-    @Test fun realRightStickShowsDepthWithin100msAndBanksIntoATurnForBothCraft() {
+    @Test fun releasingTheRealStickLevelsCraftWhileTheCameraFollowsWithLag() {
+        val prefs=context.getSharedPreferences("space_options",0)
+        val old=prefs.getString("flightControl",null)
+        prefs.edit().putString("flightControl","Joystick").commit()
+        compose.mainClock.autoAdvance=false
+        val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty) }
+        try {
+            compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+            compose.mainClock.advanceTimeBy(48)
+            for (scene in listOf("Arcade","Empty","SolarSystem"))
+            for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (axis in listOf(-1f,1f)) {
+                compose.runOnIdle {
+                    if (scene == "Arcade") game.startArcade() else game.startSandbox(SandboxPresetKind.valueOf(scene))
+                    if (scene == "SolarSystem") game.setTimeScale(.0001)
+                    game.setMotionControlEnabled(true); game.chooseSpawnKind(kind)
+                    val point=if (scene == "Empty") Vec2.Zero else Vec2(10000.0,10000.0)
+                    game.launch(TouchPreview(point,point+Vec2(0.0,-100.0),0),0.0)
+                    game.setPilotTargetSpeed(240.0)
+                }
+                compose.mainClock.advanceTimeBy(48)
+                val id=game.controlledVehicleId!!
+                compose.onNodeWithTag("pitch-joystick").performTouchInput {
+                    down(center); moveTo(center+Offset(axis*28*game.density,axis*28*game.density),16)
+                }
+                compose.runOnIdle { repeat(12) { game.update(1.0/60) } }
+                compose.mainClock.advanceTimeByFrame()
+                val held=game.bodies.first { it.id == id }
+                compose.runOnIdle {
+                    assertTrue(held.pitch*axis > .3); assertTrue(held.roll*axis > .45)
+                    val target=pilotCameraTarget(held)
+                    val error=kotlin.math.atan2(kotlin.math.sin(target-game.cameraRotation),kotlin.math.cos(target-game.cameraRotation))
+                    assertTrue("Camera caught the manoeuvre immediately: $scene $kind",kotlin.math.abs(error) > .015)
+                }
+                screenshot("level-flight-$scene-${kind.name}-${if (axis > 0) "right" else "left"}-held.png")
+                compose.onNodeWithTag("pitch-joystick").performTouchInput { up() }
+                compose.runOnIdle { repeat(3) { game.update(1.0/60) } }
+                compose.mainClock.advanceTimeByFrame()
+                compose.runOnIdle {
+                    val returning=game.bodies.first { it.id == id }
+                    assertTrue(kotlin.math.abs(returning.pitch) in .05..<kotlin.math.abs(held.pitch))
+                    assertTrue(kotlin.math.abs(returning.roll) in .05..<kotlin.math.abs(held.roll))
+                    assertEquals(240.0,returning.pilotTargetSpeed!!,0.0)
+                }
+                compose.runOnIdle { repeat(180) { game.update(1.0/60) } }
+                compose.mainClock.advanceTimeByFrame()
+                compose.runOnIdle {
+                    val level=game.bodies.first { it.id == id }
+                    assertEquals(0.0,level.pitch,.001); assertEquals(0.0,level.roll,.001)
+                    val onScreen=rotateVector(level.heading,game.cameraRotation)
+                    assertEquals(0.0,onScreen.x,.015)
+                    val point=worldToScreen(level.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+                    assertTrue(kotlin.math.hypot((point.x-game.viewport.width/2f).toDouble(),(point.y-game.viewport.height/2f).toDouble()) <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
+                }
+                screenshot("level-flight-$scene-${kind.name}-${if (axis > 0) "right" else "left"}-released.png")
+            }
+        } finally {
+            prefs.edit().apply { if (old == null) remove("flightControl") else putString("flightControl",old) }.commit()
+        }
+    }
+
+    @Test fun realRightStickShowsPitchPerspectiveWithin100msAndBanksIntoATurnForBothCraft() {
         val prefs=context.getSharedPreferences("space_options",0)
         val old=prefs.getString("flightControl",null)
         prefs.edit().putString("flightControl","Joystick").commit()
@@ -110,7 +170,11 @@ class ManualFlightPresentationUiTest {
                     val craft=game.bodies.first { it.id == id }
                     assertEquals(id,craft.id); assertTrue(craft.verticalVelocity*axis > 0)
                     assertTrue("$preset $kind axis=$axis pitch=${craft.pitch} z=${craft.flightHeight} scale=${craft.flightVisualScale()}",
-                        if (axis > 0) craft.flightVisualScale() > before*1.07f else craft.flightVisualScale() < before*.93f)
+                        craft.pitch*axis > .30)
+                    val nose=vehiclePitchMatrix(craft.pitch,20f,craft.roll).map(Offset(10f,-20f))
+                    assertTrue(if (axis > 0) nose.x > 10f else nose.x < 10f)
+                    assertTrue(craft.flightHeight*axis > .5)
+                    assertTrue(if (axis > 0) craft.flightVisualScale() > before*1.07f else craft.flightVisualScale() < before*.93f)
                 }
                 compose.onNodeWithTag("pitch-joystick").performTouchInput {
                     moveTo(center+Offset(axis*32*game.density,0f),16)
@@ -120,10 +184,10 @@ class ManualFlightPresentationUiTest {
                 compose.mainClock.advanceTimeByFrame()
                 compose.runOnIdle {
                     val craft=game.bodies.first { it.id == id }
-                    assertTrue(craft.roll*axis > .6)
+                    assertTrue(craft.roll*axis > .5)
                     val cross=heading.x*craft.heading.y-heading.y*craft.heading.x
                     if (preset == SandboxPresetKind.Empty) assertTrue(cross*axis > .04) else assertTrue(kotlin.math.abs(cross) < .001)
-                    assertTrue(kotlin.math.abs(game.cameraRotation) > .05)
+                    assertTrue(kotlin.math.abs(game.cameraRotation) > .015)
                 }
                 screenshot("fast-manoeuvre-${preset.name}-${kind.name}-${if (axis > 0) "up-right" else "down-left"}.png")
                 compose.onNodeWithTag("pitch-joystick").performTouchInput { up() }

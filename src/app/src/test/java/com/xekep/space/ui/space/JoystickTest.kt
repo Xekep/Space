@@ -30,12 +30,14 @@ class JoystickTest {
             }
             repeat(90) { game.update(1.0/60) }
             val craft=game.bodies.single()
-            assertTrue(craft.pitch*axis > 1.0); assertTrue(craft.flightHeight*axis > 100)
+            assertTrue(craft.pitch*axis > .75); assertTrue(craft.flightHeight*axis > 100)
             assertTrue(if (axis > 0) craft.flightVisualScale() > 1f else craft.flightVisualScale() < 1f)
             assertEquals(220.0,craft.pilotTargetSpeed!!,0.0)
             val pitch=craft.pitch
             game.setAttitudeJoystickInput(Vec2.Zero); repeat(90) { game.update(1.0/60) }
-            assertEquals(pitch,game.bodies.single().pitch,1e-8)
+            assertTrue(kotlin.math.abs(game.bodies.single().pitch) < .01)
+            assertTrue(game.bodies.single().flightHeight*axis > 100)
+            assertEquals(220.0,game.bodies.single().pilotTargetSpeed!!,0.0)
             game.setMotionControlEnabled(false); repeat(90) { game.update(1.0/60) }
             assertTrue((game.bodies.single().pitch-pitch)*axis < 0)
         }

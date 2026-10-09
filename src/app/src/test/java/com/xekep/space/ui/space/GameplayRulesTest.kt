@@ -109,6 +109,28 @@ class GameplayRulesTest {
         assertEquals(0.6, game.arcade!!.elapsed, 1e-6)
         game.update(3.0); assertTrue(game.menuOpen); assertNotNull(game.feedback)
     }
+    @Test fun liveArcadeBoundsColdFrameCatchUpWithoutChangingFixedStepResults() {
+        val delayed=game().apply { startArcade() }
+        val reference=game().apply { startArcade() }
+        delayed.update(.5,budgeted=true)
+        repeat(2) { reference.update(1.0/60) }
+        assertEquals(2.0/60,delayed.arcade!!.elapsed,1e-8)
+        assertTrue(delayed.behind); assertFalse(delayed.menuOpen)
+        for (i in reference.bodies.indices) {
+            assertEquals(reference.bodies[i].position,delayed.bodies[i].position)
+            assertEquals(reference.bodies[i].velocity,delayed.bodies[i].velocity)
+        }
+        delayed.update(1.0/60,budgeted=true)
+        assertEquals(4.0/60,delayed.arcade!!.elapsed,1e-8)
+        delayed.update(1.0/60,budgeted=true)
+        assertEquals(6.0/60,delayed.arcade!!.elapsed,1e-8)
+        assertFalse(delayed.behind)
+        val smooth=game().apply { startArcade() }
+        repeat(60) { smooth.update(1.0/60,budgeted=true) }
+        assertEquals(1.0,smooth.arcade!!.elapsed,1e-8)
+        smooth.update(3.0,budgeted=true)
+        assertTrue(smooth.menuOpen)
+    }
     @Test fun practiceProtectsLivesAndDoesNotRaiseTheOfficialRecord() {
         val game = game().apply { beginTutorial(AppMode.Arcade) }
         repeat(3600) { game.update(1.0 / 60) }

@@ -11,8 +11,8 @@ import com.xekep.space.sim.Vec2
 fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.camera,
     renderedPosition: (com.xekep.space.sim.CelestialBody) -> Vec2 = { it.position }) {
     game.bodies.firstOrNull { it.id == game.controlledVehicleId }?.let { body ->
-        val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
-        val radius = bodyScreenRadius(body, camera.zoom, density, game.largeVehicleIcons) + 5.dp.toPx()
+        val point = worldToScreen(flightRenderPosition(body,renderedPosition(body),game.viewport,camera.zoom,game.cameraRotation), game.viewport, camera.center, camera.zoom, game.cameraRotation)
+        val radius = vehicleRenderRadius(body,camera.zoom,density,game.largeVehicleIcons,game.pilotVisualZoom)*1.4f + 5.dp.toPx()
         // Four small brackets identify the pilot's craft without a text banner.
         repeat(4) { index ->
             drawArc(Color(0xFF80FFDF), index * 90f + 28f, 34f, false,
@@ -22,7 +22,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
     }
     (game.selectedBody ?: game.orbitSource)?.let {
             drawCircle(Color(0xFF8BD3FF), bodyScreenRadius(it, camera.zoom, density, game.largeVehicleIcons).coerceAtLeast(12f) + 8f,
-                worldToScreen(renderedPosition(it), game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
+                worldToScreen(flightRenderPosition(it,renderedPosition(it),game.viewport,camera.zoom,game.cameraRotation), game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
     }
     if (game.mode == AppMode.Sandbox) {
         return

@@ -65,9 +65,14 @@ class MotionControlTest {
         game.update(.1)
         assertTrue(game.camera.center.x > 150)
         game.transformCamera(androidx.compose.ui.geometry.Offset(500f,900f),androidx.compose.ui.geometry.Offset(100f,0f),1f)
-        assertEquals(game.bodies.single().position,game.camera.center)
+        val pilot=game.bodies.single()
+        val expected=pilot.position-rotateVector(pilotAnchorOffset(game.viewport)/game.camera.zoom.toDouble(),-game.cameraRotation)
+        assertEquals(expected,game.camera.center)
         val camera=game.camera
         game.update(.1)
+        // Small movement stays inside the quiet camera area after a pilot-anchored gesture.
+        assertEquals(camera.center,game.camera.center)
+        repeat(30) { game.update(1.0/60) }
         assertNotEquals(camera.center,game.camera.center)
         game.setMotionControlEnabled(false)
         game.transformCamera(androidx.compose.ui.geometry.Offset(500f,900f),androidx.compose.ui.geometry.Offset(100f,0f),1f)

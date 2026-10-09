@@ -51,7 +51,8 @@ class SolarPilotUiTest {
                     down(center.copy(y=height*.9f)); moveTo(center.copy(y=height*.92f),120)
                 }
                 compose.mainClock.advanceTimeByFrame()
-                assertEquals(400.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0)
+                // Pointer events can finish after the clock frame under emulator load.
+                compose.runOnIdle { assertEquals(400.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0) }
                 compose.onNodeWithTag("pilot-speed").performTouchInput { up() }
                 // Fixed simulation steps, no wall-clock sleeps: exercise the actual Solar world state.
                 compose.runOnIdle { repeat(480) { game.update(1.0/60) } }
