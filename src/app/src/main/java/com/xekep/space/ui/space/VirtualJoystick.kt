@@ -16,6 +16,8 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import com.xekep.space.R
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.pilotSpeedLimit
+import com.xekep.space.sim.flightSpeed
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -27,15 +29,22 @@ internal fun joystickDirection(offset: Offset, radius: Float): Vec2 {
     return Vec2(axis(unit.x),axis(unit.y))
 }
 
+internal fun joystickThrottle(y: Float,radius: Float): Double =
+    if (!y.isFinite() || !radius.isFinite() || radius <= 0) 0.0
+    else ((1-y/radius)/2).toDouble().coerceIn(0.0,1.0)
+
 @Composable
-fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
+fun VirtualJoystick(game: SpaceGameState, enabled: Boolean, left: Boolean) {
     var stick by remember(game.controlledVehicleId) { mutableStateOf(Offset.Zero) }
     var pressed by remember(game.controlledVehicleId) { mutableStateOf(false) }
-    val label=stringResource(R.string.virtual_joystick)
-    DisposableEffect(game,enabled,game.controlledVehicleId) {
-        onDispose { game.setJoystickInput(Vec2.Zero) }
+    val label=stringResource(if (left) R.string.virtual_joystick else R.string.pitch_joystick)
+    val craft=game.bodies.firstOrNull { it.id == game.controlledVehicleId }
+    val throttle=craft?.let { ((it.pilotTargetSpeed ?: it.flightSpeed())/it.pilotSpeedLimit()).coerceIn(0.0,1.0) } ?: .5
+    fun input(value: Vec2) { if (left) game.setJoystickInput(value) else game.setAttitudeJoystickInput(value) }
+    DisposableEffect(game,enabled,game.controlledVehicleId,left) {
+        onDispose { input(Vec2.Zero) }
     }
-    PixelCanvas(Modifier.size(96.dp).testTag("flight-joystick").semantics {
+    PixelCanvas(Modifier.size(96.dp).testTag(if (left) "flight-joystick" else "pitch-joystick").semantics {
         contentDescription=label; if (!enabled) disabled()
     }.pointerInput(game,enabled,game.controlledVehicleId) {
         if (!enabled) return@pointerInput
@@ -45,9 +54,15 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
                 val down=awaitFirstDown(requireUnconsumed=false); down.consume()
                 fun move(point: Offset) {
                     val delta=point-Offset(size.width/2f,size.height/2f)
-                    stick=delta*(radius/max(radius,delta.getDistance()))
+                    stick=if (left) Offset(delta.x.coerceIn(-radius,radius),delta.y.coerceIn(-radius,radius))
+                        else delta*(radius/max(radius,delta.getDistance()))
                     pressed=true
-                    game.setJoystickInput(joystickDirection(stick,radius))
+                    if (left) {
+                        // Absolute, latched throttle like a transmitter: top=full, bottom=off.
+                        val craft=game.bodies.firstOrNull { it.id == game.controlledVehicleId }
+                        if (craft != null) game.setPilotTargetSpeed(joystickThrottle(stick.y,radius)*craft.pilotSpeedLimit())
+                        input(joystickDirection(Offset(stick.x,0f),radius))
+                    } else input(joystickDirection(stick,radius))
                 }
                 move(down.position)
                 do {
@@ -56,17 +71,18 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
                     if (!change.pressed) break
                     move(change.position)
                 } while (true)
-                pressed=false; stick=Offset.Zero; game.setJoystickInput(Vec2.Zero)
+                pressed=false; stick=Offset.Zero; input(Vec2.Zero)
             }
-        } finally { pressed=false; stick=Offset.Zero; game.setJoystickInput(Vec2.Zero) }
+        } finally { pressed=false; stick=Offset.Zero; input(Vec2.Zero) }
     }) {
-        val color=Color(0xFF8BD3FF).copy(alpha=if (enabled) 1f else .3f)
+        val color=(if (left) Color(0xFF80FFDF) else Color(0xFF8BD3FF)).copy(alpha=if (enabled) 1f else .3f)
         val radius=38.dp.toPx()
         drawCircle(color.copy(alpha=.06f),radius,center)
         drawCircle(color.copy(alpha=.4f),radius,center,style=Stroke(1.5.dp.toPx()))
         drawLine(color.copy(alpha=.18f),center-Offset(radius*.7f,0f),center+Offset(radius*.7f,0f),1.dp.toPx())
         drawLine(color.copy(alpha=.18f),center-Offset(0f,radius*.7f),center+Offset(0f,radius*.7f),1.dp.toPx())
-        drawCircle(color.copy(alpha=if (pressed) .9f else .5f),14.dp.toPx(),center+stick)
-        drawCircle(Color(0xFF091625),10.dp.toPx(),center+stick)
+        val knob=if (left) Offset(if (pressed) stick.x else 0f,((1-2*throttle)*radius).toFloat()) else stick
+        drawCircle(color.copy(alpha=if (pressed) .9f else .5f),14.dp.toPx(),center+knob)
+        drawCircle(Color(0xFF091625),10.dp.toPx(),center+knob)
     }
 }

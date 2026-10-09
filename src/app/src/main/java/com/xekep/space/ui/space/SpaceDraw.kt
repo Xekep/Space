@@ -147,7 +147,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
     rotate(angle, center) {
       withTransform({
           translate(center.x,center.y)
-          transform(vehiclePitchMatrix(body.pitch,r))
+          transform(vehiclePitchMatrix(body.pitch,r,body.roll))
           translate(-center.x,-center.y)
       }) {
         fun hull(points: List<Offset>, color: Color) {
@@ -228,6 +228,12 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
                 hull(listOf(Offset(-.13f, .8f), Offset(0f, 1.45f), Offset(.13f, .8f)), Color(0xFFFFE6A3))
             }
         }
+        if (piloted && body.enginePowered && kotlin.math.abs(body.roll) > .08) {
+            val side=if (body.roll > 0) -1f else 1f
+            val length=kotlin.math.abs(kotlin.math.sin(body.roll)).toFloat()
+            hull(listOf(Offset(side*.7f,.1f),Offset(side*(1.0f+length*.45f),.22f),Offset(side*.7f,.33f)),Color(0xFF8BD3FF))
+        }
+
     }
     }
 }

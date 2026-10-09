@@ -20,4 +20,24 @@ class GameSoundsTest {
             } finally { sounds.close() }
         }
     }
+    @Test fun engineLoopFollowsPilotThrustAndStopsForMutePauseFocusLossAndRelease() {
+        val instrumentation=InstrumentationRegistry.getInstrumentation()
+        lateinit var sounds: GameSounds
+        instrumentation.runOnMainSync { sounds=GameSounds(); sounds.updateEngine(false,.5f); assertFalse(sounds.isEnginePlaying); sounds.setForeground(true); sounds.updateEngine(false,.5f); assertTrue(sounds.isEnginePlaying) }
+        try {
+            Thread.sleep(100)
+            instrumentation.runOnMainSync {
+                sounds.retro=true; sounds.updateEngine(true,1f); assertTrue(sounds.isEnginePlaying)
+                sounds.enabled=false; assertFalse(sounds.isEnginePlaying)
+                sounds.enabled=true; sounds.updateEngine(true,.3f); assertTrue(sounds.isEnginePlaying)
+                sounds.setAudioFocusAvailable(false); assertFalse(sounds.isEnginePlaying)
+                sounds.updateEngine(false,.5f); assertFalse(sounds.isEnginePlaying)
+                sounds.setAudioFocusAvailable(true); sounds.updateEngine(false,.5f); assertTrue(sounds.isEnginePlaying)
+                sounds.setForeground(false); assertFalse(sounds.isEnginePlaying)
+                sounds.setForeground(true); sounds.updateEngine(false,.5f); sounds.updateEngine(false,0f)
+            }
+            Thread.sleep(900)
+            instrumentation.runOnMainSync { assertFalse(sounds.isEnginePlaying); sounds.close(); sounds.updateEngine(true,1f); assertFalse(sounds.isEnginePlaying) }
+        } finally { instrumentation.runOnMainSync { sounds.close() } }
+    }
 }

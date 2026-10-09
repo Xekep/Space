@@ -68,7 +68,7 @@ class SandboxToolsTest {
         val game = SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars) }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithTag("sandbox-undo").assertDoesNotExist()
-        compose.onNodeWithTag("speed-6.0").assertDoesNotExist()
+        compose.onNodeWithTag("sandbox-speed-slider").assertDoesNotExist()
         compose.onNodeWithTag("edit-body").assertDoesNotExist()
         compose.onNodeWithTag("sandbox-tools").performClick()
         compose.runOnIdle {
@@ -78,9 +78,9 @@ class SandboxToolsTest {
             assertTrue(game.sandboxOverlayOpen)
             assertFalse(game.sandbox!!.paused)
         }
-        compose.onNodeWithTag("speed-6.0").performClick()
+        compose.onNodeWithTag("sandbox-speed-slider").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { assertTrue(it(6f)) }
         compose.onNodeWithTag("close-sandbox-panel").performClick()
-        compose.onNodeWithTag("speed-6.0").assertDoesNotExist()
+        compose.onNodeWithTag("sandbox-speed-slider").assertDoesNotExist()
         compose.runOnIdle { assertFalse(game.sandboxOverlayOpen); assertFalse(game.sandbox!!.paused); assertEquals(6.0, game.sandbox!!.timeScale, 0.0) }
     }
 
@@ -125,5 +125,23 @@ class SandboxToolsTest {
                 compose.runOnIdle { assertEquals(ShakeMode.Off,GameOptions(context).shakeMode) }
             } else listOf("Off","Classic","Inertial").forEach { compose.onNodeWithTag("shake-$it").assertIsNotEnabled() }
         } finally { sensor.close(); prior.save() }
+    }
+    @Test fun speedSliderHasSolarOnlyInspectionStepsAndOrdinaryWorldStartsAtQuarter() {
+        compose.mainClock.autoAdvance=false
+        val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.Empty); toggleSandboxPause() }
+        compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.mainClock.advanceTimeByFrame()
+        for (preset in listOf(SandboxPresetKind.SolarSystem,SandboxPresetKind.BinaryStars)) {
+            compose.runOnIdle { game.startSandbox(preset); game.toggleSandboxPause() }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("sandbox-tools").performClick(); compose.mainClock.advanceTimeBy(400)
+            val slider=compose.onNodeWithTag("sandbox-speed-slider")
+            val range=slider.fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo].range
+            assertEquals(if (preset == SandboxPresetKind.SolarSystem) 6f else 3f,range.endInclusive,0f)
+            slider.performTouchInput { down(center.copy(x=width*.75f)); moveTo(center.copy(x=0f),120); up() }
+            compose.mainClock.advanceTimeByFrame()
+            compose.runOnIdle { assertEquals(if (preset == SandboxPresetKind.SolarSystem) .0001 else .25,game.sandbox!!.timeScale,0.0) }
+            compose.onNodeWithTag("close-sandbox-panel").performClick(); compose.mainClock.advanceTimeBy(400)
+        }
     }
 }

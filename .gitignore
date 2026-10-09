@@ -15,3 +15,7 @@ dist/
 
 # Local agent memory
 .agent/
+
+# Python audio tooling
+__pycache__/
+*.py[cod]

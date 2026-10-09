@@ -23,7 +23,7 @@ class RandomSystemsUiTest {
             compose.onRoot().captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)
         }
     }
-    @Test fun toolsGenerateFiveHundredBodiesWithUndoAndSavedCollisionMode() {
+    @Test fun menuGeneratesFiveHundredBodiesAndToolsRetainCollisionOptions() {
         val game=SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars); toggleSandboxPause() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithTag("sandbox-tools").performClick()
@@ -31,7 +31,14 @@ class RandomSystemsUiTest {
         compose.onNodeWithTag("sandbox-collisions").performScrollTo().performClick()
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithTag("collision-mode-Debris").performScrollTo().performClick()
-        compose.onNodeWithTag("generate-random-systems").performScrollTo().performClick()
+        compose.onNodeWithTag("generate-random-systems").assertDoesNotExist()
+        compose.onNodeWithTag("generate-system-galaxy").assertDoesNotExist()
+        compose.onNodeWithTag("close-sandbox-panel").performClick()
+        compose.onNodeWithTag("open-menu").performClick()
+        compose.onNodeWithTag("preset-RandomSystems").performClick()
+        compose.onNodeWithTag("new-session").performClick()
+        compose.onNodeWithTag("confirm-action").performClick()
+        compose.runOnIdle { game.toggleSandboxPause() }
         compose.mainClock.advanceTimeByFrame()
         compose.runOnIdle {
             assertEquals(500,game.bodies.size); assertTrue(game.bodies.count { it.kind == BodyKind.Star } > 400); assertEquals(1,game.bodies.count { it.kind == BodyKind.BlackHole })
@@ -42,10 +49,7 @@ class RandomSystemsUiTest {
             assertEquals(SandboxCollisionMode.Merge,storage.decode(legacy).collisionMode)
         }
         screenshot("random-systems-500.png")
-        compose.onNodeWithTag("sandbox-tools").performClick()
-        compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithTag("sandbox-undo").performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(2,game.bodies.size); assertEquals(SandboxCollisionMode.Debris,game.sandbox!!.collisionMode) }
+
     }
     @Test fun debrisModeCreatesPhysicalFragmentsThroughTheToolsPanel() {
         val pair=listOf(CelestialBody(20001,Vec2(-11.0,0.0),Vec2(80.0,0.0),100.0,10f,Color.Cyan),

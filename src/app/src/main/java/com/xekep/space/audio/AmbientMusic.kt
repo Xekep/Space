@@ -14,7 +14,7 @@ import com.xekep.space.R
 
 /** Offline normal/retro loops share one focus request and crossfade at the current position. */
 @MainThread
-class AmbientMusic(context: Context) : AutoCloseable {
+class AmbientMusic(context: Context, private val onFocusAvailable: (Boolean) -> Unit = {}) : AutoCloseable {
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_GAME)
@@ -40,6 +40,8 @@ class AmbientMusic(context: Context) : AutoCloseable {
     private var seeking: Slot? = null
     private var retroEnabled = false
     private var enabled = false
+    private var effectsActive=false
+    internal val isFocusHeld get()=hasFocus && requestedFocus
     private var foreground = false
     private var requestedFocus = false
     private var hasFocus = false
@@ -98,6 +100,12 @@ class AmbientMusic(context: Context) : AutoCloseable {
         updatePlayback()
     }
 
+    /** Continuous engine sounds share the music focus owner, even with music muted. */
+    fun setEffectsActive(value: Boolean) {
+        if (closed || effectsActive == value) return
+        effectsActive=value; updatePlayback()
+    }
+
     fun setForeground(value: Boolean) {
         if (closed || foreground == value) return
         foreground = value
@@ -106,12 +114,12 @@ class AmbientMusic(context: Context) : AutoCloseable {
 
     private fun updatePlayback() {
         if (closed) return
-        if (!enabled || !foreground) {
+        if ((!enabled && !effectsActive) || !foreground) {
             pause()
             abandonFocus()
             return
         }
-        if (!desired().prepared) return
+        if (!desired().prepared && !effectsActive) return
         if (!requestedFocus) {
             requestedFocus = true
             when (audioManager.requestAudioFocus(focusRequest)) {
@@ -120,7 +128,8 @@ class AmbientMusic(context: Context) : AutoCloseable {
                 else -> { hasFocus = false; requestedFocus = false }
             }
         }
-        if (hasFocus) playDesired()
+        onFocusAvailable(hasFocus)
+        if (hasFocus && enabled && desired().prepared) playDesired() else pause()
     }
 
     private fun playDesired() {
@@ -181,6 +190,7 @@ class AmbientMusic(context: Context) : AutoCloseable {
 
     private fun onFocusChange(change: Int) {
         if (closed) return
+        onFocusAvailable(change == AudioManager.AUDIOFOCUS_GAIN)
         when (change) {
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasFocus = true
@@ -205,6 +215,7 @@ class AmbientMusic(context: Context) : AutoCloseable {
     }
 
     private fun abandonFocus() {
+        onFocusAvailable(false)
         if (requestedFocus) audioManager.abandonAudioFocusRequest(focusRequest)
         requestedFocus = false
         hasFocus = false

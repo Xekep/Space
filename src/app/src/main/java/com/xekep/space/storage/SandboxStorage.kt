@@ -108,6 +108,7 @@ class SandboxStorage(context: Context) {
                     .put("flightHeight",body.flightHeight)
                     .put("verticalVelocity",body.verticalVelocity)
                     .put("pitch",body.pitch)
+                    .put("roll",body.roll)
                     .put("headingX", body.heading.x)
                     .put("headingY", body.heading.y)
                     .put("routeSpeed", body.routeSpeed)
@@ -172,8 +173,10 @@ class SandboxStorage(context: Context) {
                 val height=body.optDouble("flightHeight",0.0)
                 val vertical=body.optDouble("verticalVelocity",0.0)
                 val pitch=body.optDouble("pitch",0.0)
+                val roll=body.optDouble("roll",0.0)
+                require(roll in -com.xekep.space.sim.MAX_FLIGHT_ROLL..com.xekep.space.sim.MAX_FLIGHT_ROLL)
                 require(height in -1e6..1e6 && vertical in -5000.0..5000.0 && pitch in -com.xekep.space.sim.MAX_FLIGHT_PITCH..com.xekep.space.sim.MAX_FLIGHT_PITCH)
-                require(kind in listOf(BodyKind.Ship,BodyKind.Rocket) || (height == 0.0 && vertical == 0.0 && pitch == 0.0))
+                require(kind in listOf(BodyKind.Ship,BodyKind.Rocket) || (height == 0.0 && vertical == 0.0 && pitch == 0.0 && roll == 0.0))
                 val shipClass=com.xekep.space.sim.ShipClass.valueOf(body.optString("shipClass","Interceptor"))
                 val fuelScale=body.optDouble("fuelConsumptionScale",1.0)
                 require(fuelScale in .5..1.0 && (shipClass == com.xekep.space.sim.ShipClass.Interceptor || kind == BodyKind.Ship))
@@ -212,7 +215,7 @@ class SandboxStorage(context: Context) {
                         kind = kind,
                         trail = listOf(position),
                         burnRemaining = burn,
-                        heading = heading,flightHeight=height,verticalVelocity=vertical,pitch=pitch,
+                        heading = heading,flightHeight=height,verticalVelocity=vertical,pitch=pitch,roll=roll,
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),

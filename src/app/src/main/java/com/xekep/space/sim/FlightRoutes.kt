@@ -11,7 +11,7 @@ fun routeCruiseSpeed(launchSpeed: Double): Double {
 /** Wheel input or an explicit speed setpoint overrides the route; neutral keeps the navigator. */
 fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightControl?, seconds: Double): List<CelestialBody> {
     if (!seconds.isFinite() || seconds <= 0) return bodies
-    val manual=control?.takeIf { candidate -> abs(candidate.steering) > .025 || abs(candidate.pitch) > .025 || candidate.boost > 0 ||
+    val manual=control?.takeIf { candidate -> abs(candidate.steering) > .025 || abs(candidate.pitch) > .025 || abs(candidate.roll) > .025 || candidate.boost > 0 ||
         bodies.any { it.id == candidate.bodyId && it.pilotTargetSpeed != null } }
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body

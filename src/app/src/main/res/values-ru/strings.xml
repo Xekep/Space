@@ -240,7 +240,7 @@
     <string name="control_tilt">Наклон</string>
     <string name="control_joystick">Джойстик</string>
     <string name="tilt_sensitivity">Чувствительность наклона</string>
-    <string name="virtual_joystick">Джойстик курса и тангажа</string>
+    <string name="virtual_joystick">Стик тяги и рыскания</string>
     <string name="system_galaxy_name">Галактика систем</string>
     <string name="system_galaxy_short">Галактика · 1000</string>
     <string name="system_galaxy_description">Вращающаяся галактика из 1000 тел: звёзды с планетами и спутниками, рукава и разнообразные скопления.</string>
@@ -249,6 +249,6 @@
     <string name="retro_console">Ретроконсоль</string>
     <string name="artificial_satellite">Искусственный спутник</string>
     <string name="ring_grain">Частица кольца</string>
-    <string name="thrust_joystick">Джойстик тяги</string>
+    <string name="pitch_joystick">Стик тангажа и крена</string>
     <string name="leave_pilot">Выйти из пилотирования</string>
 </resources>

@@ -35,7 +35,7 @@ fun PilotHud(game: SpaceGameState, joystick: Boolean = false) {
             (game.mode != AppMode.Sandbox || game.sandbox?.paused == false)
         Row(Modifier.padding(horizontal=if (joystick) 4.dp else 12.dp,vertical=6.dp),
             verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(if (joystick) 4.dp else 16.dp)) {
-            if (joystick) ThrustJoystick(game,((craft.pilotTargetSpeed ?: speed)/limit).coerceIn(0.0,1.0).toFloat(),enabled)
+            if (joystick) VirtualJoystick(game,enabled,left=true)
             if (joystick) PilotMeters(game,speed,craft.pilotTargetSpeed ?: speed,fuel,enabled,limit,Modifier.weight(1f))
             else Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(context.getString(R.string.pilot_speed,speed.roundToInt()),maxLines=1,style=MaterialTheme.typography.labelSmall,color=Color(0xFF8BD3FF))
@@ -57,7 +57,7 @@ fun PilotHud(game: SpaceGameState, joystick: Boolean = false) {
                     })
 
             }
-            if (joystick) VirtualJoystick(game,enabled && craft.enginePowered) else Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+            if (joystick) VirtualJoystick(game,enabled && craft.enginePowered,left=false) else Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(context.getString(R.string.pilot_fuel,(fuel*100).roundToInt()),maxLines=1,style=MaterialTheme.typography.labelSmall,color=fuelColor)
                 if (retro) PixelMeter(fuel,fuelColor,Modifier.fillMaxWidth().padding(top=22.dp).height(4.dp).testTag("pilot-fuel"))
                 else LinearProgressIndicator(progress={ fuel },modifier=Modifier.fillMaxWidth().padding(top=22.dp).height(4.dp).testTag("pilot-fuel"),color=fuelColor)

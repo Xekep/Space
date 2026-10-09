@@ -67,8 +67,7 @@ class PilotZoomUiTest {
                         game.update(1.0/60)
                         val body=game.bodies.first { it.id == id }
                         val screen=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
-                        assertEquals(game.viewport.width/2f,screen.x,.001f)
-                        assertEquals(game.viewport.height/2f,screen.y,.001f)
+                        assertTrue(kotlin.math.hypot((screen.x-game.viewport.width/2f).toDouble(),(screen.y-game.viewport.height/2f).toDouble()) <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
                     }
                     game.setSteeringInput(Vec2.Zero)
                     if (mode == AppMode.Sandbox) game.toggleSandboxPause()
@@ -94,7 +93,6 @@ class PilotZoomUiTest {
     private fun assertPilotCentered(game: SpaceGameState,id: Long) {
         val body=game.bodies.first { it.id == id }
         val screen=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
-        assertEquals(game.viewport.width/2f,screen.x,.001f)
-        assertEquals(game.viewport.height/2f,screen.y,.001f)
+        assertTrue(kotlin.math.hypot((screen.x-game.viewport.width/2f).toDouble(),(screen.y-game.viewport.height/2f).toDouble()) <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
     }
 }

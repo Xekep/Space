@@ -22,13 +22,13 @@ internal fun depthGravity(body: CelestialBody, scene: List<CelestialBody>): Dept
 
 internal fun returnAutopilotsToPlane(bodies: List<CelestialBody>, controlledId: Long?, seconds: Double) = bodies.map { body ->
     if (!body.isVehicle || body.id == controlledId || !body.enginePowered ||
-        (body.flightHeight == 0.0 && body.verticalVelocity == 0.0 && body.pitch == 0.0)) body else {
+        (body.flightHeight == 0.0 && body.verticalVelocity == 0.0 && body.pitch == 0.0 && body.roll == 0.0)) body else {
         val speed=body.velocity.magnitude().coerceAtLeast(70.0)
         val desired=(-body.flightHeight*.8).coerceIn(-speed*.7,speed*.7)
         val change=(desired-body.verticalVelocity).coerceIn(-180*seconds*body.vehicleAccelerationScale,180*seconds*body.vehicleAccelerationScale)
         val vertical=body.verticalVelocity+change
         val pitch=atan2(vertical,speed)
-        body.copy(verticalVelocity=vertical,pitch=body.pitch+(pitch-body.pitch)*(1-exp(-seconds/.16)))
+        body.copy(verticalVelocity=vertical,pitch=body.pitch+(pitch-body.pitch)*(1-exp(-seconds/.16)),roll=body.roll*exp(-seconds/.25))
     }
 }
 

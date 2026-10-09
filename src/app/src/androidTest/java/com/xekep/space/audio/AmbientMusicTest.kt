@@ -102,4 +102,32 @@ class AmbientMusicTest {
         }
     }
 
+    @Test fun mutedMusicCanOwnEngineFocusWithoutStartingTheMusicTrack() {
+        // Android 15 requires a foreground activity for focus. Keep the host's own music
+        // disabled so two deliberately constructed test players cannot steal each other's focus.
+        val context=instrumentation.targetContext
+        val prefs=context.getSharedPreferences("space_options",0)
+        val existed=prefs.contains("music"); val previous=prefs.getBoolean("music",true)
+        prefs.edit().putBoolean("music",false).commit()
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                lateinit var music: AmbientMusic
+                var available=false
+                scenario.onActivity { activity ->
+                    music=AmbientMusic(activity) { available=it }
+                    music.setForeground(true); music.setEffectsActive(true)
+                    assertTrue(music.isFocusHeld); assertTrue(available); assertFalse(music.isPlaying)
+                }
+                try {
+                    SystemClock.sleep(500)
+                    instrumentation.runOnMainSync {
+                        assertFalse(music.isPlaying)
+                        music.setEffectsActive(false); assertFalse(music.isFocusHeld); assertFalse(available)
+                        music.setEffectsActive(true); assertTrue(music.isFocusHeld)
+                        music.setForeground(false); assertFalse(music.isFocusHeld); assertFalse(available)
+                    }
+                } finally { instrumentation.runOnMainSync { music.close() } }
+            }
+        } finally { prefs.edit().apply { if (existed) putBoolean("music",previous) else remove("music") }.commit() }
+    }
 }

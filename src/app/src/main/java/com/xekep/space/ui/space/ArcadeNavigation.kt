@@ -8,7 +8,7 @@ import kotlin.math.*
  * world obstacles and craft; route navigators use temporary craft detours. Manual input wins.
  */
 internal class ArcadeNavigation(scene: List<CelestialBody>) {
-    private val obstacles=scene.filter { it.kind !in listOf(BodyKind.Meteor,BodyKind.Convoy) }
+    private val obstacles=scene.filter { it.kind != BodyKind.Meteor && it.kind != BodyKind.Convoy }
     private val acceleration=obstacles.associate { source -> source.id to
         if (source.kind == BodyKind.Core) Vec2.Zero else gravity(source.position,source) }
 
@@ -36,21 +36,42 @@ internal class ArcadeNavigation(scene: List<CelestialBody>) {
             maxOf((craft.radius+obstacle.radius+18.0),
                 sqrt(SimulationEngine.gravitationalConstant*obstacle.gravityMass/(steering*.8)))
         }
-        fun clearance(wanted: Vec2): Double {
-            var point=craft.position; var velocity=craft.velocity
-            var minimum=Double.POSITIVE_INFINITY
-            val step=horizon/10
+        // Obstacle forecasts do not depend on the proposed corridor. Share them across all
+        // candidates; primitive coordinates avoid thousands of transient Vec2s per pilot.
+        val step=horizon/10
+        val centersX=DoubleArray(nearby.size*10)
+        val centersY=DoubleArray(nearby.size*10)
+        nearby.forEachIndexed { i,obstacle ->
+            val velocity=if (obstacle.kind == BodyKind.Core) Vec2.Zero else obstacle.velocity
+            val pull=acceleration[obstacle.id] ?: Vec2.Zero
             repeat(10) { index ->
-                val correction=wanted-velocity
-                val thrust=correction.normalized()*minOf(correction.magnitude()/step,steering)
-                val pull=gravity(point,craft)
-                point+=velocity*step+(thrust+pull)*(.5*step*step)
-                velocity+=(thrust+pull)*step
-                val time=(index+1)*step
-                nearby.forEachIndexed { i,obstacle ->
-                    val center=obstacle.position+(if (obstacle.kind == BodyKind.Core) Vec2.Zero else obstacle.velocity)*time+
-                        (acceleration[obstacle.id] ?: Vec2.Zero)*(.5*time*time)
-                    minimum=minOf(minimum,(point-center).magnitude()-radii[i])
+                val time=(index+1)*step; val slot=index*nearby.size+i
+                centersX[slot]=obstacle.position.x+velocity.x*time+pull.x*(.5*time*time)
+                centersY[slot]=obstacle.position.y+velocity.y*time+pull.y*(.5*time*time)
+            }
+        }
+        val softSquares=DoubleArray(obstacles.size) { forceSoftening(craft,obstacles[it]).let { soft -> soft*soft } }
+        fun clearance(wanted: Vec2): Double {
+            var x=craft.position.x; var y=craft.position.y
+            var vx=craft.velocity.x; var vy=craft.velocity.y
+            var minimum=Double.POSITIVE_INFINITY
+            repeat(10) { index ->
+                val dx=wanted.x-vx; val dy=wanted.y-vy; val length=sqrt(dx*dx+dy*dy)
+                val scale=if (length <= 1e-9) 0.0 else minOf(length/step,steering)/length
+                var ax=dx*scale; var ay=dy*scale
+                for (j in obstacles.indices) {
+                    val source=obstacles[j]
+                    if (source.id == craft.id) continue
+                    val sx=source.position.x-x; val sy=source.position.y-y
+                    val square=sx*sx+sy*sy+softSquares[j]
+                    val factor=SimulationEngine.gravitationalConstant*source.gravityMass/(square*sqrt(square))
+                    ax+=sx*factor; ay+=sy*factor
+                }
+                x+=vx*step+ax*(.5*step*step); y+=vy*step+ay*(.5*step*step)
+                vx+=ax*step; vy+=ay*step
+                for (i in nearby.indices) {
+                    val slot=index*nearby.size+i; val sx=x-centersX[slot]; val sy=y-centersY[slot]
+                    minimum=minOf(minimum,sqrt(sx*sx+sy*sy)-radii[i])
                 }
             }
             return minimum
@@ -67,9 +88,10 @@ internal class ArcadeNavigation(scene: List<CelestialBody>) {
         for (angle in listOf(30.0,60.0,90.0,120.0,160.0)) for (turn in listOf(side,-side)) {
             val candidate=rotateVector(desired,angle*turn*PI/180)
             val gap=clearance(candidate)
-            // Safe corridors beat a shorter chase; prefer minimal detours and a stable orbit side.
-            val score=if (gap >= 12.0) 10000-angle-(if (turn == side) 0.0 else 8.0)
-                else gap-angle*.08
+            // Angles are ordered by the original safe-corridor score (side penalty <
+            // the next angle gap). The first safe corridor is already the global winner.
+            if (gap >= 12.0) return candidate
+            val score=gap-angle*.08
             if (score > bestScore) { bestScore=score; best=candidate }
         }
         return best

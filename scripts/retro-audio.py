@@ -1,7 +1,7 @@
 """Bake a quieter retro DAC colour into the original ambient loop (numpy/soundfile).
 
 Default input/output are the packaged OGG files. No synthesis or tempo change.
-Music uses 11.025 kHz sample-and-hold and signed 9-bit quantisation; event clips
+Music uses band-limited 11.025 kHz sample-and-hold and signed 9-bit quantisation; event clips
 use the stronger 7.35 kHz / 8-bit profile in audio/RetroAudio.kt.
 """
 from argparse import ArgumentParser
@@ -10,15 +10,34 @@ import numpy as np
 import soundfile as sf
 
 
+def low_pass_loop(pcm: np.ndarray, rate: int) -> np.ndarray:
+    """Zero-phase circular FIR: no delay, and the loop seam gets the same filtering.
+
+    3.4 kHz cutoff removes DAC images/whistle. The input filter prevents aliasing;
+    the output filter reconstructs the staircase and removes quantisation hiss.
+    All processing happens while baking the asset, never on the phone.
+    """
+    taps = 257
+    offsets = np.arange(taps) - taps // 2
+    cutoff = min(3400.0, rate * .35)
+    weights = 2 * cutoff / rate * np.sinc(2 * cutoff / rate * offsets) * np.kaiser(taps, 8)
+    weights /= weights.sum()
+    kernel = np.zeros(len(pcm))
+    np.add.at(kernel, offsets % len(pcm), weights)
+    response = np.fft.rfft(kernel)
+    return np.fft.irfft(np.fft.rfft(pcm, axis=0) * response[:, None], n=len(pcm), axis=0)
+
+
 def process(pcm: np.ndarray, rate: int) -> np.ndarray:
+    filtered = low_pass_loop(pcm, rate)
     hold = max(1, round(rate / 11025))
     indices = np.arange(len(pcm)) // hold * hold
-    wet = np.round(np.clip(pcm[indices], -1, 1) * 255) / 255
-    # A little dry signal retains the soft stereo reverb instead of turning it into hiss.
-    result = pcm * .15 + wet * .85
+    wet = np.round(np.clip(filtered[indices], -1, 1) * 255) / 255
+    result = low_pass_loop(filtered * .15 + wet * .85, rate)
     rms = np.sqrt(np.mean(pcm.astype(np.float64) ** 2))
-    actual = np.sqrt(np.mean(result.astype(np.float64) ** 2))
-    result *= min(rms / max(actual, 1e-12), .98 / max(np.max(np.abs(result)), 1e-12))
+    actual = np.sqrt(np.mean(result ** 2))
+    # Do not amplify out-of-band-only inputs back into audible noise.
+    result *= min(1.05, rms / max(actual, 1e-12), .98 / max(np.max(np.abs(result)), 1e-12))
     return result.astype(np.float32)
 
 

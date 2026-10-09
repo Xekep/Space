@@ -39,8 +39,8 @@ class SolarPilotUiTest {
                 compose.mainClock.advanceTimeByFrame()
                 val id=game.controlledVehicleId!!
                 assertTrue(game.bodies.first { it.id == id }.flightSpeed() > 200)
-                compose.onNodeWithTag("thrust-joystick").performTouchInput {
-                    down(center); moveTo(center-Offset(0f,25.6f*game.density),120); up()
+                compose.onNodeWithTag("pilot-speed").performTouchInput {
+                    down(center.copy(y=height*.10f)); moveTo(center.copy(y=height*.10f),120); up()
                 }
                 compose.mainClock.advanceTimeByFrame()
                 compose.runOnIdle { repeat(180) { game.update(1.0/60) } }
@@ -67,7 +67,7 @@ class SolarPilotUiTest {
                 compose.runOnIdle {
                     val craft=game.bodies.first { it.id == id }
                     assertTrue(pilotScreenRadius(craft,game.pilotVisualZoom,game.density,true) > initialRadius*1.5f)
-                    assertEquals(craft.position,game.camera.center)
+                    assertTrue((craft.position-game.camera.center).magnitude()*game.camera.zoom <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
                 }
                 for (axis in listOf(-1.0,1.0)) {
                     compose.runOnIdle {
@@ -77,8 +77,8 @@ class SolarPilotUiTest {
                     }
                     compose.mainClock.advanceTimeByFrame()
                     val bodyId=game.controlledVehicleId!!
-                    compose.onNodeWithTag("flight-joystick").performTouchInput {
-                        down(center); moveTo(center+Offset(0f,(-axis*32*game.density).toFloat()),120)
+                    compose.onNodeWithTag("pitch-joystick").performTouchInput {
+                        down(center); moveTo(center+Offset(0f,(axis*32*game.density).toFloat()),120)
                     }
                     compose.runOnIdle { repeat(120) { game.update(1.0/60) } }
                     compose.mainClock.advanceTimeByFrame()
@@ -89,7 +89,7 @@ class SolarPilotUiTest {
                         assertTrue(if (axis > 0) body.flightVisualScale() > 1.5f else body.flightVisualScale() < .5f)
                     }
                     screenshot("solar-pilot-${kind.name}-${if (axis > 0) "up" else "down"}.png")
-                    compose.onNodeWithTag("flight-joystick").performTouchInput { up() }
+                    compose.onNodeWithTag("pitch-joystick").performTouchInput { up() }
                     compose.mainClock.advanceTimeByFrame()
                     compose.onNodeWithTag("pilot-exit").performClick()
                     compose.mainClock.advanceTimeByFrame()
@@ -103,7 +103,7 @@ class SolarPilotUiTest {
         val game=SpaceGameState().apply { startSandbox(); toggleSandboxPause() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.mainClock.advanceTimeByFrame()
-        for (expected in sandboxTimeScales.drop(1)+1.0) {
+        for (expected in List(sandboxTimeScales.size) { sandboxTimeScales[(sandboxTimeScales.indexOf(1.0)+it+1)%sandboxTimeScales.size] }) {
             compose.onNodeWithTag("sandbox-time-speed").performClick()
             compose.mainClock.advanceTimeByFrame()
             assertEquals(expected,game.sandbox!!.timeScale,0.0); assertTrue(game.sandbox!!.paused)

@@ -85,6 +85,8 @@ class SpaceGameState(
     private var steeringInput = Vec2.Zero
     private var pendingBoost = 0.0
     private var pitchInput = 0.0
+    private var rollInput = 0.0
+    private var fpvControl = false
     private var pilotCameraFollowing = true
     private var pilotZoomReference = 1f
     val pilotVisualZoom: Float get() = camera.zoom/pilotZoomReference
@@ -112,39 +114,44 @@ class SpaceGameState(
         if (mode != AppMode.Arcade) return
         val current=arcade ?: return
         arcade=selectUpgrade(current,upgrade)
-        touchPreview=null; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; resetFrameClock()
+        touchPreview=null; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; resetFrameClock()
     }
     fun setMotionControlEnabled(value: Boolean) {
-        if (motionSteeringEnabled != value) { if (value) pilotZoomReference=camera.zoom; sandboxRevision++; steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; motionSteeringEnabled = value; pilotCameraFollowing = value }
+        if (motionSteeringEnabled != value) { if (value) pilotZoomReference=camera.zoom; sandboxRevision++; steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; motionSteeringEnabled = value; pilotCameraFollowing = value }
     }
     private fun resetMotionControl() {
         setMotionControlEnabled(false)
-        cameraRotation=0.0; pilotCameraFollowing=false; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0
+        cameraRotation=0.0; pilotCameraFollowing=false; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false
     }
+    fun clearFlightInput() { steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false }
     fun setSteeringInput(value: Vec2) {
         val valid = !menuOpen && !sandboxOverlayOpen && !arcadeUpgradePending && controlledVehicleId != null &&
             (mode != AppMode.Sandbox || sandbox?.paused == false) && value.x.isFinite() && value.y.isFinite()
         steeringInput = if (valid) Vec2(value.x.coerceIn(-1.0,1.0),0.0) else Vec2.Zero
         pendingBoost = if (valid) (pendingBoost + value.y.coerceIn(0.0,1.0)).coerceAtMost(1.0) else 0.0
     }
-    fun setJoystickInput(value: Vec2) {
-        setSteeringInput(Vec2(value.x,0.0))
-        pitchInput = if (!menuOpen && !sandboxOverlayOpen && !arcadeUpgradePending && controlledVehicleId != null &&
-            (mode != AppMode.Sandbox || sandbox?.paused == false) && value.x.isFinite() && value.y.isFinite())
-            (-value.y).coerceIn(-1.0,1.0) else 0.0
+    /** Left FPV stick: yaw rate. Throttle is latched separately, including at zero thrust. */
+    fun setJoystickInput(value: Vec2) { fpvControl=true; setSteeringInput(Vec2(value.x,0.0)) }
+    /** Right FPV stick: pull back to raise the nose; sideways rotates the hull's bank. */
+    fun setAttitudeJoystickInput(value: Vec2) {
+        fpvControl=true
+        val valid=!menuOpen && !sandboxOverlayOpen && !arcadeUpgradePending && controlledVehicleId != null &&
+            (mode != AppMode.Sandbox || sandbox?.paused == false) && value.x.isFinite() && value.y.isFinite()
+        pitchInput=if (valid) value.y.coerceIn(-1.0,1.0) else 0.0
+        rollInput=if (valid) value.x.coerceIn(-1.0,1.0) else 0.0
     }
     private fun flightControl(): ManualFlightControl? {
-        val control = controlledVehicleId?.let { ManualFlightControl(it, steeringInput.x, pendingBoost, pitchInput) }
+        val control = controlledVehicleId?.let { ManualFlightControl(it, steeringInput.x, pendingBoost, pitchInput, rollInput, fpvControl) }
         pendingBoost = 0.0
         return control
     }
-    private fun resetPresentation() { simulationLoad=0f; sceneGeneration++; presentationAge = 0.0; hiddenSolarOrbits = emptySet(); steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0 }
+    private fun resetPresentation() { simulationLoad=0f; sceneGeneration++; presentationAge = 0.0; hiddenSolarOrbits = emptySet(); steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false }
     private fun updateCameraRotation(dt: Double) {
         if (!dt.isFinite() || dt <= 0) return
         if (touchPreview != null && !menuOpen) return
         val pilot = if (!menuOpen && !sandboxOverlayOpen && pilotCameraFollowing &&
             (mode != AppMode.Arcade || (arcade?.lives ?: 0) > 0)) bodies.firstOrNull { it.id == controlledVehicleId } else null
-        val target = pilot?.let { -PI/2-atan2(it.heading.y,it.heading.x) } ?: 0.0
+        val target = pilot?.let { -PI/2-atan2(it.heading.y,it.heading.x)-it.roll*.22 } ?: 0.0
         val difference = atan2(sin(target-cameraRotation),cos(target-cameraRotation))
         cameraRotation += difference * (1-exp(-dt.coerceAtMost(.1)/.18))
         cameraRotation = atan2(sin(cameraRotation),cos(cameraRotation))
@@ -195,7 +202,7 @@ class SpaceGameState(
     fun resetFrameClock() { accumulator = 0.0; behind = false }
     private fun persistRecord() { arcade?.let { saveRecord(it.difficulty, recordFor(it.difficulty)) }; saveBestScore(bestScore) }
     fun recordFor(difficulty: ArcadeDifficulty) = records[difficulty] ?: 0.0
-    fun openMenu() { steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; touchPreview = null; menuOpen = true; resetFrameClock(); persistRecord() }
+    fun openMenu() { steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; touchPreview = null; menuOpen = true; resetFrameClock(); persistRecord() }
     fun closeMenu() { if (hasSession) { menuOpen = false; resetFrameClock() } }
     fun enterMode(nextMode: AppMode) {
         persistRecord()
@@ -234,7 +241,7 @@ class SpaceGameState(
     private fun pauseAfterStall() {
         if (mode == AppMode.Sandbox) {
             sandboxRevision++; sandbox=sandbox?.copy(paused=true)
-            steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; touchPreview=null; resetFrameClock()
+            steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; touchPreview=null; resetFrameClock()
         } else openMenu()
         feedback=R.string.lag_paused
     }
@@ -278,7 +285,7 @@ class SpaceGameState(
                 if (next.practice && next.hitFlash > current.hitFlash) feedback = R.string.practice_hit
                 if (tutorialStep == 1 && next.destroyed > current.destroyed) tutorialStep = 2
                 if (next.lives <= 0) { touchPreview = null; persistRecord() }
-                if (next.upgradeOffer != null) { touchPreview=null; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; resetFrameClock(); break }
+                if (next.upgradeOffer != null) { touchPreview=null; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; resetFrameClock(); break }
             }
             accumulator -= seconds; steps++
         }
@@ -343,7 +350,12 @@ class SpaceGameState(
             else if (pilotCameraFollowing && touchPreview == null) controlledVehicleId else null
         if (id == null) return current
         val target=next.firstOrNull { it.id == id } ?: return current
-        return current.copy(center=target.position)
+        if (following || id != controlledVehicleId) return current.copy(center=target.position)
+        val shortSide=minOf(viewport.width,viewport.height).coerceAtLeast(1)
+        // Visible attitude response in both tiny catalogue units and ordinary arcade space.
+        val screenOffset=Vec2(((if (target.enginePowered) steeringInput.x else 0.0)*.08+sin(target.roll)*.06)*shortSide,-sin(target.pitch)*shortSide*.07)
+        val visualOffset=rotateVector(screenOffset/current.zoom.toDouble(),-cameraRotation)
+        return current.copy(center=pilotCameraCenter(current.center,target.position,current.zoom,viewport,visualOffset))
     }
     private fun publishSandboxBodies(next: List<CelestialBody>) {
         val current = sandbox ?: return
@@ -487,7 +499,7 @@ class SpaceGameState(
         if (body.isVehicle) {
             if (motionSteeringEnabled) pilotZoomReference=camera.zoom
             if (mode == AppMode.Arcade) lastArcadeVehicleId = body.id else lastSandboxVehicleId = body.id
-            steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; pilotCameraFollowing = true; following = false
+            steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; pilotCameraFollowing = true; following = false
         }
         if (mode == AppMode.Arcade) {
             val current = arcade ?: return
@@ -506,6 +518,7 @@ class SpaceGameState(
             selectedBodyId = followedId.takeIf { following }; orbitSourceId = null; dirty = true
             if (tutorialStep == 0) tutorialStep = 1
         }
+        if (body.isVehicle && motionSteeringEnabled) setCamera(camera.copy(center=body.position))
         feedback = null
     }
     private fun rememberEdit() { sandbox?.let { if (history.size >= 20) history.removeFirst(); history.addLast(it); undoCount = history.size } }
@@ -610,7 +623,7 @@ class SpaceGameState(
         rememberEdit(); sandbox = sandbox?.let { it.copy(paused = !it.paused) }; resetFrameClock(); dirty = true
         if (tutorialStep == 1 && sandbox?.paused == false) tutorialStep = 2
     }
-    fun setTimeScale(value: Double) { if (value in sandboxTimeScales && sandbox?.timeScale != value) { sandboxRevision++; rememberEdit(); sandbox = sandbox?.copy(timeScale = value); dirty = true } }
+    fun setTimeScale(value: Double) { if (value in sandboxTimeScalesFor(sandbox?.preset ?: SandboxPresetKind.Empty) && sandbox?.timeScale != value) { sandboxRevision++; rememberEdit(); sandbox = sandbox?.copy(timeScale = value); dirty = true } }
     fun setCollisions(enabled: Boolean) { sandbox?.let { if (it.collisionsEnabled != enabled) { sandboxRevision++; rememberEdit(); sandbox = it.copy(collisionsEnabled = enabled, referenceEnergy = SimulationEngine.totalEnergy(it.bodies)); dirty = true } } }
     fun setCollisionMode(value: SandboxCollisionMode) {
         sandbox?.let { if (it.collisionMode != value) { sandboxRevision++; rememberEdit(); sandbox=it.copy(collisionMode=value); dirty=true } }
@@ -637,7 +650,7 @@ class SpaceGameState(
         lastSandboxVehicleId = null; resetPresentation()
         SimulationEngine.reserveBodyIds(snapshot.bodies)
         sandbox = SandboxSession(snapshot.bodies, SpaceCamera(snapshot.cameraCenter, snapshot.zoom.coerceIn(SandboxMinZoom, SandboxMaxZoom)),
-            snapshot.referenceEnergy, snapshot.preset, snapshot.timeScale, snapshot.paused, snapshot.collisionsEnabled, snapshot.name,snapshot.collisionMode)
+            snapshot.referenceEnergy, snapshot.preset, snapshot.timeScale.coerceAtLeast(if (snapshot.preset == SandboxPresetKind.SolarSystem) .0001 else .25), snapshot.paused, snapshot.collisionsEnabled, snapshot.name,snapshot.collisionMode)
         history.clear(); undoCount = 0; checkpoint = sandbox; dirty = false; clearSelection()
         mode = AppMode.Sandbox; touchPreview = null; menuOpen = false; tutorialStep = -1; feedback = null; resetFrameClock()
         spawnKind = BodyKind.Ambient; explosions = emptyList()

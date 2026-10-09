@@ -61,6 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.SatellitePlacement
 import com.xekep.space.sim.satellitePlacement
+import com.xekep.space.sim.enginePowered
 import com.xekep.space.sim.toOffset
 import com.xekep.space.storage.SandboxStorage
 import com.xekep.space.storage.GameOptions
@@ -94,10 +95,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val retroRenderer=remember(retroConsole) { if (retroConsole) RetroRenderer() else null }
     val largeVehicleIcons = options.largeVehicleIcons
     SideEffect { game.largeVehicleIcons = largeVehicleIcons }
-    val music = remember(context) { AmbientMusic(context.applicationContext) }
+    val sounds = remember(context) { GameSounds() }
+    val music = remember(context) { AmbientMusic(context.applicationContext,sounds::setAudioFocusAvailable) }
     val musicEnabled = options.music
     SideEffect { music.setRetro(retroConsole); music.setEnabled(musicEnabled) }
-    val sounds = remember(context) { GameSounds() }
     SideEffect { sounds.enabled=options.sound; sounds.retro=retroConsole }
     val haptic = remember(context) { com.xekep.space.input.GameHaptics(context) }
     SideEffect { haptic.enabled=options.vibration && !game.menuOpen }
@@ -113,11 +114,18 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
     val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && !game.arcadeUpgradePending && hasSession &&
         (if (game.mode == AppMode.Sandbox) sandboxPaused == false && game.orbitSourceId == null else (game.arcade?.lives ?: 0) > 0)
+    val engineCraft=controlledId?.let { id -> game.bodies.firstOrNull { it.id == id } }
+    SideEffect {
+        val thrust=if (controlsActive && engineCraft?.enginePowered == true)
+            engineCraft.pilotThrottle.coerceAtLeast(.15).toFloat() else 0f
+        music.setEffectsActive(options.sound && thrust > 0f)
+        sounds.updateEngine(engineCraft?.kind == com.xekep.space.sim.BodyKind.Rocket,thrust)
+    }
     val motionEnabled = game.motionSteeringEnabled && tilt.available && options.flightControl == com.xekep.space.input.FlightControlMode.Tilt
     SideEffect { tilt.setEnabled(motionEnabled && controlledId != null && controlsActive) }
     LaunchedEffect(controlledId, game.mode) { tilt.recalibrate() }
     LaunchedEffect(options.flightControl,game) {
-        game.setSteeringInput(com.xekep.space.sim.Vec2.Zero)
+        game.clearFlightInput()
         if (options.flightControl == com.xekep.space.input.FlightControlMode.Tilt && !tilt.available)
             game.setMotionControlEnabled(false)
     }
@@ -284,7 +292,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 game.mode == AppMode.Sandbox && bodies.size >= 160 && !game.menuOpen && !game.sandboxOverlayOpen &&
                     game.sandbox?.paused == false && game.orbitSourceId == null && game.touchPreview == null)
             val tracked=game.cameraTarget
-            val renderCamera=if (tracked != null) camera.copy(center=interpolation.position(tracked)) else camera
+            val renderCamera=if (tracked != null) camera.copy(center=if (tracked.id == controlledId && !game.following) camera.center+interpolation.position(tracked)-tracked.position else interpolation.position(tracked)) else camera
             rotate((game.cameraRotation*180/PI).toFloat()) {
             stars.forEach {
                 // A little parallax makes camera travel visible even far from a planet.

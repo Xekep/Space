@@ -15,7 +15,7 @@ import kotlin.random.Random
 
 class GalaxyUiTest {
     @get:Rule val compose=createComposeRule()
-    @Test fun variedGalaxiesStayReadableAndTheActualToolsAndPinchWork() {
+    @Test fun variedGalaxiesStayReadableAndMenuPresetsAndPinchWork() {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
         compose.mainClock.autoAdvance=false
@@ -27,10 +27,16 @@ class GalaxyUiTest {
         for (seed in listOf(7,17,53)) {
             if (seed != 7) { compose.runOnIdle { shown.value=scene(seed) }; compose.mainClock.advanceTimeBy(48) }
             val game=shown.value
-            compose.onNodeWithTag("sandbox-tools").performClick()
+            compose.onNodeWithTag("open-menu").performClick()
             compose.mainClock.advanceTimeByFrame()
             val started=System.nanoTime()
-            compose.onNodeWithTag("generate-random-systems").performScrollTo().performClick()
+            compose.onNodeWithTag("preset-RandomSystems").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("new-session").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("confirm-action").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            compose.runOnIdle { game.toggleSandboxPause() }
             val generateMs=(System.nanoTime()-started)/1e6
             compose.mainClock.advanceTimeByFrame()
             compose.mainClock.advanceTimeBy(48)

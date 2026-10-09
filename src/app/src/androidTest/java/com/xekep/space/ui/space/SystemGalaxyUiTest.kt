@@ -24,7 +24,7 @@ class SystemGalaxyUiTest {
         }
     }
 
-    @Test fun bothMenuPresetsAndToolsGenerateHierarchyThatCanBeSavedAndUndone() {
+    @Test fun menuPresetsGenerateHierarchyAndToolsOmitGenerationButtons() {
         val game=SpaceGameState(random=Random(17)).apply { startSandbox(SandboxPresetKind.BinaryStars); toggleSandboxPause(); openMenu() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithTag("preset-RandomSystems").assertIsDisplayed()
@@ -45,8 +45,11 @@ class SystemGalaxyUiTest {
             game.startSandbox(SandboxPresetKind.BinaryStars); game.toggleSandboxPause()
         }
         compose.onNodeWithTag("sandbox-tools").performClick()
-        compose.onNodeWithTag("generate-random-systems").assertExists()
-        compose.onNodeWithTag("generate-system-galaxy").performScrollTo().performClick()
+        compose.onNodeWithTag("generate-random-systems").assertDoesNotExist()
+        compose.onNodeWithTag("generate-system-galaxy").assertDoesNotExist()
+        // The reversible generation API still supports older callers; no duplicate tools UI.
+        compose.runOnIdle { game.generateRandomSystems("fixture",resolved=true) }
+        compose.onNodeWithTag("close-sandbox-panel").performClick()
         compose.runOnIdle { assertEquals(1000,game.bodies.size); assertTrue(game.sandbox!!.paused) }
         compose.onNodeWithTag("sandbox-tools").performClick()
         compose.onNodeWithTag("sandbox-undo").performScrollTo().performClick()

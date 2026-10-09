@@ -14,20 +14,25 @@ internal class ArcadeTargeting(scene: List<CelestialBody>) {
     private val sources = scene.filter { !it.isVehicle && it.kind != BodyKind.Convoy }
     private val sourceAcceleration = sources.associate { source -> source.id to
         if (source.kind == BodyKind.Core) Vec2.Zero else gravity(source.position, source, 0.0, forecast = false) }
+    private val planets = sources.filter { it.kind == BodyKind.ArcadePlanet }
     private val tracks = mutableMapOf<Long, List<Vec2>>()
 
     private fun sourcePosition(body: CelestialBody, time: Double): Vec2 = if (body.kind == BodyKind.Core) body.position else
         body.position + body.velocity * time + (sourceAcceleration[body.id] ?: Vec2.Zero) * (.5 * time * time)
 
     private fun gravity(point: Vec2, target: CelestialBody, time: Double, forecast: Boolean = true): Vec2 {
-        var acceleration = Vec2.Zero
+        var ax=0.0; var ay=0.0
         for (source in sources) if (source.id != target.id) {
-            val delta = (if (forecast) sourcePosition(source, time) else source.position) - point
-            val soft = forceSoftening(target, source)
-            val square = delta.x * delta.x + delta.y * delta.y + soft * soft
-            acceleration += delta * (SimulationEngine.gravitationalConstant * source.gravityMass / (square * sqrt(square)))
+            val moving=forecast && source.kind != BodyKind.Core
+            val pull=if (moving) sourceAcceleration[source.id] ?: Vec2.Zero else Vec2.Zero
+            val dx=source.position.x+(if (moving) source.velocity.x*time+pull.x*(.5*time*time) else 0.0)-point.x
+            val dy=source.position.y+(if (moving) source.velocity.y*time+pull.y*(.5*time*time) else 0.0)-point.y
+            val soft=forceSoftening(target,source)
+            val square=dx*dx+dy*dy+soft*soft
+            val factor=SimulationEngine.gravitationalConstant*source.gravityMass/(square*sqrt(square))
+            ax+=dx*factor; ay+=dy*factor
         }
-        return acceleration
+        return Vec2(ax,ay)
     }
 
     private fun track(target: CelestialBody): List<Vec2> = tracks.getOrPut(target.id) {
@@ -81,7 +86,7 @@ internal class ArcadeTargeting(scene: List<CelestialBody>) {
         val velocity = direction * speed + inherited
         val solution = GunSolution(direction, velocity, origin, high, ship.flightHeight+verticalDirection*muzzle,verticalDirection*speed+ship.verticalVelocity*.25)
         // Predict the moving obstacle too; a visible target can still be hidden behind the planet.
-        for (planet in sources.filter { it.kind == BodyKind.ArcadePlanet }) {
+        for (planet in planets) {
             val count = ceil(high / step).toInt().coerceAtLeast(1)
             for (index in 0 until count) {
                 val start = high * index / count; val end = high * (index + 1) / count

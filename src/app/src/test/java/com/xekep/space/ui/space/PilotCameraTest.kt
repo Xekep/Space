@@ -8,7 +8,7 @@ import org.junit.Test
 import kotlin.math.*
 
 class PilotCameraTest {
-    @Test fun maximumZoomKeepsTurningAndAcceleratingVehiclesExactlyAtScreenCenter() {
+    @Test fun maximumZoomKeepsTurningAndAcceleratingVehiclesInsideThePilotRegion() {
         for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
             val game=SpaceGameState().apply {
                 resize(IntSize(1080,1920))
@@ -24,7 +24,7 @@ class PilotCameraTest {
                 game.update(1.0/60)
                 val body=game.bodies.first { it.id == id }
                 val position=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
-                assertEquals(540f,position.x,.001f); assertEquals(960f,position.y,.001f)
+                assertTrue(kotlin.math.hypot((position.x-540f).toDouble(),(position.y-960f).toDouble()) <= 1080*.18+.01)
             }
         }
     }
@@ -49,7 +49,7 @@ class PilotCameraTest {
                 repeat(90) { game.update(1.0/60) }
                 assertNotEquals(center,game.camera.center)
                 val body=game.bodies.first { it.id == id }
-                assertEquals(body.position,game.camera.center)
+                assertTrue((body.position-game.camera.center).magnitude()*game.camera.zoom <= 1080*.18+.01)
                 val heading=rotateVector(body.heading,game.cameraRotation)
                 assertEquals(0.0,heading.x,.01); assertTrue(heading.y < -.99)
                 game.chooseSpawnKind(BodyKind.Ambient)
@@ -57,6 +57,29 @@ class PilotCameraTest {
                 game.launch(TouchPreview(point,point,0),0.0)
                 assertEquals(id,game.controlledVehicleId)
             }
+        }
+    }
+    @Test fun softCameraShowsMovementConvergesAndBoundsAbruptZoomChanges() {
+        val viewport=IntSize(1080,1920); val target=Vec2(100.0,40.0)
+        var center=pilotCameraCenter(Vec2.Zero,target,1f,viewport)
+        assertTrue(center != target && center != Vec2.Zero)
+        val first=(target-center).magnitude()
+        repeat(120) { center=pilotCameraCenter(center,target,1f,viewport) }
+        assertTrue((target-center).magnitude() < first*.001)
+        val close=pilotCameraCenter(Vec2.Zero,Vec2(10000.0,10000.0),6f,viewport)
+        assertEquals(1080*.18,(Vec2(10000.0,10000.0)-close).magnitude()*6,1e-8)
+    }
+    @Test fun pilotAttitudeIsVisibleAtSolarAndArcadeZoomAndReleaseSettlesWithoutSnapping() {
+        val viewport=IntSize(1080,1920); val point=Vec2(500.0,600.0)
+        for (zoom in listOf(.001f,1f,6f)) {
+            val offset=Vec2(80.0,-60.0)/zoom.toDouble()
+            var center=point
+            repeat(120) { center=pilotCameraCenter(center,point,zoom,viewport,offset) }
+            val onScreen=(point-center)*zoom.toDouble()
+            assertEquals(80.0,onScreen.x,.01); assertEquals(-60.0,onScreen.y,.01)
+            val first=pilotCameraCenter(center,point,zoom,viewport)
+            assertTrue((point-first).magnitude() < (point-center).magnitude())
+            assertNotEquals(point,first)
         }
     }
     private fun pilot(): SpaceGameState = SpaceGameState().apply {

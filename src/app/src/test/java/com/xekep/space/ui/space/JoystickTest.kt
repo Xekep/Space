@@ -2,6 +2,7 @@ package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
 import com.xekep.space.sim.Vec2
+import com.xekep.space.sim.flightVisualScale
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -20,4 +21,30 @@ class JoystickTest {
         assertEquals(Vec2.Zero,joystickDirection(Offset(1f,1f),0f))
         assertEquals(Vec2.Zero,joystickDirection(Offset(1f,1f),Float.POSITIVE_INFINITY))
     }
+    @Test fun pullBackClimbsPushForwardDivesAndYawReleaseDoesNotCancelPitch() {
+        for (kind in listOf(com.xekep.space.sim.BodyKind.Ship,com.xekep.space.sim.BodyKind.Rocket)) for (axis in listOf(-1.0,1.0)) {
+            val game=SpaceGameState().apply {
+                startSandbox(com.xekep.space.sim.SandboxPresetKind.Empty); setMotionControlEnabled(true); chooseSpawnKind(kind)
+                launch(TouchPreview(Vec2.Zero,Vec2.Zero,0),0.0); setPilotTargetSpeed(220.0)
+                setAttitudeJoystickInput(Vec2(0.0,axis)); setJoystickInput(Vec2(.5,0.0)); setJoystickInput(Vec2.Zero)
+            }
+            repeat(90) { game.update(1.0/60) }
+            val craft=game.bodies.single()
+            assertTrue(craft.pitch*axis > 1.0); assertTrue(craft.flightHeight*axis > 100)
+            assertTrue(if (axis > 0) craft.flightVisualScale() > 1f else craft.flightVisualScale() < 1f)
+            assertEquals(220.0,craft.pilotTargetSpeed!!,0.0)
+            val pitch=craft.pitch
+            game.setAttitudeJoystickInput(Vec2.Zero); repeat(90) { game.update(1.0/60) }
+            assertEquals(pitch,game.bodies.single().pitch,1e-8)
+            game.setMotionControlEnabled(false); repeat(90) { game.update(1.0/60) }
+            assertTrue((game.bodies.single().pitch-pitch)*axis < 0)
+        }
+    }
+    @Test fun fpvThrottleIsAbsoluteAndDoesNotLoseRangeWhenYawing() {
+        assertEquals(1.0,joystickThrottle(-38f,38f),0.0)
+        assertEquals(.5,joystickThrottle(0f,38f),0.0)
+        assertEquals(0.0,joystickThrottle(38f,38f),0.0)
+        assertEquals(0.0,joystickThrottle(Float.NaN,38f),0.0)
+    }
+
 }

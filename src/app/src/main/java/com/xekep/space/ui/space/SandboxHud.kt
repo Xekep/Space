@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.xekep.space.R
 import com.xekep.space.sim.nextSandboxTimeScale
-import com.xekep.space.sim.sandboxTimeScales
+import com.xekep.space.sim.sandboxTimeScalesFor
 import com.xekep.space.sim.simulationSpeedLabel
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
@@ -125,7 +125,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     HudButton(if (scene.paused) "play" else "pause", context.getString(if (scene.paused) R.string.play else R.string.pause),
                         "sandbox-pause", game::toggleSandboxPause)
-                    TextButton(onClick={ game.setTimeScale(nextSandboxTimeScale(scene.timeScale)) },
+                    TextButton(onClick={ game.setTimeScale(nextSandboxTimeScale(scene.timeScale,scene.preset)) },
                         modifier=Modifier.testTag("sandbox-time-speed").semantics { contentDescription=context.getString(R.string.time_speed) },
                         contentPadding=PaddingValues(horizontal=4.dp)) {
                         Text(simulationSpeedLabel(scene.timeScale),style=MaterialTheme.typography.labelSmall)
@@ -155,13 +155,12 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                 }
                 when (panel) {
                     SandboxPanel.Tools -> {
-                        Text(context.getString(R.string.time_speed), style = MaterialTheme.typography.titleSmall)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            sandboxTimeScales.forEach { speed ->
-                                FilterChip(selected = scene.timeScale == speed, onClick = { game.setTimeScale(speed) },
-                                    label = { Text(simulationSpeedLabel(speed)) }, modifier = Modifier.testTag("speed-$speed"))
-                            }
-                        }
+                        val speeds=sandboxTimeScalesFor(scene.preset)
+                        Text("${context.getString(R.string.time_speed)} · ${simulationSpeedLabel(scene.timeScale)}",style=MaterialTheme.typography.bodySmall)
+                        SpaceSlider(speeds.indexOf(scene.timeScale).coerceAtLeast(0).toFloat(),
+                            { game.setTimeScale(speeds[it.roundToInt().coerceIn(speeds.indices)]) },
+                            valueRange=0f..speeds.lastIndex.toFloat(),steps=speeds.size-2,
+                            modifier=Modifier.testTag("sandbox-speed-slider").semantics { contentDescription=context.getString(R.string.time_speed) })
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(context.getString(R.string.merge_impact), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
                             SpaceSwitch(scene.collisionsEnabled, game::setCollisions, Modifier.testTag("sandbox-collisions"))
@@ -186,16 +185,6 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                             modifier=Modifier.testTag("shake-intensity").semantics { contentDescription=context.getString(R.string.shake_intensity_label) })
                         if (!shakeAvailable) Text(context.getString(R.string.shake_unavailable), style = MaterialTheme.typography.bodySmall)
                         SandboxTools(game)
-                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-                            OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.random_systems_name)); panel=null },
-                                modifier=Modifier.weight(1f).testTag("generate-random-systems")) {
-                                Text(context.getString(R.string.random_systems_short),maxLines=2,textAlign=TextAlign.Center)
-                            }
-                            OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.system_galaxy_name),resolved=true); panel=null },
-                                modifier=Modifier.weight(1f).testTag("generate-system-galaxy")) {
-                                Text(context.getString(R.string.system_galaxy_short),maxLines=2,textAlign=TextAlign.Center)
-                            }
-                        }
                         Text(context.getString(R.string.body_count, game.bodies.size) + " · " + context.getString(R.string.zoom) + " " +
                             String.format(java.util.Locale.ROOT, "%.2fx", game.camera.zoom), style = MaterialTheme.typography.labelMedium)
                         if (game.bodies.size >= 30 && scene.timeScale > 1) Text(context.getString(R.string.large_system), style = MaterialTheme.typography.bodySmall)

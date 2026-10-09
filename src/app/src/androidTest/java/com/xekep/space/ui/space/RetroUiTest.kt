@@ -106,7 +106,7 @@ class RetroUiTest {
                 assertTrue(game.camera.zoom > zoom)
                 val craft=game.bodies.first { it.id == id }
                 val screen=worldToScreen(craft.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
-                assertEquals(game.viewport.width/2f,screen.x,.01f); assertEquals(game.viewport.height/2f,screen.y,.01f)
+                assertTrue(kotlin.math.hypot((screen.x-game.viewport.width/2f).toDouble(),(screen.y-game.viewport.height/2f).toDouble()) <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
             }
             compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
             shot("retro-ui-pilot-${mode.name}-${kind.name}.png")

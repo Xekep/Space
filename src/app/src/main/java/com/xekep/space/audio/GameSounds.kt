@@ -28,6 +28,9 @@ class GameSounds : AutoCloseable {
             Voice(track,pcm.size)
         } catch (error: Exception) { track.release(); throw error }
     }.getOrNull() }
+    private val engine=EngineSound()
+    private var focusAvailable=true
+    internal val isEnginePlaying get()=engine.isPlaying
     private var foreground = false
     private var closed = false
     var enabled = true
@@ -46,6 +49,17 @@ class GameSounds : AutoCloseable {
     private fun stop() {
         normal?.stopTone()
         voices.forEach { it?.track?.stop() }
+        engine.silence()
+    }
+
+    fun setAudioFocusAvailable(value: Boolean) {
+        focusAvailable=value
+        if (!value && !closed) engine.silence()
+    }
+    fun updateEngine(rocket: Boolean, thrust: Float) {
+        if (closed) return
+        if (!enabled || !foreground || !focusAvailable) { engine.silence(); return }
+        engine.update(rocket,thrust,retro)
     }
 
     fun play(hit: Boolean) {
@@ -68,6 +82,7 @@ class GameSounds : AutoCloseable {
         if (closed) return
         setForeground(false)
         closed = true
+        engine.close()
         normal?.release()
         voices.forEach { it?.track?.release() }
     }

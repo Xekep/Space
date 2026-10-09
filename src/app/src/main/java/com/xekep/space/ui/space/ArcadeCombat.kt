@@ -169,19 +169,24 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
     for (shot in combat.projectiles) {
         val travel = shot.velocity * dt
         // Earliest hit, not list order: one projectile cannot damage several enemies.
-        val hit = targets.withIndex().filter { it.value.kind == BodyKind.Meteor || it.value.kind == BodyKind.ArcadePlanet }.mapNotNull { (index, body) ->
-            val before = body.position - body.velocity * dt
-            firstSphereContact(shot.position - before, shot.position + travel - body.position,shot.height,shot.height+shot.verticalVelocity*dt,body.radius + 3.0)?.let { index to it }
-        }.minByOrNull { it.second }
-        if (hit != null) {
-            val meteor = targets[hit.first]
+        var hitIndex=-1; var hitTime=Double.POSITIVE_INFINITY
+        for (index in targets.indices) {
+            val body=targets[index]
+            if (body.kind != BodyKind.Meteor && body.kind != BodyKind.ArcadePlanet) continue
+            val before=body.position-body.velocity*dt
+            val contact=firstSphereContact(shot.position-before,shot.position+travel-body.position,
+                shot.height,shot.height+shot.verticalVelocity*dt,body.radius+3.0) ?: continue
+            if (contact < hitTime) { hitIndex=index; hitTime=contact }
+        }
+        if (hitIndex >= 0) {
+            val meteor = targets[hitIndex]
             if (meteor.kind == BodyKind.ArcadePlanet) continue
             val mass = meteor.mass - shot.damage
             if (mass < 45.0) {
-                targets.removeAt(hit.first)
+                targets.removeAt(hitIndex)
                 events += CollisionEvent(BodyKind.Meteor, BodyKind.Ship, meteor.position, meteor.id, shot.ownerId,
                     vehicleExplosion = true, seed = meteor.id.toInt())
-            } else targets[hit.first] = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), color = Color(0xFFFFB76B))
+            } else targets[hitIndex] = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), color = Color(0xFFFFB76B))
         } else if (shot.remaining > dt) shots += shot.copy(position = shot.position + travel, height=shot.height+shot.verticalVelocity*dt,remaining = shot.remaining - dt)
     }
     val liveIds = targets.filter { it.isVehicle }.map { it.id }.toSet()

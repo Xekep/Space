@@ -63,4 +63,33 @@ class FlightDepthTest {
         assertEquals(300.0,body.flightSpeed(),1.0)
     }
 
+    @Test fun fpvRatesKeepAttitudeAndBanksManoeuvreInHullCoordinatesForBothCraft() {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (bank in listOf(-1.0,1.0)) {
+            var body=craft(kind)
+            val input=ManualFlightControl(1,0.0,pitch=.25,roll=bank,attitudeRates=true)
+            repeat(30) { body=steerManually(listOf(body),input,1.0/60).single() }
+            assertEquals(.225*body.vehicleTurnScale,body.pitch,1e-8)
+            assertEquals(bank*1.2*body.vehicleTurnScale,body.roll,1e-8)
+            assertEquals(Vec2(1.0,0.0),body.heading)
+            assertTrue(body.velocity.y*bank > 40)
+            val neutral=steerManually(listOf(body),input.copy(pitch=0.0,roll=0.0),.1).single()
+            assertEquals(body.pitch,neutral.pitch,0.0); assertEquals(body.roll,neutral.roll,0.0)
+            val yaw=steerManually(listOf(neutral),input.copy(steering=.5,pitch=0.0,roll=0.0),.1).single()
+            assertNotEquals(neutral.heading,yaw.heading); assertEquals(neutral.roll,yaw.roll,0.0)
+            for (unpowered in listOf(body.copy(pilotTargetSpeed=0.0),body.copy(fuelRemaining=0.0))) {
+                val drift=steerManually(listOf(unpowered),input.copy(steering=1.0),.2).single()
+                assertEquals(unpowered.velocity,drift.velocity); assertEquals(unpowered.pitch,drift.pitch,0.0)
+                assertEquals(unpowered.roll,drift.roll,0.0); assertEquals(unpowered.heading,drift.heading)
+            }
+            val auto=applyFlightControls(listOf(body),null,.1).single()
+            assertTrue(kotlin.math.abs(auto.roll) < kotlin.math.abs(body.roll))
+        }
+    }
+    @Test fun invalidFpvAxisCannotPoisonTheSimulationAndAttitudeIsBounded() {
+        val body=craft()
+        assertEquals(listOf(body),steerManually(listOf(body),ManualFlightControl(1,0.0,roll=Double.NaN),.1))
+        val max=steerManually(listOf(body),ManualFlightControl(1,0.0,pitch=1.0,roll=1.0,attitudeRates=true),10.0).single()
+        assertEquals(MAX_FLIGHT_PITCH,max.pitch,0.0); assertEquals(MAX_FLIGHT_ROLL,max.roll,0.0)
+    }
+
 }

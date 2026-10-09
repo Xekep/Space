@@ -87,6 +87,7 @@ data class CelestialBody(
     val flightHeight: Double = 0.0,
     val verticalVelocity: Double = 0.0,
     val pitch: Double = 0.0, // Radians; positive climbs toward the viewer.
+    val roll: Double = 0.0, // Radians; positive banks to the craft's right.
 )
 
 data class CollisionEvent(

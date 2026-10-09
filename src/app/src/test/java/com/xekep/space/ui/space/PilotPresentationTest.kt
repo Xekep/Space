@@ -52,4 +52,14 @@ class PilotPresentationTest {
         assertEquals(body.id,game.bodyAt(body.position+Vec2(extent*1.2/game.camera.zoom,0.0))!!.id)
     }
 
+    @Test fun signedBankTiltsAndForeshortensOppositeSidesWithoutChangingPhysicsRadius() {
+        val point=Offset(15f,0f)
+        val right=vehiclePitchMatrix(.3,20f,.8).map(point)
+        val left=vehiclePitchMatrix(.3,20f,-.8).map(point)
+        assertTrue(right.x < point.x); assertNotEquals(right.x,left.x)
+        val nose=Offset(0f,-20f)
+        assertTrue(vehiclePitchMatrix(0.0,20f,.8).map(nose).x < 0)
+        assertTrue(vehiclePitchMatrix(0.0,20f,-.8).map(nose).x > 0)
+    }
+
 }

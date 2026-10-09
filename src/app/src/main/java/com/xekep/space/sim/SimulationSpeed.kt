@@ -1,8 +1,12 @@
 package com.xekep.space.sim
 
-/** Ordinary play first, then close-up orbital inspection, then accelerated time. */
-val sandboxTimeScales = listOf(1.0, .25, .01, .001, .0001, 3.0, 6.0)
-fun nextSandboxTimeScale(current: Double): Double = sandboxTimeScales[(sandboxTimeScales.indexOf(current)+1)%sandboxTimeScales.size]
+/** Indexed discrete steps, in increasing order for both the cycle button and slider. */
+val sandboxTimeScales = listOf(.0001, .001, .01, .25, 1.0, 3.0, 6.0)
+fun sandboxTimeScalesFor(preset: SandboxPresetKind) = if (preset == SandboxPresetKind.SolarSystem) sandboxTimeScales else sandboxTimeScales.filter { it >= .25 }
+fun nextSandboxTimeScale(current: Double, preset: SandboxPresetKind = SandboxPresetKind.SolarSystem): Double {
+    val speeds=sandboxTimeScalesFor(preset)
+    return speeds[(speeds.indexOf(current)+1)%speeds.size]
+}
 fun simulationSpeedLabel(speed: Double): String = when (speed) {
     .25 -> "¼×"
     .01 -> "0.01×"

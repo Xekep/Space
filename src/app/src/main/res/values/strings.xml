@@ -240,7 +240,7 @@
     <string name="control_tilt">Tilt</string>
     <string name="control_joystick">Joystick</string>
     <string name="tilt_sensitivity">Tilt sensitivity</string>
-    <string name="virtual_joystick">Steering and pitch joystick</string>
+    <string name="virtual_joystick">Thrust and yaw joystick</string>
     <string name="system_galaxy_name">System galaxy</string>
     <string name="system_galaxy_short">Galaxy · 1000</string>
     <string name="system_galaxy_description">A rotating galaxy of 1000 bodies: stars with planets and moons, spiral arms and varied clusters.</string>
@@ -249,6 +249,6 @@
     <string name="retro_console">Retro console</string>
     <string name="artificial_satellite">Artificial satellite</string>
     <string name="ring_grain">Ring particle</string>
-    <string name="thrust_joystick">Thrust joystick</string>
+    <string name="pitch_joystick">Pitch and roll joystick</string>
     <string name="leave_pilot">Leave piloting</string>
 </resources>

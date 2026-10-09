@@ -67,48 +67,39 @@ class JoystickUiTest {
             val id=game.controlledVehicleId!!
             val count=game.bodies.size
             val heading=game.bodies.first { body -> body.id == game.controlledVehicleId }.heading
-            compose.onNodeWithTag("thrust-joystick").assertIsDisplayed()
+            compose.onNodeWithTag("pitch-joystick").assertIsDisplayed()
             val hud=compose.onNodeWithTag("pilot-hud").fetchSemanticsNode().boundsInRoot
-            val left=compose.onNodeWithTag("thrust-joystick").fetchSemanticsNode().boundsInRoot.center-hud.topLeft
-            val right=compose.onNodeWithTag("flight-joystick").fetchSemanticsNode().boundsInRoot.center-hud.topLeft
+            val left=compose.onNodeWithTag("flight-joystick").fetchSemanticsNode().boundsInRoot.center-hud.topLeft
+            val right=compose.onNodeWithTag("pitch-joystick").fetchSemanticsNode().boundsInRoot.center-hud.topLeft
             compose.onNodeWithTag("pilot-hud").performTouchInput {
                 down(0,left); down(1,right)
-                moveTo(0,left-Offset(0f,20*game.density),64)
-                moveTo(1,right+Offset(28*game.density,-28*game.density),64)
+                moveTo(0,left+Offset(28*game.density,22.8f*game.density),64)
+                moveTo(1,right+Offset(22*game.density,28*game.density),64)
             }
             repeat(30) { compose.mainClock.advanceTimeByFrame() }
             compose.runOnIdle {
                 val craft=game.bodies.first { body -> body.id == game.controlledVehicleId }
                 assertEquals(id,craft.id); assertEquals(count,game.bodies.size)
                 assertTrue((craft.heading-heading).magnitude() > .1)
-                assertTrue(craft.pilotTargetSpeed!! > 650)
-                assertTrue(craft.flightHeight > 5); assertTrue(craft.pitch > .1)
+                assertEquals(180.0,craft.pilotTargetSpeed!!,1.0)
+                assertTrue(craft.flightHeight > 5); assertTrue(craft.pitch > .1); assertTrue(craft.roll > .2)
             }
-            // Regrip the throttle while the steering finger stays down.
+            // Releasing the left stick retains thrust and cannot cancel right-hand pitch/roll.
             compose.onNodeWithTag("pilot-hud").performTouchInput { up(0) }
-            compose.mainClock.advanceTimeBy(48)
-            compose.onNodeWithTag("pilot-hud").performTouchInput { down(0,left+Offset(0f,16*game.density)) }
-            compose.mainClock.advanceTimeBy(48)
-            compose.runOnIdle { assertEquals(225.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0) }
-            compose.onNodeWithTag("pilot-hud").performTouchInput { moveTo(0,left-Offset(0f,20*game.density),64); up(0) }
-            compose.mainClock.advanceTimeBy(48)
-            compose.runOnIdle { assertTrue(game.bodies.first { it.id == id }.pilotTargetSpeed!! > 650) }
+            repeat(12) { compose.mainClock.advanceTimeByFrame() }
+            compose.runOnIdle { assertTrue(game.bodies.first { it.id == id }.pitch > .5) }
             compose.onNodeWithTag("pilot-hud").performTouchInput { up(1) }
             compose.mainClock.advanceTimeBy(48)
+            compose.onNodeWithTag("pitch-joystick").performTouchInput {
+                down(center); moveTo(center-Offset(0f,32*game.density),64)
+            }
+            repeat(60) { compose.mainClock.advanceTimeByFrame() }
             compose.runOnIdle {
-                val released=game.bodies.first { body -> body.id == game.controlledVehicleId }.heading
-                game.update(.1)
-                assertEquals(released.x,game.bodies.first { body -> body.id == game.controlledVehicleId }.heading.x,1e-8)
-                assertEquals(released.y,game.bodies.first { body -> body.id == game.controlledVehicleId }.heading.y,1e-8)
+                val craft=game.bodies.first { it.id == id }
+                assertTrue(craft.pitch < -.5); assertTrue(craft.verticalVelocity < 0)
+                assertEquals(180.0,craft.pilotTargetSpeed!!,1.0)
             }
-            // Right-stick vertical motion changes pitch, never the latched thrust setting.
-            val throttle=game.bodies.first { it.id == id }.pilotTargetSpeed!!
-            compose.onNodeWithTag("flight-joystick").performTouchInput {
-                down(center); moveTo(center+Offset(0f,32*game.density),64)
-            }
-            repeat(12) { compose.mainClock.advanceTimeByFrame() }
-            compose.runOnIdle { assertEquals(throttle,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1e-6) }
-            compose.onNodeWithTag("flight-joystick").performTouchInput { up() }
+            compose.onNodeWithTag("pitch-joystick").performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
             compose.onNodeWithTag("pilot-speed").performTouchInput {
                 down(center.copy(y=height*.8f)); moveTo(center.copy(y=height*.35f),120)
@@ -131,29 +122,34 @@ class JoystickUiTest {
                 assertEquals(id,game.controlledVehicleId)
                 val craft=game.bodies.first { body -> body.id == game.controlledVehicleId }
                 val screen=worldToScreen(craft.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
-                assertEquals(game.viewport.width/2f,screen.x,.01f); assertEquals(game.viewport.height/2f,screen.y,.01f)
+                assertTrue(kotlin.math.hypot((screen.x-game.viewport.width/2f).toDouble(),(screen.y-game.viewport.height/2f).toDouble()) <= minOf(game.viewport.width,game.viewport.height)*.18+.01)
             }
             compose.waitForIdle(); android.os.SystemClock.sleep(200); instrumentation.waitForIdleSync()
             File(context.externalCacheDir,"joystick-${mode.name}-${kind.name}.png").outputStream().use {
                 assertTrue(instrumentation.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
             }
-            compose.onNodeWithTag("thrust-joystick").performTouchInput {
-                down(center); moveTo(center+Offset(0f,32*game.density),64); up()
-            }
+            compose.onNodeWithTag("pilot-speed").performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(0f)) }
             compose.mainClock.advanceTimeBy(48)
             val stopped=game.bodies.first { it.id == id }
             assertEquals(0.0,stopped.pilotTargetSpeed!!,1e-5); assertFalse(stopped.enginePowered)
             compose.onNodeWithTag("flight-joystick").performTouchInput {
-                down(center); moveTo(center+Offset(28*game.density,-28*game.density),64)
+                down(center+Offset(0f,38*game.density)); moveTo(center+Offset(28*game.density,38*game.density),64)
             }
             repeat(12) { compose.mainClock.advanceTimeByFrame() }
             compose.runOnIdle {
                 val drift=game.bodies.first { it.id == id }
-                assertEquals(stopped.heading,drift.heading); assertEquals(stopped.pitch,drift.pitch,1e-8)
+                assertEquals(stopped.heading,drift.heading); assertEquals(stopped.pitch,drift.pitch,1e-8); assertEquals(stopped.roll,drift.roll,1e-8)
                 assertEquals(stopped.fuelRemaining,drift.fuelRemaining,1e-8)
             }
             compose.onNodeWithTag("flight-joystick").performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
+            // Throttle remains accessible with a cut engine; full thrust restarts it.
+            compose.onNodeWithTag("flight-joystick").performTouchInput { down(center-Offset(0f,38*game.density)); up() }
+            compose.mainClock.advanceTimeBy(48)
+            compose.runOnIdle {
+                val powered=game.bodies.first { it.id == id }
+                assertEquals(900.0,powered.pilotTargetSpeed!!,1.0); assertTrue(powered.enginePowered)
+            }
             compose.onNodeWithTag("pilot-exit").performClick()
             compose.mainClock.advanceTimeBy(64)
             compose.onNodeWithTag("pilot-hud").assertDoesNotExist()

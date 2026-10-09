@@ -328,16 +328,18 @@ class SandboxStorageTest {
         val storage=SandboxStorage(context)
         val body=com.xekep.space.sim.CelestialBody(90001,com.xekep.space.sim.Vec2.Zero,com.xekep.space.sim.Vec2.Zero,
             24.0,5f,androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,
-            flightHeight=-150.0,verticalVelocity=-30.0,pitch=-.5,physicalScale=true,pilotTargetSpeed=4000.0)
+            flightHeight=-150.0,verticalVelocity=-30.0,pitch=-.5,roll=.6,physicalScale=true,pilotTargetSpeed=4000.0)
         val snapshot=SandboxSnapshot(listOf(body),com.xekep.space.sim.Vec2.Zero,1f,0.0,0L)
         val loaded=storage.decode(storage.encode(snapshot)).bodies.single()
         org.junit.Assert.assertEquals(-150.0,loaded.flightHeight,0.0)
         org.junit.Assert.assertEquals(-30.0,loaded.verticalVelocity,0.0)
         org.junit.Assert.assertEquals(-.5,loaded.pitch,0.0)
+        org.junit.Assert.assertEquals(.6,loaded.roll,0.0)
         org.junit.Assert.assertEquals(4000.0,loaded.pilotTargetSpeed!!,0.0)
         val legacy=org.json.JSONObject(storage.encode(snapshot))
-        legacy.getJSONArray("bodies").getJSONObject(0).apply { remove("flightHeight"); remove("verticalVelocity"); remove("pitch") }
+        legacy.getJSONArray("bodies").getJSONObject(0).apply { remove("flightHeight"); remove("verticalVelocity"); remove("pitch"); remove("roll") }
         org.junit.Assert.assertEquals(0.0,storage.decode(legacy.toString()).bodies.single().flightHeight,0.0)
+        org.junit.Assert.assertEquals(0.0,storage.decode(legacy.toString()).bodies.single().roll,0.0)
     }
 
 }
