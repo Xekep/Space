@@ -48,7 +48,7 @@ class FollowingZoomUiTest {
         val point=worldToScreen(earth.position+Vec2(.35,0.0),game.viewport,game.camera.center,game.camera.zoom)
         compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
         compose.mainClock.advanceTimeByFrame()
-        compose.runOnIdle { assertEquals(18,game.bodies.size); assertEquals(id,game.selectedBodyId) }
+        compose.runOnIdle { assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size); assertEquals(id,game.selectedBodyId) }
         pinch()
         compose.runOnIdle {
             game.toggleSandboxPause()

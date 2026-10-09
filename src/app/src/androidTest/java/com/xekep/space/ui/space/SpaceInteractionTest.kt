@@ -142,7 +142,7 @@ class SpaceInteractionTest {
         compose.onNodeWithTag("preset-SolarSystem").performScrollTo().performClick()
         compose.onNodeWithTag("menu-primary").performClick()
         compose.onNodeWithTag("sandbox-pause").performClick()
-        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarBody.entries.size, game.bodies.size); assertTrue(game.sandbox!!.paused) }
+        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarSystem.BODY_COUNT, game.bodies.size); assertTrue(game.sandbox!!.paused) }
         compose.onNodeWithTag("space-scene").performTouchInput { click(center) }
         val sandbox = game.sandbox!!
         compose.onNodeWithTag("open-menu").performClick()
@@ -164,6 +164,6 @@ class SpaceInteractionTest {
         compose.runOnIdle { assertEquals(before, game.sandbox) }
         compose.onNodeWithTag("new-session").performClick()
         compose.onNodeWithTag("confirm-action").performClick()
-        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarBody.entries.size, game.bodies.size); assertEquals(SandboxPresetKind.SolarSystem, game.sandbox!!.preset) }
+        compose.runOnIdle { assertEquals(com.xekep.space.sim.SolarSystem.BODY_COUNT, game.bodies.size); assertEquals(SandboxPresetKind.SolarSystem, game.sandbox!!.preset) }
     }
 }

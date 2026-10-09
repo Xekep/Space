@@ -95,6 +95,8 @@ class SandboxStorage(context: Context) {
                     .put("kind", body.kind.name)
                     .put("solar", body.solar?.name ?: "")
                     .put("physicalScale", body.physicalScale)
+                    .put("solarOrbitScale", body.solarOrbitScale)
+                    .put("orbitalDetail", body.orbitalDetail?.name ?: "")
                     .put("isDebris",body.isDebris)
                     .put("galaxyParticle",body.galaxyParticle)
                     .put("galaxySystemId",body.galaxySystemId)
@@ -103,6 +105,9 @@ class SandboxStorage(context: Context) {
                     .put("fuelConsumptionScale",body.fuelConsumptionScale)
                     .put("pilotTargetSpeed",body.pilotTargetSpeed)
                     .put("burnRemaining", body.burnRemaining)
+                    .put("flightHeight",body.flightHeight)
+                    .put("verticalVelocity",body.verticalVelocity)
+                    .put("pitch",body.pitch)
                     .put("headingX", body.heading.x)
                     .put("headingY", body.heading.y)
                     .put("routeSpeed", body.routeSpeed)
@@ -140,6 +145,11 @@ class SandboxStorage(context: Context) {
                     require(it in 1..Long.MAX_VALUE-MAX_SANDBOX_BODIES-1)
                 }
                 val systemId=optionalId("galaxySystemId"); val parentId=optionalId("orbitParentId")
+                val orbitScale = body.optDouble("solarOrbitScale", 1.0)
+                require(orbitScale in .1..1.0)
+                val detail = body.optString("orbitalDetail", "").takeIf { it.isNotEmpty() }?.let(com.xekep.space.sim.OrbitalDetail::valueOf)
+                require(detail == null || (parentId != null && body.optBoolean("physicalScale", false) &&
+                    body.getDouble("mass") <= 1e-15 && body.getString("kind") == BodyKind.Ambient.name))
                 require(parentId == null || parentId != id)
                 val burn = body.optDouble("burnRemaining", 0.0)
                 val heading = Vec2(body.optDouble("headingX", 0.0), body.optDouble("headingY", -1.0))
@@ -159,10 +169,15 @@ class SandboxStorage(context: Context) {
                 val pilotThrottle=body.optDouble("pilotThrottle",0.0)
                 require(pilotThrottle in 0.0..1.0)
                 val kind=BodyKind.valueOf(body.getString("kind"))
+                val height=body.optDouble("flightHeight",0.0)
+                val vertical=body.optDouble("verticalVelocity",0.0)
+                val pitch=body.optDouble("pitch",0.0)
+                require(height in -1e6..1e6 && vertical in -5000.0..5000.0 && pitch in -com.xekep.space.sim.MAX_FLIGHT_PITCH..com.xekep.space.sim.MAX_FLIGHT_PITCH)
+                require(kind in listOf(BodyKind.Ship,BodyKind.Rocket) || (height == 0.0 && vertical == 0.0 && pitch == 0.0))
                 val shipClass=com.xekep.space.sim.ShipClass.valueOf(body.optString("shipClass","Interceptor"))
                 val fuelScale=body.optDouble("fuelConsumptionScale",1.0)
                 require(fuelScale in .5..1.0 && (shipClass == com.xekep.space.sim.ShipClass.Interceptor || kind == BodyKind.Ship))
-                val targetSpeed=if (body.has("pilotTargetSpeed")) body.getDouble("pilotTargetSpeed").also { require(it in 0.0..900.0 && (kind == BodyKind.Ship || kind == BodyKind.Rocket)) } else null
+                val targetSpeed=if (body.has("pilotTargetSpeed")) body.getDouble("pilotTargetSpeed").also { require(it in 0.0..(if (body.optBoolean("physicalScale",false)) 5000.0 else 900.0) && (kind == BodyKind.Ship || kind == BodyKind.Rocket)) } else null
                 val fuel=body.optDouble("fuelRemaining",com.xekep.space.sim.vehicleFuelCapacity(kind))
                 require(fuel in 0.0..com.xekep.space.sim.vehicleFuelCapacity(kind))
                 val drift=body.optDouble("driftRemaining",if (kind == BodyKind.Rocket) com.xekep.space.sim.ROCKET_DRIFT_SECONDS else 0.0)
@@ -197,13 +212,14 @@ class SandboxStorage(context: Context) {
                         kind = kind,
                         trail = listOf(position),
                         burnRemaining = burn,
-                        heading = heading,
+                        heading = heading,flightHeight=height,verticalVelocity=vertical,pitch=pitch,
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
                         shipClass=shipClass,fuelConsumptionScale=fuelScale,
                         galaxyParticle=body.optBoolean("galaxyParticle",false),
                         galaxySystemId=systemId,orbitParentId=parentId,
+                        solarOrbitScale=orbitScale,orbitalDetail=detail,
                         fuelRemaining = fuel,
                         driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),
@@ -213,7 +229,7 @@ class SandboxStorage(context: Context) {
             }
         }
         require(bodies.map { it.id }.distinct().size == bodies.size)
-        require(camera.getDouble("x") in -1e9..1e9 && camera.getDouble("y") in -1e9..1e9 && root.getDouble("zoom") in 0.001..1000.0)
+        require(camera.getDouble("x") in -1e9..1e9 && camera.getDouble("y") in -1e9..1e9 && root.getDouble("zoom") in 0.001..5000.0)
         require(root.getDouble("referenceEnergy").isFinite())
         return SandboxSnapshot(
             bodies = bodies,
@@ -221,7 +237,7 @@ class SandboxStorage(context: Context) {
             zoom = root.getDouble("zoom").toFloat(),
             referenceEnergy = root.getDouble("referenceEnergy"),
             timestampUtcMillis = root.getLong("timestampUtcMillis"),
-            timeScale = root.optDouble("timeScale", 1.0).takeIf { it in listOf(0.25, 1.0, 3.0, 6.0) } ?: 1.0,
+            timeScale = root.optDouble("timeScale", 1.0).takeIf { it in com.xekep.space.sim.sandboxTimeScales } ?: 1.0,
             paused = root.optBoolean("paused", false),
             collisionsEnabled = root.optBoolean("collisionsEnabled", false),
             preset = runCatching {

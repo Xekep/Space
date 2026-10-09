@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.xekep.space.sim.*
 import kotlin.math.*
 
-data class SpaceProjectile(val position: Vec2, val velocity: Vec2, val ownerId: Long, val remaining: Double = 1.3, val damage: Double = 120.0)
+data class SpaceProjectile(val position: Vec2, val velocity: Vec2, val ownerId: Long, val remaining: Double = 1.3, val damage: Double = 120.0, val height: Double = 0.0, val verticalVelocity: Double = 0.0)
 data class CraftStatus(val age: Double = 0.0, val cooldown: Double = .15, val targetId: Long? = null)
 data class ArcadeCombat(val projectiles: List<SpaceProjectile> = emptyList(), val craft: Map<Long, CraftStatus> = emptyMap())
 internal data class CombatResult(val bodies: List<CelestialBody>, val combat: ArcadeCombat, val events: List<CollisionEvent>)
@@ -94,7 +94,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                 for (enemy in threats) {
                     if (shots.size >= 64 || fired >= 2) break
                     val aim=targeting.solution(body,enemy,velocity,700.0) ?: continue
-                    shots+=SpaceProjectile(aim.origin,aim.velocity,body.id,damage=60.0*body.vehicleDamageScale)
+                    shots+=SpaceProjectile(aim.origin,aim.velocity,body.id,damage=60.0*body.vehicleDamageScale,height=aim.height,verticalVelocity=aim.verticalVelocity)
                     fired++
                 }
                 if (fired > 0) cooldown=.65*gunIntervalScale
@@ -152,7 +152,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                     .thenBy { (it.position-body.position).magnitude() })
             val solution=threats.firstNotNullOfOrNull { targeting.solution(body,it,velocity,650.0) }
             if (solution != null) {
-                shots+=SpaceProjectile(solution.origin,solution.velocity,body.id,damage=120.0*body.vehicleDamageScale)
+                shots+=SpaceProjectile(solution.origin,solution.velocity,body.id,damage=120.0*body.vehicleDamageScale,height=solution.height,verticalVelocity=solution.verticalVelocity)
                 cooldown=.9*gunIntervalScale
             } else if (threats.isNotEmpty()) cooldown=.10
         }
@@ -171,7 +171,7 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
         // Earliest hit, not list order: one projectile cannot damage several enemies.
         val hit = targets.withIndex().filter { it.value.kind == BodyKind.Meteor || it.value.kind == BodyKind.ArcadePlanet }.mapNotNull { (index, body) ->
             val before = body.position - body.velocity * dt
-            firstCircleContact(shot.position - before, shot.position + travel - body.position, body.radius + 3.0)?.let { index to it }
+            firstSphereContact(shot.position - before, shot.position + travel - body.position,shot.height,shot.height+shot.verticalVelocity*dt,body.radius + 3.0)?.let { index to it }
         }.minByOrNull { it.second }
         if (hit != null) {
             val meteor = targets[hit.first]
@@ -182,7 +182,7 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
                 events += CollisionEvent(BodyKind.Meteor, BodyKind.Ship, meteor.position, meteor.id, shot.ownerId,
                     vehicleExplosion = true, seed = meteor.id.toInt())
             } else targets[hit.first] = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), color = Color(0xFFFFB76B))
-        } else if (shot.remaining > dt) shots += shot.copy(position = shot.position + travel, remaining = shot.remaining - dt)
+        } else if (shot.remaining > dt) shots += shot.copy(position = shot.position + travel, height=shot.height+shot.verticalVelocity*dt,remaining = shot.remaining - dt)
     }
     val liveIds = targets.filter { it.isVehicle }.map { it.id }.toSet()
     return CombatResult(targets, ArcadeCombat(shots, combat.craft.filterKeys { it in liveIds }), events)

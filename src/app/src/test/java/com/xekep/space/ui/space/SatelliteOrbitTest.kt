@@ -35,7 +35,7 @@ class SatelliteOrbitTest {
             assertEquals(paused,game.sandbox!!.paused)
             val point=earth.position+Vec2(.35,0.0)
             game.launch(TouchPreview(point,point,0),0.0)
-            assertEquals(18,game.bodies.size); assertNull(game.orbitSourceId)
+            assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size); assertNull(game.orbitSourceId)
             val launched=game.bodies
             game.update(1.0/60)
             if (paused) assertEquals(launched,game.bodies) else assertNotEquals(launched,game.bodies)
@@ -82,14 +82,14 @@ class SatelliteOrbitTest {
         assertTrue("Orbit radius range: $minimum..$maximum",minimum > radius*(1-tolerance) && maximum < radius*(1+tolerance))
     }
 
-    @Test fun newMoonsStayBoundToBothGasGiantsWithAllSeventeenExistingBodies() {
+    @Test fun newMoonsStayBoundToBothGasGiantsWithRingsAndArtificialSatellites() {
         for ((entry,radius) in listOf(SolarBody.Jupiter to 20.0,SolarBody.Saturn to 14.0)) {
             val game=SpaceGameState().apply { startSandbox() }
             val parent=game.bodies.first { it.solar == entry }
             game.selectBody(parent.id); game.prepareOrbit()
             val point=parent.position+Vec2(-radius,0.0)
             game.launch(TouchPreview(point,point,0),0.0)
-            assertEquals(18,game.bodies.size)
+            assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size)
             assertBound(game.bodies,parent.id,game.bodies.last().id,radius,30.0,.08)
         }
     }
@@ -241,7 +241,7 @@ class SatelliteOrbitTest {
             game.selectBody(parent.id); game.prepareOrbit()
             val point=parent.position+Vec2(-.8,0.0)
             game.launch(TouchPreview(point,point,0),0.0)
-            assertEquals(18+it,game.bodies.size)
+            assertEquals(SolarSystem.BODY_COUNT+1+it,game.bodies.size)
             val satellite=game.bodies.last()
             val radius=(satellite.position-parent.position).magnitude()
             assertTrue(radius < .8 && satellite.radius < parent.radius)

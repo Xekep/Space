@@ -41,6 +41,7 @@ internal object NumericIntegrator {
         val k1 = workspace.k1; val k2 = workspace.k2; val k3 = workspace.k3; val k4 = workspace.k4
         val temporary = workspace.temporary; val thrust = workspace.thrust
         thrust.fill(0.0)
+        val depth=if (hasVehicles) bodies.map { depthGravity(it,bodies) } else emptyList()
         val steps = ceil(seconds / limit - 1e-9).toInt().coerceAtLeast(1)
         val dt = seconds / steps
         repeat(steps) { step ->
@@ -58,7 +59,8 @@ internal object NumericIntegrator {
                     minOf(80.0 * body.vehicleAccelerationScale * ((body.fuelRemaining-step*dt*burnRate)/(dt*burnRate)).coerceIn(0.0,1.0),
                         (900.0-speed).coerceAtLeast(0.0)/dt)
                 } else 0.0
-                thrust[i * 2] = headings[i * 2] * acceleration; thrust[i * 2 + 1] = headings[i * 2 + 1] * acceleration
+                thrust[i * 2] = headings[i * 2] * acceleration + depth[i].planarCorrection.x
+                thrust[i * 2 + 1] = headings[i * 2 + 1] * acceleration + depth[i].planarCorrection.y
             }
             if (useTree) {
                 // Two tree evaluations per step; the symplectic kick-drift-kick scheme avoids
@@ -103,6 +105,8 @@ internal object NumericIntegrator {
                 heading = Vec2(headings[i * 2], headings[i * 2 + 1]),
                 burnRemaining = (body.burnRemaining - seconds).coerceAtLeast(0.0),
                 fuelRemaining = fuel,
+                flightHeight = if (body.isVehicle) (body.flightHeight+body.verticalVelocity*seconds+depth[i].vertical*seconds*seconds*.5).coerceIn(-1e6,1e6) else body.flightHeight,
+                verticalVelocity = if (body.isVehicle) (body.verticalVelocity+depth[i].vertical*seconds).coerceIn(-5000.0,5000.0) else body.verticalVelocity,
                 driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(seconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
                 routeDistance = if (body.routePath != null && fuel > 1e-9) {
                     val direction=body.routePath.sample(body.routeDistance).direction

@@ -81,7 +81,7 @@ class RetroUiTest {
             }
             compose.mainClock.advanceTimeBy(64)
             compose.onNodeWithTag("pilot-speed").performTouchInput {
-                down(center.copy(x=width*.2f)); moveTo(center.copy(x=width*.7f),160); up()
+                down(center.copy(y=height*.8f)); moveTo(center.copy(y=height*.3f),160); up()
             }
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle { assertTrue(game.bodies.first { it.id == game.controlledVehicleId }.pilotTargetSpeed!! > 450) }

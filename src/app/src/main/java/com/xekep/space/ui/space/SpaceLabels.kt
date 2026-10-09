@@ -77,6 +77,8 @@ fun com.xekep.space.sim.CelestialBody.labelId(): Int = when (solar) {
     com.xekep.space.sim.SolarBody.Titan -> R.string.titan
     com.xekep.space.sim.SolarBody.Triton -> R.string.triton
     null -> when {
+        orbitalDetail == com.xekep.space.sim.OrbitalDetail.ArtificialSatellite -> R.string.artificial_satellite
+        orbitalDetail == com.xekep.space.sim.OrbitalDetail.RingGrain -> R.string.ring_grain
         orbitParentId != null && galaxySystemId != null -> if (orbitParentId == galaxySystemId) R.string.galaxy_planet else R.string.galaxy_moon
         hullClass == com.xekep.space.sim.VehicleHullClass.Heavy && kind == BodyKind.Ship ->
             if (shipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_heavy_guardian else R.string.spawn_heavy_ship

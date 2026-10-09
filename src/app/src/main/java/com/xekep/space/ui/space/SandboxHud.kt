@@ -25,6 +25,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.xekep.space.R
+import com.xekep.space.sim.nextSandboxTimeScale
+import com.xekep.space.sim.sandboxTimeScales
+import com.xekep.space.sim.simulationSpeedLabel
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.Vec2
@@ -56,6 +59,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
         onDispose { game.sandboxOverlayOpen = false; game.resetFrameClock() }
     }
     LaunchedEffect(game.selectedBodyId) { editing = false; deleting = false }
+    val compactPilot=options.flightControl == com.xekep.space.input.FlightControlMode.Joystick && game.controlledVehicleId != null
     val accent = MaterialTheme.colorScheme.primary
     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Surface(Modifier.retroFrame().align(Alignment.TopCenter).fillMaxWidth().blockWorldTouches(), shape = spaceShape(20.dp),
@@ -67,7 +71,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                 if (game.dirty) PixelCanvas(Modifier.padding(8.dp).size(6.dp).semantics { contentDescription = context.getString(R.string.unsaved) }) {
                     drawCircle(accent)
                 }
-                HudButton("fit", context.getString(R.string.fit_system), "fit-system", game::fitCamera)
+                if (compactPilot) PilotExitButton(game) else HudButton("fit", context.getString(R.string.fit_system), "fit-system", game::fitCamera)
             }
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -117,11 +121,15 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                     }
                 }
             }
-            Surface(Modifier.retroFrame().blockWorldTouches(), shape = spaceShape(22.dp), color = Color(0xEF0B1425), contentColor = MaterialTheme.colorScheme.onSurface) {
+            if (!compactPilot) Surface(Modifier.retroFrame().blockWorldTouches().testTag("sandbox-spawn-panel"), shape = spaceShape(22.dp), color = Color(0xEF0B1425), contentColor = MaterialTheme.colorScheme.onSurface) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     HudButton(if (scene.paused) "play" else "pause", context.getString(if (scene.paused) R.string.play else R.string.pause),
                         "sandbox-pause", game::toggleSandboxPause)
-                    Text(speedLabel(scene.timeScale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick={ game.setTimeScale(nextSandboxTimeScale(scene.timeScale)) },
+                        modifier=Modifier.testTag("sandbox-time-speed").semantics { contentDescription=context.getString(R.string.time_speed) },
+                        contentPadding=PaddingValues(horizontal=4.dp)) {
+                        Text(simulationSpeedLabel(scene.timeScale),style=MaterialTheme.typography.labelSmall)
+                    }
                     SpawnCycleButton(game, Modifier.weight(1f), "sandbox-spawn")
                     FlightLoopButton(game)
                     MotionControlButton(game, options, motionAvailable, "sandbox-motion-control")
@@ -149,9 +157,9 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                     SandboxPanel.Tools -> {
                         Text(context.getString(R.string.time_speed), style = MaterialTheme.typography.titleSmall)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(0.25, 1.0, 3.0, 6.0).forEach { speed ->
+                            sandboxTimeScales.forEach { speed ->
                                 FilterChip(selected = scene.timeScale == speed, onClick = { game.setTimeScale(speed) },
-                                    label = { Text(speedLabel(speed)) }, modifier = Modifier.testTag("speed-$speed"))
+                                    label = { Text(simulationSpeedLabel(speed)) }, modifier = Modifier.testTag("speed-$speed"))
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -200,7 +208,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
     }
 }
 
-private fun speedLabel(speed: Double) = if (speed == 0.25) "¼x" else "${speed.toInt()}x"
+
 
 internal fun Modifier.blockWorldTouches(): Modifier = pointerInput(Unit) {
     awaitEachGesture {

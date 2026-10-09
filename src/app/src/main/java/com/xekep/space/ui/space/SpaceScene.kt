@@ -2,11 +2,10 @@ package com.xekep.space.ui.space
 
 import com.xekep.space.R
 import com.xekep.space.audio.AmbientMusic
+import com.xekep.space.audio.GameSounds
 import com.xekep.space.input.SpaceShake
 import com.xekep.space.input.SpaceTilt
 import android.os.SystemClock
-import android.media.AudioManager
-import android.media.ToneGenerator
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
@@ -97,7 +96,9 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     SideEffect { game.largeVehicleIcons = largeVehicleIcons }
     val music = remember(context) { AmbientMusic(context.applicationContext) }
     val musicEnabled = options.music
-    SideEffect { music.setEnabled(musicEnabled) }
+    SideEffect { music.setRetro(retroConsole); music.setEnabled(musicEnabled) }
+    val sounds = remember(context) { GameSounds() }
+    SideEffect { sounds.enabled=options.sound; sounds.retro=retroConsole }
     val haptic = remember(context) { com.xekep.space.input.GameHaptics(context) }
     SideEffect { haptic.enabled=options.vibration && !game.menuOpen }
     val shakeCallback by rememberUpdatedState<(com.xekep.space.sim.Vec2) -> Unit> { impulse ->
@@ -123,8 +124,6 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val shakeMode = options.shakeMode
     val shakeEnabled = controlledId == null && shakeMode != com.xekep.space.sim.ShakeMode.Off && game.mode == AppMode.Sandbox && !game.menuOpen && !game.sandboxOverlayOpen && sandboxPaused == false && game.orbitSourceId == null
     SideEffect { shake.setMode(shakeMode); shake.setEnabled(shakeEnabled) }
-    val tone = remember(context) { runCatching { ToneGenerator(AudioManager.STREAM_MUSIC, 35) }.getOrNull() }
-    DisposableEffect(tone) { onDispose { tone?.release() } }
     var summaries by remember { mutableStateOf(storage.summaries()) }
     var notice by remember { mutableStateOf<String?>(null) }
     val exportScene = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -162,17 +161,19 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer); shake.close(); tilt.close() }
     }
 
-    DisposableEffect(lifecycleOwner, music) {
+    DisposableEffect(lifecycleOwner, music, sounds) {
         music.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        sounds.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         haptic.setForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) { music.setForeground(true); haptic.setForeground(true) }
-            if (event == Lifecycle.Event.ON_PAUSE) { music.setForeground(false); haptic.setForeground(false) }
+            if (event == Lifecycle.Event.ON_RESUME) { music.setForeground(true); sounds.setForeground(true); haptic.setForeground(true) }
+            if (event == Lifecycle.Event.ON_PAUSE) { music.setForeground(false); sounds.setForeground(false); haptic.setForeground(false) }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             music.close()
+            sounds.close()
             haptic.close()
         }
     }
@@ -235,7 +236,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             val hit = arcade.lives < lastLives
             val intercept = arcade.destroyed > lastDestroyed
             if (hit || intercept) {
-                if (options.sound) tone?.startTone(if (hit) ToneGenerator.TONE_PROP_NACK else ToneGenerator.TONE_PROP_ACK, 90)
+                sounds.play(hit)
                 haptic.impact(strong=hit)
             }
             lastLives = arcade.lives; lastDestroyed = arcade.destroyed
@@ -305,7 +306,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     maxLengthDp=adaptiveTrailLength(bodies.size,game.simulationLoad,it.id == game.selectedBodyId || it.id == controlledId))
             }
             drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
-                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160)
+                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160,bodies,game.pilotVisualZoom)
             arcade?.challenge?.let { challenge ->
                 bodies.filter { it.id in challenge.ids }.forEach { body ->
                     drawCircle(Color(0xFFFFA46B).copy(alpha=.7f),bodyScreenRadius(body,renderCamera.zoom,density)+4.dp.toPx(),
@@ -343,11 +344,12 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available, tilt.available)
         if (hasSession && !game.menuOpen && game.mode == AppMode.Arcade) {
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
+                val compactPilot=options.flightControl == com.xekep.space.input.FlightControlMode.Joystick && game.controlledVehicleId != null
                 val toolsHeight = maxHeight * 0.60f
                 Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ArcadeTopHud(game)
+                        ArcadeTopHud(game,compactPilot)
                         ArcadeEncounterHud(game)
                         arcade?.challenge?.takeIf { it.ids.isNotEmpty() }?.let { challenge ->
                             Text(if (challenge.parentId in challenge.ids) context.getString(R.string.challenge_giant) else
@@ -376,10 +378,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                         PilotHud(game, options.flightControl == com.xekep.space.input.FlightControlMode.Joystick)
                         if (candidate == null) ArcadeSelectionHud(game)
                         else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally), showHullClass=true)
-                        ArcadeSpawnControls(game, options, tilt.available)
+                        if (!compactPilot) ArcadeSpawnControls(game, options, tilt.available)
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
-                        if (game.mode == AppMode.Arcade && arcade != null) {
-                            ArcadeEnergyHud(Modifier.fillMaxWidth(), (arcade.energy / arcade.maxEnergy).toFloat(), arcade.energy,arcade.maxEnergy)
+                        if (!compactPilot && game.mode == AppMode.Arcade && arcade != null) {
+                            ArcadeEnergyHud(Modifier.fillMaxWidth().testTag("arcade-launch-energy"), (arcade.energy / arcade.maxEnergy).toFloat(), arcade.energy,arcade.maxEnergy)
                         }
 
                     }

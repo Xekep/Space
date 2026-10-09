@@ -18,5 +18,5 @@ fun retainsSolarOrbit(body: CelestialBody, parent: CelestialBody): Boolean {
     val eccentricity = (r * (speed2 - mu / distance) - v * radial) / mu
     val angle = entry.periapsis * PI / 180
     val expected = Vec2(cos(angle), sin(angle)) * entry.eccentricity
-    return abs(axis / (entry.axisAu * AU_WORLD) - 1) < .10 && (eccentricity - expected).magnitude() < .10
+    return abs(axis / (entry.axisAu * AU_WORLD * body.solarOrbitScale) - 1) < .10 && (eccentricity - expected).magnitude() < .10
 }

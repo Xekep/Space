@@ -30,14 +30,14 @@ class SolarSatelliteUiTest {
             assertEquals(parent.position,game.orbitSource!!.position)
             assertFalse(game.sandbox!!.paused)
             assertEquals(parent.position,game.camera.center)
-            assertEquals(250f,game.camera.zoom)
+            assertEquals(540f,game.camera.zoom)
         }
         val point=worldToScreen(parent.position+Vec2(.35,0.0),game.viewport,game.camera.center,game.camera.zoom)
         compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
         compose.mainClock.advanceTimeByFrame()
         val satellite=game.bodies.last()
         compose.runOnIdle {
-            assertEquals(18,game.bodies.size); assertNull(game.feedback)
+            assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size); assertNull(game.feedback)
             assertEquals(.35,(satellite.position-parent.position).magnitude(),1e-4)
             assertTrue(satellite.physicalScale)
         }
@@ -86,7 +86,7 @@ class SolarSatelliteUiTest {
         compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_farther)).assertIsDisplayed()
         place(Vec2(.8,0.0))
         compose.runOnIdle {
-            assertEquals(18,game.bodies.size); assertNull(game.orbitSourceId); assertNull(game.feedback)
+            assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size); assertNull(game.orbitSourceId); assertNull(game.feedback)
             assertTrue((game.bodies.last().position-parent.position).magnitude() < .8)
         }
         val firstSatellite=game.bodies.last()
@@ -98,7 +98,7 @@ class SolarSatelliteUiTest {
         compose.onNodeWithTag("space-scene").performTouchInput { click(point) }
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithText(context.getString(com.xekep.space.R.string.satellite_unstable)).assertIsDisplayed()
-        compose.runOnIdle { assertEquals(18,game.bodies.size); assertEquals(firstSatellite.id,game.orbitSourceId) }
+        compose.runOnIdle { assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size); assertEquals(firstSatellite.id,game.orbitSourceId) }
         compose.runOnIdle { game.selectBody(parent.id) }
         compose.mainClock.advanceTimeByFrame()
         compose.onNodeWithTag("orbit-helper").performClick()

@@ -218,11 +218,15 @@
     <string name="control_tilt">Inclinaison</string>
     <string name="control_joystick">Joystick</string>
     <string name="tilt_sensitivity">Sensibilité de l’inclinaison</string>
-    <string name="virtual_joystick">Joystick virtuel</string>
+    <string name="virtual_joystick">Manette de direction et de tangage</string>
     <string name="system_galaxy_name">Galaxie de systèmes</string>
     <string name="system_galaxy_short">Galaxie · 1000</string>
     <string name="system_galaxy_description">Une galaxie de 1000 corps en rotation : étoiles, planètes et satellites, bras spiraux et amas variés.</string>
     <string name="galaxy_planet">Planète</string>
     <string name="galaxy_moon">Satellite</string>
     <string name="retro_console">Console rétro</string>
+    <string name="artificial_satellite">Satellite artificiel</string>
+    <string name="ring_grain">Particule des anneaux</string>
+    <string name="thrust_joystick">Manette de poussée</string>
+    <string name="leave_pilot">Quitter le pilotage</string>
 </resources>

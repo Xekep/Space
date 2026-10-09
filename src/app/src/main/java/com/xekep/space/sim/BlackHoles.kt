@@ -2,6 +2,17 @@ package com.xekep.space.sim
 
 import kotlin.math.cbrt
 
+/** Approximate tidal-disruption encounter for extended natural bodies in solar units.
+ * This is not extra suction: outside this close-encounter radius gravity stays Newtonian.
+ * Spacecraft and grains retain their geometric contact radius.
+ */
+internal fun blackHoleCaptureRadius(hole: CelestialBody, target: CelestialBody): Double {
+    val contact = hole.radius.toDouble() + target.radius
+    return if (hole.physicalScale && target.physicalScale && !target.isVehicle &&
+        target.kind != BodyKind.BlackHole && target.orbitalDetail == null && target.mass > 0)
+        maxOf(contact, target.radius * cbrt(hole.mass / target.mass)) else contact
+}
+
 /** Newtonian sandbox attraction with an absorbing horizon, independent of the merge switch. */
 fun absorbBlackHoles(before: List<CelestialBody>, after: List<CelestialBody>): StepResult {
     if (after.none { it.kind == BodyKind.BlackHole }) return StepResult(after,emptyList())
@@ -14,7 +25,7 @@ fun absorbBlackHoles(before: List<CelestialBody>, after: List<CelestialBody>): S
         var absorber=bodies[index]
         val contacts=after.filter { it.id != hole.id && it.id !in removed }.mapNotNull { target ->
             val oldHole=previous[hole.id] ?: hole; val oldTarget=previous[target.id] ?: target
-            firstCircleContact(oldTarget.position-oldHole.position,target.position-hole.position,hole.radius.toDouble()+target.radius)?.let { it to target }
+            firstSphereContact(oldTarget.position-oldHole.position,target.position-hole.position,oldTarget.flightHeight-oldHole.flightHeight,target.flightHeight-hole.flightHeight,blackHoleCaptureRadius(hole,target))?.let { it to target }
         }.sortedWith(compareBy<Pair<Double,CelestialBody>> { it.first }.thenBy { it.second.id })
         for ((fraction,contact) in contacts) {
             val target=bodies.first { it.id == contact.id }
@@ -27,6 +38,8 @@ fun absorbBlackHoles(before: List<CelestialBody>, after: List<CelestialBody>): S
             val impact=oldTarget.position+(target.position-oldTarget.position)*fraction
             if (target.isVehicle) events += CollisionEvent(target.kind,BodyKind.BlackHole,impact,
                 vehicleExplosion=true,velocity=target.velocity,seed=target.id.toInt())
+            else if (target.physicalScale && target.orbitalDetail == null) events += CollisionEvent(target.kind,BodyKind.BlackHole,impact,
+                velocity=target.velocity,seed=target.id.toInt(),collapseRadius=target.radius)
         }
         bodies[index]=absorber
     }

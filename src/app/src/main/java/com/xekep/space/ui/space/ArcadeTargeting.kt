@@ -3,7 +3,7 @@ package com.xekep.space.ui.space
 import com.xekep.space.sim.*
 import kotlin.math.*
 
-internal data class GunSolution(val direction: Vec2, val velocity: Vec2, val origin: Vec2, val seconds: Double)
+internal data class GunSolution(val direction: Vec2, val velocity: Vec2, val origin: Vec2, val seconds: Double, val height: Double = 0.0, val verticalVelocity: Double = 0.0)
 
 /** A short, shared forecast, built only when a gun is ready and a target is in range.
  * Projectiles are ballistic; enemy paths use the game's softened gravitational field.
@@ -59,7 +59,7 @@ internal class ArcadeTargeting(scene: List<CelestialBody>) {
         val path = track(target)
         val inherited = shipVelocity * .25
         val muzzle = ship.radius + 4.0
-        fun distance(time: Double) = (position(path, time) - ship.position - inherited * time).magnitude() - muzzle - speed * time
+        fun distance(time: Double) = hypot((position(path, time) - ship.position - inherited * time).magnitude(),ship.flightHeight+ship.verticalVelocity*.25*time) - muzzle - speed * time
         var low = 0.0; var high = 0.0
         if (distance(0.0) > 0.0) {
             var found = false
@@ -71,18 +71,22 @@ internal class ArcadeTargeting(scene: List<CelestialBody>) {
             if (!found) return null
             repeat(8) { val middle = (low + high) / 2; if (distance(middle) > 0) low = middle else high = middle }
         }
-        val direction = (position(path, high) - ship.position - inherited * high).normalized()
-        if (direction.magnitude() < .5) return null
+        val delta = position(path, high) - ship.position - inherited * high
+        val dz = -ship.flightHeight-ship.verticalVelocity*.25*high
+        val length = hypot(delta.magnitude(),dz)
+        if (length < 1e-9) return null
+        val direction = delta/length
+        val verticalDirection = dz/length
         val origin = ship.position + direction * muzzle
         val velocity = direction * speed + inherited
-        val solution = GunSolution(direction, velocity, origin, high)
+        val solution = GunSolution(direction, velocity, origin, high, ship.flightHeight+verticalDirection*muzzle,verticalDirection*speed+ship.verticalVelocity*.25)
         // Predict the moving obstacle too; a visible target can still be hidden behind the planet.
         for (planet in sources.filter { it.kind == BodyKind.ArcadePlanet }) {
             val count = ceil(high / step).toInt().coerceAtLeast(1)
             for (index in 0 until count) {
                 val start = high * index / count; val end = high * (index + 1) / count
-                if (firstCircleContact(origin + velocity * start - sourcePosition(planet, start),
-                    origin + velocity * end - sourcePosition(planet, end), planet.radius + 3.0) != null) return null
+                if (firstSphereContact(origin + velocity * start - sourcePosition(planet, start),
+                    origin + velocity * end - sourcePosition(planet, end),solution.height+solution.verticalVelocity*start,solution.height+solution.verticalVelocity*end,planet.radius + 3.0) != null) return null
             }
         }
         return solution

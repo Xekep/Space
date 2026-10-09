@@ -40,7 +40,7 @@ class FollowingCameraTest {
             assertEquals(earth.id,game.cameraTarget!!.id)
             val point=earth.position+Vec2(.35,0.0)
             game.launch(TouchPreview(point,point,0),0.0)
-            assertEquals(18,game.bodies.size)
+            assertEquals(SolarSystem.BODY_COUNT+1,game.bodies.size)
             assertEquals(wasFollowing,game.following)
             assertEquals(if (wasFollowing) earth.id else null,game.selectedBodyId)
             val zoom=game.camera.zoom

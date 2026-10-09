@@ -9,7 +9,7 @@ import kotlin.math.*
 class SolarSystemTest {
     @Test fun allPlanetsAndMajorMoonsHavePhysicalMassAndSizeRatios() {
         val bodies = SimulationEngine.sandboxPreset().bodies
-        assertEquals(SolarBody.entries.size, bodies.size)
+        assertEquals(SolarSystem.BODY_COUNT, bodies.size)
         val sun = bodies.first { it.solar == SolarBody.Sun }
         val earth = bodies.first { it.solar == SolarBody.Earth }
         assertEquals(332900.0, sun.mass / earth.mass, 50.0)
@@ -37,7 +37,7 @@ class SolarSystemTest {
         for (entry in SolarBody.entries.filter { it.isMoon }) {
             val moon = bodies.first { it.solar == entry }; val parent = bodies.first { it.solar?.name == entry.parent }
             val distance = (moon.position - parent.position).magnitude()
-            assertTrue("${entry.name}: $distance", distance in (entry.axisAu * AU_WORLD * .65)..(entry.axisAu * AU_WORLD * 1.4))
+            assertTrue("${entry.name}: $distance", distance in (entry.axisAu * AU_WORLD * SolarSystem.ORBIT_SCALE * .65)..(entry.axisAu * AU_WORLD * SolarSystem.ORBIT_SCALE * 1.4))
             val p = moon.position - parent.position; val v = moon.velocity - parent.velocity
             assertTrue(if (entry.retrograde) p.x * v.y - p.y * v.x < 0 else p.x * v.y - p.y * v.x > 0)
         }

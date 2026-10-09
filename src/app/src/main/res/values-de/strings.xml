@@ -218,11 +218,15 @@
     <string name="control_tilt">Neigung</string>
     <string name="control_joystick">Joystick</string>
     <string name="tilt_sensitivity">Neigungsempfindlichkeit</string>
-    <string name="virtual_joystick">Virtueller Joystick</string>
+    <string name="virtual_joystick">Joystick für Kurs und Neigung</string>
     <string name="system_galaxy_name">Systemgalaxie</string>
     <string name="system_galaxy_short">Galaxie · 1000</string>
     <string name="system_galaxy_description">Eine rotierende Galaxie mit 1000 Körpern: Sterne mit Planeten und Monden, Spiralarme und vielfältige Sternhaufen.</string>
     <string name="galaxy_planet">Planet</string>
     <string name="galaxy_moon">Mond</string>
     <string name="retro_console">Retro-Konsole</string>
+    <string name="artificial_satellite">Künstlicher Satellit</string>
+    <string name="ring_grain">Ringpartikel</string>
+    <string name="thrust_joystick">Schubregler</string>
+    <string name="leave_pilot">Steuerung verlassen</string>
 </resources>

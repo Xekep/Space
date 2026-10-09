@@ -10,11 +10,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
+import com.xekep.space.sim.flightVisualScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SolarBody
+import com.xekep.space.sim.OrbitalDetail
 import com.xekep.space.sim.enginePowered
 import com.xekep.space.sim.hullClass
 import com.xekep.space.sim.VehicleHullClass
@@ -36,6 +39,7 @@ fun DrawScope.drawBody(
     renderPosition: com.xekep.space.sim.Vec2 = body.position,
     renderHeading: com.xekep.space.sim.Vec2 = body.heading,
     simple: Boolean = false,
+    pilotVisualZoom: Float? = null,
 ) {
     val center = worldToScreen(renderPosition, viewport, cameraCenter, zoom)
     val margin = maxOf(120.dp.toPx(),bodyScreenRadius(body,zoom,density,largeVehicleIcons)*2f)
@@ -43,9 +47,22 @@ fun DrawScope.drawBody(
     if (cameraRotation == 0.0) {
         if (center.x < -margin || center.y < -margin || center.x > size.width + margin || center.y > size.height + margin) return
     } else if ((center-this.center).getDistance() > extent) return
+    if (body.orbitalDetail != null) {
+        val r = bodyScreenRadius(body, zoom, density)
+        if (body.orbitalDetail == OrbitalDetail.RingGrain) {
+            drawCircle(body.color.copy(alpha=.65f), r, center)
+        } else {
+            rotate((kotlin.math.atan2(renderHeading.y, renderHeading.x)*180/Math.PI).toFloat(), center) {
+                drawRect(Color(0xFF689ABD), center-Offset(r*2.5f,r*.65f), Size(r*1.5f,r*1.3f))
+                drawRect(Color(0xFF689ABD), center+Offset(r,r*-.65f), Size(r*1.5f,r*1.3f))
+                drawRect(Color(0xFFE6EDF1), center-Offset(r*.55f,r*.55f), Size(r*1.1f,r*1.1f))
+            }
+        }
+        return
+    }
     if (body.kind == BodyKind.Convoy) { drawConvoy(body,center,zoom,renderHeading); return }
     if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) {
-        drawVehicle(body, center, zoom, piloted, largeVehicleIcons,renderHeading)
+        drawVehicle(body, center, zoom, piloted, largeVehicleIcons,renderHeading,pilotVisualZoom)
         return
     }
     if (simple && body.solar == null && body.kind in listOf(BodyKind.Ambient,BodyKind.Player)) {
@@ -63,14 +80,6 @@ fun DrawScope.drawBody(
     if (body.kind == BodyKind.BlackHole) {
         drawBlackHole(center,screenRadius)
         return
-    }
-    if (body.solar == SolarBody.Saturn) {
-        rotate(-24f, center) {
-            drawOval(Color(0xFFCCB77F).copy(alpha = .65f), center - Offset(screenRadius * 2.0f, screenRadius * .65f),
-                androidx.compose.ui.geometry.Size(screenRadius * 4f, screenRadius * 1.3f), style = Stroke(screenRadius * .28f))
-            drawOval(Color(0xFFFFE8B3).copy(alpha = .45f), center - Offset(screenRadius * 2.3f, screenRadius * .76f),
-                androidx.compose.ui.geometry.Size(screenRadius * 4.6f, screenRadius * 1.52f), style = Stroke(screenRadius * .09f))
-        }
     }
     val glowScale = if (body.solar != null) 1.65f else when (body.kind) {
         BodyKind.Core, BodyKind.Star -> 3.4f
@@ -131,11 +140,16 @@ fun DrawScope.drawBody(
     )
 }
 
-private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean,heading: com.xekep.space.sim.Vec2) {
-    val r = bodyScreenRadius(body, zoom, density, largeVehicleIcons)
+private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean,heading: com.xekep.space.sim.Vec2,pilotVisualZoom: Float?) {
+    val r = if (piloted && pilotVisualZoom != null) pilotScreenRadius(body,pilotVisualZoom,density,largeVehicleIcons) else bodyScreenRadius(body, zoom, density, largeVehicleIcons)
     val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
     drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
     rotate(angle, center) {
+      withTransform({
+          translate(center.x,center.y)
+          transform(vehiclePitchMatrix(body.pitch,r))
+          translate(-center.x,-center.y)
+      }) {
         fun hull(points: List<Offset>, color: Color) {
             drawPath(Path().apply {
                 moveTo(center.x + points[0].x * r, center.y + points[0].y * r)
@@ -215,6 +229,7 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
             }
         }
     }
+    }
 }
 
 private fun DrawScope.drawConvoy(body: CelestialBody, center: Offset, zoom: Float, heading: com.xekep.space.sim.Vec2) {
@@ -235,10 +250,19 @@ private fun DrawScope.drawConvoy(body: CelestialBody, center: Offset, zoom: Floa
 }
 
 internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: IntSize,camera: SpaceCamera,rotation: Double,
-    controlledId: Long?,largeIcons: Boolean,interpolation: SandboxInterpolation,large: Boolean) {
+    controlledId: Long?,largeIcons: Boolean,interpolation: SandboxInterpolation,large: Boolean,
+    sceneBodies: List<CelestialBody> = bodies,pilotVisualZoom: Float? = null) {
+    sceneBodies.filter { it.solar == SolarBody.Jupiter || it.solar == SolarBody.Saturn }.forEach {
+        drawPlanetRings(it,sceneBodies,viewport,camera,interpolation.position(it))
+    }
     val dots=if (large) LinkedHashMap<Pair<Color,Float>,MutableList<Offset>>() else null
     val stars=if (large) LinkedHashMap<Triple<Color,Float,Boolean>,MutableList<Offset>>() else null
+    fun vehicle(body: CelestialBody) = drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
+        interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large,pilotVisualZoom=pilotVisualZoom)
+    val flying=bodies.filter { it.flightHeight != 0.0 }
+    flying.filter { it.flightHeight < 0 }.sortedBy { it.flightHeight }.forEach { vehicle(it) }
     bodies.forEach { body ->
+        if (body.flightHeight != 0.0) return@forEach
         val stellarRadius=bodyScreenRadius(body,camera.zoom,density)
         if (stars != null && body.kind == BodyKind.Star &&
             (body.galaxyParticle || body.galaxySystemId != null && camera.zoom < .08f) && stellarRadius <= 8.5*density) {
@@ -257,7 +281,7 @@ internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: Int
             val width=if (body.galaxySystemId != null) kotlin.math.round(stellarRadius*4)/2 else 2.5f
             if (visible) dots.getOrPut(body.color to width) { ArrayList() }+=point
         } else drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
-            interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large)
+            interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large,pilotVisualZoom=pilotVisualZoom)
     }
     dots?.forEach { (style,points) -> drawPoints(points,PointMode.Points,style.first,strokeWidth=style.second,cap=StrokeCap.Round) }
     stars?.forEach { (style,points) ->
@@ -266,9 +290,12 @@ internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: Int
         drawPoints(points,PointMode.Points,color,strokeWidth=radius*2,cap=StrokeCap.Round)
         drawPoints(points,PointMode.Points,Color.White.copy(alpha=.25f),strokeWidth=radius*.65f,cap=StrokeCap.Round)
     }
+    flying.filter { it.flightHeight > 0 }.sortedBy { it.flightHeight }.forEach { vehicle(it) }
 }
 
 fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehicleIcons: Boolean = false): Float {
+    if (body.orbitalDetail != null) return if (body.orbitalDetail == OrbitalDetail.RingGrain)
+        (body.radius*zoom).coerceIn(.25f*density,.6f*density) else (body.radius*zoom).coerceIn(.85f*density,1.5f*density)
     if (body.kind == BodyKind.Convoy) return (body.radius*zoom).coerceIn(10f*density,22f*density)
     if (body.kind == BodyKind.Star) {
         // Small stellar populations remain points at galaxy scale, rather than 500 giant icons.
@@ -279,15 +306,29 @@ fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehi
         }*density
         return (body.radius*zoom).coerceIn(minimum,45f*density)
     }
-    if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn(9f*density,24f*density)
-    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return if (largeVehicleIcons)
-        (body.radius*zoom).coerceIn(14f*density*vehicleSizeScale(body.kind,body.mass).toFloat(),
-            24f*density*vehicleSizeScale(body.kind,body.mass).toFloat()) else body.radius*zoom
+    if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn((if (body.physicalScale) 2f else 9f)*density,24f*density)
+    if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) {
+        val hullScale=vehicleSizeScale(body.kind,body.mass).toFloat()
+        // Symbolic catalogue hulls remain zoomable; contact radii stay physically tiny.
+        val rendered=if (body.physicalScale) (if (body.kind == BodyKind.Ship) .08f else .06f)*hullScale*zoom else body.radius*zoom
+        return (if (largeVehicleIcons) rendered.coerceIn(14f*density*hullScale,
+            (if (body.physicalScale) 180f else 24f)*density*hullScale) else rendered)*body.flightVisualScale()
+    }
     if (body.galaxySystemId != null) return (body.radius*zoom).coerceIn(minOf(3f,body.radius*.65f)*density,38f*density)
     val solar = body.solar ?: return (body.radius * zoom).coerceIn(4f, 38f)
-    val symbolDp = if (solar == SolarBody.Sun) 22.0 else
-        (6.0 * (solar.radiusKm / 6371.0).pow(.40)).coerceIn(3.0, 17.0)
-    return maxOf(body.radius * zoom, symbolDp.toFloat() * density).coerceAtMost(60f * density)
+    // Readable catalogue symbols at overview scale; zoom reveals physical size ratios.
+    val minimum = when (solar) {
+        SolarBody.Sun -> 14f
+        SolarBody.Jupiter -> 9f
+        SolarBody.Saturn -> 8f
+        SolarBody.Uranus,SolarBody.Neptune -> 6.5f
+        SolarBody.Earth,SolarBody.Venus -> 6f
+        SolarBody.Mars -> 5f
+        SolarBody.Mercury -> 3.5f
+        SolarBody.Pluto -> 2.5f
+        else -> 1.8f
+    }
+    return maxOf(body.radius*zoom,minimum*density).coerceAtMost(480f*density)
 }
 
 fun DrawScope.drawTrail(
@@ -302,6 +343,7 @@ fun DrawScope.drawTrail(
     highlighted: Boolean = false,
     maxLengthDp: Float = if (dense) 48f else Float.POSITIVE_INFINITY,
 ) {
+    if (body.orbitalDetail != null) return
     val length=(if (body.isDebris) minOf(20f,maxLengthDp) else maxLengthDp)*density
     val points=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
         (if (dense) 4f else 2f)*density)
@@ -385,4 +427,11 @@ fun DrawScope.drawFingerDirection(
 fun nextMeteorDelay(elapsed: Double, random: Random): Double {
     val baseDelay = (1.6 - (elapsed * 0.018)).coerceAtLeast(0.45)
     return baseDelay * random.nextDouble(0.82, 1.14)
+}
+
+/** Same initial pilot symbol and pinch response in arcade, sandbox and catalogue units. */
+internal fun pilotScreenRadius(body: CelestialBody,relativeZoom: Float,density: Float,largeIcons: Boolean): Float {
+    val base=(if (body.kind == BodyKind.Ship) 14f else 12f)*density*vehicleSizeScale(body.kind,body.mass).toFloat()
+    val factor=relativeZoom.coerceIn(if (largeIcons) 1f else .02f,6f)
+    return base*factor*body.flightVisualScale()
 }

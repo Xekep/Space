@@ -24,7 +24,20 @@ internal fun assignArcadeTargets(
             ((if (vehicle.kind == BodyKind.Rocket) 7.2 else 3.6)*vehicle.vehicleTurnScale)
         return offset.magnitude()/speed+turn
     }
-    // Preserve a living assignment; repairing overbooked input is deterministic too.
+    // Cache every pairing once; living assignments can now be handed to a better interceptor too.
+    data class Candidate(val vehicle: CelestialBody, val enemy: CelestialBody, val cost: Double)
+    val candidates=craft.flatMap { vehicle ->
+        threats.map { enemy -> Candidate(vehicle,enemy,cost(vehicle,enemy)) }
+    }.sortedWith(compareBy<Candidate> { it.cost }.thenBy { it.vehicle.id }.thenBy { it.enemy.id })
+    val costs=candidates.groupBy { it.vehicle.id }.mapValues { (_, pairs) -> pairs.associate { it.enemy.id to it.cost } }
+    fun travel(vehicle: CelestialBody, target: CelestialBody)=costs.getValue(vehicle.id).getValue(target.id)
+    fun earlier(candidate: Double, incumbent: Double)=
+        incumbent-candidate > maxOf(.35,incumbent*.20)
+    fun assign(vehicle: CelestialBody, target: CelestialBody?) {
+        assignments.remove(vehicle.id)?.let { owners.getValue(it.id).remove(vehicle) }
+        if (target != null) { assignments[vehicle.id]=target; owners.getValue(target.id)+=vehicle }
+    }
+    // Start from living assignments. Tiny differences do not reset pursuit every frame.
     for (vehicle in craft.sortedBy { it.id }) {
         val enemy=enemies[current.craft[vehicle.id]?.targetId] ?: continue
         val group=owners.getValue(enemy.id)
@@ -36,21 +49,35 @@ internal fun assignArcadeTargets(
         for (enemy in threats.sortedBy { it.id }) {
             val group=owners.getValue(enemy.id)
             if (group.size < 2) continue
-            val released=group.maxWith(compareBy<CelestialBody> { cost(it,enemy) }.thenBy { it.id })
+            val released=group.maxWith(compareBy<CelestialBody> { travel(it,enemy) }.thenBy { it.id })
             assignments.remove(released.id); group.remove(released)
             if (--missing == 0) break
         }
     }
-    // Evaluate each pairing once per step; no ballistic forecasts or N-body work here.
-    data class Candidate(val vehicle: CelestialBody, val enemy: CelestialBody, val cost: Double)
-    val candidates=craft.filter { it.id !in assignments }.flatMap { vehicle ->
-        threats.map { enemy -> Candidate(vehicle,enemy,cost(vehicle,enemy)) }
-    }.sortedWith(compareBy<Candidate> { it.cost }.thenBy { it.vehicle.id }.thenBy { it.enemy.id })
     // Fill uncovered targets first, then allow a partner. Never exceed two pursuers.
     for (capacity in 1..2) for ((vehicle,enemy) in candidates) {
         if (vehicle.id in assignments || owners.getValue(enemy.id).size >= capacity) continue
         assignments[vehicle.id]=enemy
         owners.getValue(enemy.id)+=vehicle
+    }
+    // Improve the earliest interceptions first. A handoff must beat both the incumbent
+    // and the challenger's own pursuit by 20% and at least .35s to avoid target jitter.
+    for ((vehicle,enemy,seconds) in candidates) {
+        val previous=assignments[vehicle.id]
+        if (previous?.id == enemy.id || (previous != null && !earlier(seconds,travel(vehicle,previous)))) continue
+        val group=owners.getValue(enemy.id)
+        val oldCoverage=previous?.let { owners.getValue(it.id).size } ?: 0
+        if (group.size < 2 && (oldCoverage != 1 || group.isEmpty())) {
+            assign(vehicle,enemy)
+            continue
+        }
+        val displaced=group.maxWithOrNull(compareBy<CelestialBody> { travel(it,enemy) }.thenBy { it.id }) ?: continue
+        if (!earlier(seconds,travel(displaced,enemy))) continue
+        // Swap, rather than abandon the challenger's old threat. A reserve replacement
+        // frees the slower incumbent to patrol until another pursuit slot becomes available.
+        assign(displaced,null)
+        assign(vehicle,enemy)
+        assign(displaced,previous)
     }
     return assignments
 }

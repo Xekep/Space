@@ -14,7 +14,7 @@ const val CullMargin = 260.0
 const val ArcadeMinZoom = 0.15f
 const val ArcadeMaxZoom = 6.0f
 const val SandboxMinZoom = 0.005f
-const val SandboxMaxZoom = 250.0f
+const val SandboxMaxZoom = 5000.0f
 
 enum class AppMode {
     Arcade,

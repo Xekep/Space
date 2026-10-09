@@ -6,6 +6,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SandboxInterpolationTest {
+    @Test fun orbitingDetailsInterpolateAroundTheirMovingParentInsteadOfCuttingThroughIt() {
+        val display=SandboxInterpolation()
+        val parent=body(0.0)
+        val grain=parent.copy(id=2,position=Vec2(0.0,10.0),mass=1e-22,radius=.00001f,
+            orbitalDetail=OrbitalDetail.RingGrain,orbitParentId=parent.id)
+        val movedParent=parent.copy(position=Vec2(100.0,0.0))
+        val movedGrain=grain.copy(position=Vec2(100.0,-10.0))
+        display.begin(listOf(parent,grain),1,0,true)
+        val next=listOf(movedParent,movedGrain)
+        display.begin(next,1,40_000_000,true)
+        display.begin(next,1,60_000_000,true)
+        assertEquals(10.0,(display.position(movedGrain)-display.position(movedParent)).magnitude(),1e-8)
+    }
     private fun body(x: Double)=CelestialBody(1,Vec2(x,0.0),Vec2.Zero,100.0,10f,Color.Cyan)
     @Test fun drawsBetweenPublicationsWithoutChangingPhysicsAndRebasesUnevenUpdates() {
         val display=SandboxInterpolation()

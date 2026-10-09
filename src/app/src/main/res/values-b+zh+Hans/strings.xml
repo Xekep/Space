@@ -218,11 +218,15 @@
     <string name="control_tilt">倾斜</string>
     <string name="control_joystick">摇杆</string>
     <string name="tilt_sensitivity">倾斜灵敏度</string>
-    <string name="virtual_joystick">虚拟摇杆</string>
+    <string name="virtual_joystick">转向与俯仰摇杆</string>
     <string name="system_galaxy_name">恒星系统星系</string>
     <string name="system_galaxy_short">星系 · 1000</string>
     <string name="system_galaxy_description">由 1000 个天体组成的旋转星系：恒星、行星、卫星、旋臂和多样的星团。</string>
     <string name="galaxy_planet">行星</string>
     <string name="galaxy_moon">卫星</string>
     <string name="retro_console">复古游戏机</string>
+    <string name="artificial_satellite">人造卫星</string>
+    <string name="ring_grain">环粒子</string>
+    <string name="thrust_joystick">推力摇杆</string>
+    <string name="leave_pilot">退出驾驶</string>
 </resources>

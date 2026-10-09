@@ -56,6 +56,53 @@ class ArcadeFleetUiTest {
         }
     }
 
+    @Test @Suppress("UNCHECKED_CAST")
+    fun aCloserRocketLaunchedByTouchTakesTheTargetAndRedirectsTheOldPursuer() {
+        compose.mainClock.autoAdvance=false
+        val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
+        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val state=field.get(game) as MutableState<ArcadeSession?>
+        compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
+        compose.mainClock.advanceTimeByFrame()
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+            lateinit var old: CelestialBody
+            lateinit var first: CelestialBody
+            lateinit var next: CelestialBody
+            compose.runOnIdle {
+                game.startArcade()
+                val core=game.bodies.first { it.kind == BodyKind.Core }
+                old=CelestialBody(900001,core.position+Vec2(-100.0,-650.0),Vec2.Zero,
+                    24.0,8f,androidx.compose.ui.graphics.Color.Cyan,kind,heading=Vec2(1.0,0.0))
+                first=old.copy(id=900002,position=core.position+Vec2(900.0,-650.0),
+                    mass=800.0,radius=20f,kind=BodyKind.Meteor)
+                next=first.copy(id=900003,position=first.position+Vec2(900.0,0.0))
+                state.value=game.arcade!!.copy(bodies=listOf(core,old,first,next),spawnTimer=1000.0,
+                    combat=ArcadeCombat(craft=mapOf(old.id to CraftStatus(cooldown=10.0,targetId=first.id))))
+                game.fitCamera()
+                game.transformCamera(Offset(game.viewport.width/2f,game.viewport.height/2f),Offset.Zero,.4f)
+            }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("arcade-spawn-Rocket").performClick()
+            compose.mainClock.advanceTimeByFrame()
+            val start=worldToScreen(first.position+Vec2(-240.0,0.0),game.viewport,game.camera.center,game.camera.zoom)
+            compose.onNodeWithTag("space-scene").performTouchInput { click(start) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.runOnIdle {
+                game.update(1.0/60)
+                assertEquals(1,game.arcade!!.launches)
+                val launched=game.bodies.single { it.kind == BodyKind.Rocket && it.id != old.id }
+                assertEquals(first.id,game.arcade!!.combat.craft.getValue(launched.id).targetId)
+                assertEquals(next.id,game.arcade!!.combat.craft.getValue(old.id).targetId)
+                repeat(30) { game.update(1.0/60) }
+                assertEquals(first.id,game.arcade!!.combat.craft.getValue(launched.id).targetId)
+                assertEquals(next.id,game.arcade!!.combat.craft.getValue(old.id).targetId)
+                val counts=game.arcade!!.combat.craft.values.mapNotNull { it.targetId }.groupingBy { it }.eachCount()
+                assertEquals(setOf(first.id,next.id),counts.keys)
+                assertTrue(counts.values.all { it <= 2 })
+            }
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun meeting(second: BodyKind) {
         compose.mainClock.autoAdvance=false

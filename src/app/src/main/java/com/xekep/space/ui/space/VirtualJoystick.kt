@@ -32,21 +32,9 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
     var stick by remember(game.controlledVehicleId) { mutableStateOf(Offset.Zero) }
     var pressed by remember(game.controlledVehicleId) { mutableStateOf(false) }
     val label=stringResource(R.string.virtual_joystick)
-    LaunchedEffect(pressed,enabled,game.controlledVehicleId) {
-        try {
-            if (pressed && enabled) {
-                var previous=withFrameNanos { it }
-                while (true) withFrameNanos { time ->
-                    val seconds=((time-previous)/1e9).coerceIn(0.0,.05); previous=time
-                    val radius=38*game.density
-                    val input=joystickDirection(stick,radius)
-                    // Up adds forward thrust progressively; horizontal motion turns relative to the craft.
-                    game.setSteeringInput(Vec2(input.x,max(0.0,-input.y)*seconds*.8))
-                }
-            }
-        } finally { game.setSteeringInput(Vec2.Zero) }
+    DisposableEffect(game,enabled,game.controlledVehicleId) {
+        onDispose { game.setJoystickInput(Vec2.Zero) }
     }
-    DisposableEffect(game) { onDispose { game.setSteeringInput(Vec2.Zero) } }
     PixelCanvas(Modifier.size(96.dp).testTag("flight-joystick").semantics {
         contentDescription=label; if (!enabled) disabled()
     }.pointerInput(game,enabled,game.controlledVehicleId) {
@@ -59,7 +47,7 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
                     val delta=point-Offset(size.width/2f,size.height/2f)
                     stick=delta*(radius/max(radius,delta.getDistance()))
                     pressed=true
-                    game.setSteeringInput(Vec2(joystickDirection(stick,radius).x,0.0))
+                    game.setJoystickInput(joystickDirection(stick,radius))
                 }
                 move(down.position)
                 do {
@@ -68,9 +56,9 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
                     if (!change.pressed) break
                     move(change.position)
                 } while (true)
-                pressed=false; stick=Offset.Zero; game.setSteeringInput(Vec2.Zero)
+                pressed=false; stick=Offset.Zero; game.setJoystickInput(Vec2.Zero)
             }
-        } finally { pressed=false; stick=Offset.Zero; game.setSteeringInput(Vec2.Zero) }
+        } finally { pressed=false; stick=Offset.Zero; game.setJoystickInput(Vec2.Zero) }
     }) {
         val color=Color(0xFF8BD3FF).copy(alpha=if (enabled) 1f else .3f)
         val radius=38.dp.toPx()

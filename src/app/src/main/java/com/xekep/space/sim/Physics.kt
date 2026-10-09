@@ -82,6 +82,11 @@ data class CelestialBody(
     val galaxySystemId: Long? = null,
     val orbitParentId: Long? = null,
     val routeAvoiding: Boolean = false, // Transient arcade detour; retain the authored spline.
+    val solarOrbitScale: Double = 1.0, // Older saved catalogue worlds retain their original distances.
+    val orbitalDetail: OrbitalDetail? = null, // Negligible-mass ring grain or artificial satellite.
+    val flightHeight: Double = 0.0,
+    val verticalVelocity: Double = 0.0,
+    val pitch: Double = 0.0, // Radians; positive climbs toward the viewer.
 )
 
 data class CollisionEvent(
@@ -409,6 +414,11 @@ object SimulationEngine {
         controlledId: Long? = null,
         collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
     ): StepResult {
+        if (bodies.any { it.orbitalDetail != null }) {
+            val main = bodies.filter { it.orbitalDetail == null }
+            val result = stepSandbox(main, dt, referenceEnergy, collisionsEnabled, controlledId, collisionMode)
+            return OrbitalDetails.advance(bodies, result, dt)
+        }
         return stepInternal(
             bodies = bodies,
             dt = dt,

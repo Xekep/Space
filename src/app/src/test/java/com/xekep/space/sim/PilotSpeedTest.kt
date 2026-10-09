@@ -71,4 +71,27 @@ class PilotSpeedTest {
             assertEquals(body.fuelRemaining,automatic.fuelRemaining,0.0)
         }
     }
+    @Test fun solarPilotBrakesFromCatalogueLaunchSpeedAndZeroThrustStillDrifts() {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
+            val sun=CelestialBody(2,Vec2.Zero,Vec2.Zero,100000.0,4.65f,Color.Yellow,BodyKind.Core,physicalScale=true)
+            var scene=listOf(sun,craft(kind,400.0).copy(position=Vec2(350.0,0.0),velocity=Vec2(0.0,-4500.0),
+                radius=.000002f,physicalScale=true))
+            val initial=scene.last()
+            assertEquals(5000.0,initial.pilotSpeedLimit(),0.0)
+            repeat(360) {
+                val steered=applyFlightControls(scene,ManualFlightControl(1,0.0),1.0/60)
+                scene=SimulationEngine.stepSandbox(steered,1.0/60,0.0,false,1).bodies
+            }
+            assertEquals(400.0,scene.last().flightSpeed(),2.0)
+            assertEquals(.08,scene.last().pilotThrottle,1e-8)
+            assertTrue(scene.last().fuelRemaining > vehicleFuelCapacity(kind)-4)
+            val coast=initial.copy(pilotTargetSpeed=0.0)
+            val unchanged=applyFlightControls(listOf(sun,coast),ManualFlightControl(1,1.0,pitch=1.0),1.0/60).last()
+            assertEquals(coast.velocity,unchanged.velocity); assertEquals(coast.pitch,unchanged.pitch,0.0)
+            val drift=SimulationEngine.stepSandbox(listOf(sun,unchanged),1.0/60,0.0,false,1).bodies.last()
+            assertTrue(drift.velocity.x < unchanged.velocity.x)
+            assertEquals(coast.fuelRemaining,drift.fuelRemaining,0.0)
+        }
+    }
+
 }

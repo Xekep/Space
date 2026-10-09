@@ -61,7 +61,7 @@ class SpaceGameStateTest {
         game.startSandbox(SandboxPresetKind.Empty)
         val center = Offset(200f, 500f)
         val anchor = game.worldAt(center)
-        game.transformCamera(center, Offset.Zero, 1000f)
+        game.transformCamera(center, Offset.Zero, 100000f)
         assertEquals(SandboxMaxZoom, game.camera.zoom, 0f)
         game.transformCamera(center, Offset.Zero, 0.000001f)
         assertEquals(SandboxMinZoom, game.camera.zoom, 0f)

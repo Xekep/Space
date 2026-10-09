@@ -11,7 +11,7 @@ fun routeCruiseSpeed(launchSpeed: Double): Double {
 /** Wheel input or an explicit speed setpoint overrides the route; neutral keeps the navigator. */
 fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightControl?, seconds: Double): List<CelestialBody> {
     if (!seconds.isFinite() || seconds <= 0) return bodies
-    val manual=control?.takeIf { candidate -> abs(candidate.steering) > .025 || candidate.boost > 0 ||
+    val manual=control?.takeIf { candidate -> abs(candidate.steering) > .025 || abs(candidate.pitch) > .025 || candidate.boost > 0 ||
         bodies.any { it.id == candidate.bodyId && it.pilotTargetSpeed != null } }
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body
@@ -25,7 +25,7 @@ fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightContro
         body.copy(routePath=path,routeSpeed=speed,heading=sample.direction,velocity=sample.direction*speed)
     }
     val steering=control?.takeIf { candidate -> routed.none { it.id == candidate.bodyId && it.waypoints.isNotEmpty() } }
-    return steerManually(routed,steering,seconds)
+    return returnAutopilotsToPlane(steerManually(routed,steering,seconds),steering?.bodyId,seconds)
 }
 
 /** Swept arrival prevents skipping a waypoint when a craft crosses it between frames. */

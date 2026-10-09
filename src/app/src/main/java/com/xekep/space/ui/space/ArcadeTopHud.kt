@@ -19,7 +19,7 @@ import com.xekep.space.R
 import kotlin.math.roundToInt
 
 @Composable
-fun ArcadeTopHud(game: SpaceGameState) {
+fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
     val session=game.arcade ?: return
     val menu=stringResource(R.string.menu)
     val core=stringResource(R.string.find_core)
@@ -44,7 +44,7 @@ fun ArcadeTopHud(game: SpaceGameState) {
                         color=MaterialTheme.colorScheme.onSurface)
                 }
             }
-            IconButton(onClick=game::fitCamera,modifier=Modifier.size(48.dp).testTag("find-core")
+            if (compactPilot) PilotExitButton(game) else IconButton(onClick=game::fitCamera,modifier=Modifier.size(48.dp).testTag("find-core")
                 .semantics { contentDescription=core }) {
                 PixelCanvas(Modifier.size(22.dp)) {
                     drawCircle(accent,size.minDimension*.27f,style=Stroke(1.5.dp.toPx()))

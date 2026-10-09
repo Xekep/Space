@@ -15,12 +15,14 @@ class AmbientMusicTest {
     @Test fun packagedTrackDecodesAsNinetySixSecondsOfAudio() {
         val metadata = MediaMetadataRetriever()
         try {
-            instrumentation.targetContext.resources.openRawResourceFd(R.raw.quiet_orbits).use {
-                metadata.setDataSource(it.fileDescriptor, it.startOffset, it.length)
+            for (resource in listOf(R.raw.quiet_orbits,R.raw.quiet_orbits_retro)) {
+                instrumentation.targetContext.resources.openRawResourceFd(resource).use {
+                    metadata.setDataSource(it.fileDescriptor, it.startOffset, it.length)
+                }
+                val duration = metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()
+                assertTrue(duration in 95_990L..96_010L)
+                assertEquals("yes", metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO))
             }
-            val duration = metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()
-            assertTrue(duration in 95_990L..96_010L)
-            assertEquals("yes", metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO))
         } finally {
             metadata.release()
         }
@@ -60,4 +62,44 @@ class AmbientMusicTest {
             }
         }
     }
+    @Test fun retroSwitchPreservesTimelineAndRapidChangesRespectMuteAndLifecycle() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            lateinit var music: AmbientMusic
+            scenario.onActivity { music=AmbientMusic(it); music.setForeground(true); music.setEnabled(true) }
+            fun waitUntil(condition: () -> Boolean) {
+                val deadline=SystemClock.elapsedRealtime()+10000
+                var ready=false
+                while (!ready && SystemClock.elapsedRealtime() < deadline) {
+                    instrumentation.runOnMainSync { ready=condition() }
+                    if (!ready) SystemClock.sleep(30)
+                }
+                assertTrue("Audio state did not settle",ready)
+            }
+            try {
+                waitUntil { music.isPlaying }; SystemClock.sleep(1100)
+                var before=0
+                instrumentation.runOnMainSync { before=music.playbackPosition; music.setRetro(true) }
+                waitUntil { music.isRetroPlaying }
+                SystemClock.sleep(250)
+                instrumentation.runOnMainSync {
+                    assertTrue(music.playbackPosition >= before-150)
+                    assertTrue(music.playbackPosition < before+1000)
+                    music.setRetro(false); music.setRetro(true); music.setRetro(false)
+                }
+                waitUntil { music.isPlaying && !music.isRetroPlaying }
+                SystemClock.sleep(250)
+                instrumentation.runOnMainSync {
+                    music.setRetro(true); music.setEnabled(false); assertFalse(music.isPlaying)
+                }
+                SystemClock.sleep(250)
+                instrumentation.runOnMainSync { assertFalse(music.isPlaying); music.setEnabled(true) }
+                waitUntil { music.isRetroPlaying }
+                instrumentation.runOnMainSync { music.setForeground(false); assertFalse(music.isPlaying) }
+                SystemClock.sleep(200)
+                instrumentation.runOnMainSync { assertFalse(music.isPlaying); music.setRetro(false); music.setForeground(true) }
+                waitUntil { music.isPlaying && !music.isRetroPlaying }
+            } finally { instrumentation.runOnMainSync { music.close(); music.close(); assertFalse(music.isPlaying) } }
+        }
+    }
+
 }

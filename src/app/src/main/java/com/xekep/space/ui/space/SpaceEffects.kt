@@ -76,8 +76,8 @@ fun DrawScope.drawSolarOrbits(bodies: List<CelestialBody>, viewport: IntSize, ca
         if (body.id in hidden) return@forEach
         val entry = body.solar?.takeUnless { it == SolarBody.Sun } ?: return@forEach
         val parent = bodies.firstOrNull { it.solar?.name == entry.parent } ?: return@forEach
-        if (entry.axisAu * AU_WORLD * zoom < 12.dp.toPx()) return@forEach
-        val a = entry.axisAu * AU_WORLD
+        if (entry.axisAu * AU_WORLD * body.solarOrbitScale * zoom < 12.dp.toPx()) return@forEach
+        val a = entry.axisAu * AU_WORLD * body.solarOrbitScale
         val b = a * sqrt(1 - entry.eccentricity.pow(2))
         val rotation = entry.periapsis * PI / 180
         val path = Path()
@@ -93,7 +93,10 @@ fun DrawScope.drawSolarOrbits(bodies: List<CelestialBody>, viewport: IntSize, ca
 
 fun visibleSolarBodies(bodies: List<CelestialBody>, zoom: Float, density: Float): List<CelestialBody> = bodies.filter { body ->
     val entry = body.solar
-    if (entry?.isMoon != true) true else {
+    if (body.orbitalDetail != null) {
+        val parent = bodies.firstOrNull { it.id == body.orbitParentId }
+        parent == null || (body.position - parent.position).magnitude() * zoom > bodyScreenRadius(parent, zoom, density) + density
+    } else if (entry?.isMoon != true) true else {
         val parent = bodies.firstOrNull { it.solar?.name == entry.parent }
         parent == null || (body.position - parent.position).magnitude() * zoom >= 22 * density
     }

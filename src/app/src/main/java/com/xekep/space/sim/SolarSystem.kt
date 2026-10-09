@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import kotlin.math.*
 
 /** Planar educational model: AU = 1000 world units, Sun = 100000 mass units.
- * Physical sizes/mass ratios are separate from the enlarged on-screen symbols.
+ * New presets compress catalogue orbital distances by 30%; physical radii/masses stay unchanged.
  * Planet elements: JPL approximate positions, J2000; phases are illustrative.
  * https://ssd.jpl.nasa.gov/planets/approx_pos.html
  * https://nssdc.gsfc.nasa.gov/planetary/factsheet/
@@ -36,8 +36,8 @@ enum class SolarBody(
     val worldMass: Double get() = massKg / Sun.massKg * 100000.0
     val worldRadius: Float get() = (radiusKm / AU_KM * AU_WORLD).toFloat()
 
-    fun relativeState(parentMass: Double, anomaly: Double = phase * PI / 180.0): Pair<Vec2, Vec2> {
-        val a = axisAu * AU_WORLD
+    fun relativeState(parentMass: Double, anomaly: Double = phase * PI / 180.0, axisScale: Double = 1.0): Pair<Vec2, Vec2> {
+        val a = axisAu * AU_WORLD * axisScale
         var eccentricAnomaly = anomaly
         repeat(10) { eccentricAnomaly -= (eccentricAnomaly - eccentricity * sin(eccentricAnomaly) - anomaly) /
             (1 - eccentricity * cos(eccentricAnomaly)) }
@@ -55,15 +55,21 @@ const val AU_KM = 149597870.7
 const val AU_WORLD = 1000.0
 
 object SolarSystem {
+    const val ORBIT_SCALE = .7
+    const val RING_GRAINS = 120
+    const val EARTH_SATELLITES = 12
+    const val BODY_COUNT = 17 + RING_GRAINS + EARTH_SATELLITES
     fun create(newId: () -> Long): List<CelestialBody> {
         val bodies = mutableListOf<CelestialBody>()
         for (entry in SolarBody.entries) {
             val parent = bodies.firstOrNull { it.solar?.name == entry.parent }
-            val state = if (entry == SolarBody.Sun) Vec2.Zero to Vec2.Zero else entry.relativeState(parent!!.mass)
+            val state = if (entry == SolarBody.Sun) Vec2.Zero to Vec2.Zero else entry.relativeState(parent!!.mass, axisScale = ORBIT_SCALE)
             bodies += CelestialBody(newId(), state.first + (parent?.position ?: Vec2.Zero),
                 state.second + (parent?.velocity ?: Vec2.Zero), entry.worldMass, entry.worldRadius,
-                Color(entry.tint), if (entry == SolarBody.Sun) BodyKind.Core else BodyKind.Ambient, solar = entry)
+                Color(entry.tint), if (entry == SolarBody.Sun) BodyKind.Core else BodyKind.Ambient, solar = entry,
+                solarOrbitScale = ORBIT_SCALE, orbitParentId = parent?.id)
         }
+        OrbitalDetails.populate(bodies, newId)
         val mass = bodies.sumOf { it.mass }
         val center = bodies.fold(Vec2.Zero) { acc, body -> acc + body.position * body.mass } / mass
         val velocity = bodies.fold(Vec2.Zero) { acc, body -> acc + body.velocity * body.mass } / mass

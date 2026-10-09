@@ -75,7 +75,7 @@ class GameplayAnalysisTest {
                 val initialEnergy = SimulationEngine.totalEnergy(game.bodies)
                 repeat(1200) { game.update(0.05) }
                 assertFinite(game.bodies)
-                assertEquals(if (preset == SandboxPresetKind.SolarSystem) com.xekep.space.sim.SolarBody.entries.size else if (preset == SandboxPresetKind.ClassicOrbits) 9 else 2, game.bodies.size)
+                assertEquals(if (preset == SandboxPresetKind.SolarSystem) com.xekep.space.sim.SolarSystem.BODY_COUNT else if (preset == SandboxPresetKind.ClassicOrbits) 9 else 2, game.bodies.size)
                 val drift = abs(SimulationEngine.totalEnergy(game.bodies) - initialEnergy) / abs(initialEnergy)
                 println("SANDBOX,$preset,$speed,${60 * speed},${game.bodies.size},$drift")
                 assertTrue("Energy drift for $preset at $speed", drift < 0.02)

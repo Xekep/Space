@@ -21,7 +21,9 @@ private fun stableSatelliteRadius(parent: CelestialBody, satellite: CelestialBod
     scene: List<CelestialBody>, requested: Double): Double? {
     val margin = if (parent.physicalScale || satellite.physicalScale) .0001 else minOf(8.0, parent.radius*.2)
     val minimum = (parent.radius+satellite.radius+margin)*1.01
-    val others = scene.filter { it.id != parent.id && it.id != satellite.id }
+    // Trace particles do not define a Hill sphere or an occupied annulus: rejecting the
+    // entire orbit for a passing grain would prevent adding moons to Earth and Saturn.
+    val others = scene.filter { it.id != parent.id && it.id != satellite.id && it.orbitalDetail == null }
     // Only the dominant attractor defines a meaningful two-body parent orbit.
     // Relative motion between two planets is not a Kepler orbit around each other.
     val dominant = others.maxByOrNull {
@@ -60,7 +62,9 @@ private fun stableSatelliteRadius(parent: CelestialBody, satellite: CelestialBod
             val squared = separation*separation+smoothing*smoothing
             tides += 2*gravity*other.gravityMass/(squared*sqrt(squared))
         }
-        val tideLimit = if (parent.physicalScale || satellite.physicalScale) .02 else .1
+        // Compact catalogue worlds leave less room for another substantial moon beside the
+        // existing moons. Use a tighter tidal margin so the assist survives later conjunctions.
+        val tideLimit = if (parent.solarOrbitScale < 1.0) .003 else if (parent.physicalScale || satellite.physicalScale) .02 else .1
         return restoring.isFinite() && restoring > 0 && tides.isFinite() && tides <= restoring*tideLimit
     }
     if (stable(upper)) return upper

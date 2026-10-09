@@ -5,6 +5,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SolarPresentationTest {
+    @Test fun catalogueBodiesKeepTexturesReadableAndPhysicalSizesAtCloseZoom() {
+        val bodies=SimulationEngine.sandboxPreset().bodies
+        val earth=bodies.first { it.solar == SolarBody.Earth }
+        val saturn=bodies.first { it.solar == SolarBody.Saturn }
+        assertEquals(6f*3f,bodyScreenRadius(earth,.2f,3f),1e-5f)
+        assertEquals(earth.radius*1000,bodyScreenRadius(earth,1000f,3f),1e-5f)
+        assertEquals(saturn.radius*1000,bodyScreenRadius(saturn,1000f,3f),1e-5f)
+        assertEquals(SolarSystem.RING_GRAINS,visibleSolarBodies(bodies,1000f,3f).count { it.orbitalDetail == OrbitalDetail.RingGrain })
+        assertEquals(0,visibleSolarBodies(bodies,.001f,3f).count { it.orbitalDetail != null })
+    }
     @Test fun nominalOrbitsStayVisibleAndStrongSingleBodyEditsHideOnlyItsGuide() {
         val game=SpaceGameState().apply { startSandbox(); toggleSandboxPause() }
         game.update(.1)

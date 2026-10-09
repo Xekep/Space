@@ -20,7 +20,7 @@ import com.xekep.space.storage.GameOptions
 
 @Composable
 fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailable: Boolean) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("arcade-spawn-panel")) {
         val guardian=game.arcade?.guardianUnlocked == true
         val entries=listOf(BodyKind.Ambient to ShipClass.Interceptor,BodyKind.Rocket to ShipClass.Interceptor,
             BodyKind.Ship to ShipClass.Interceptor)+if (guardian) listOf(BodyKind.Ship to ShipClass.Guardian) else emptyList()
