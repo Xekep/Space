@@ -2,7 +2,6 @@ package com.xekep.space.ui.space
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,12 +24,12 @@ fun ArcadeTopHud(game: SpaceGameState) {
     val menu=stringResource(R.string.menu)
     val core=stringResource(R.string.find_core)
     val accent=MaterialTheme.colorScheme.secondary
-    Surface(Modifier.fillMaxWidth().testTag("arcade-top-hud").blockWorldTouches(),shape=RoundedCornerShape(20.dp),
+    Surface(Modifier.retroFrame().fillMaxWidth().testTag("arcade-top-hud").blockWorldTouches(),shape=spaceShape(20.dp),
         color=MaterialTheme.colorScheme.surface.copy(alpha=.88f)) {
         Row(Modifier.padding(horizontal=4.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=game::openMenu,modifier=Modifier.size(48.dp).testTag("open-menu")
                 .semantics { contentDescription=menu }) {
-                Canvas(Modifier.size(22.dp)) {
+                PixelCanvas(Modifier.size(22.dp)) {
                     for (y in listOf(.25f,.5f,.75f)) drawLine(accent,Offset(size.width*.1f,size.height*y),
                         Offset(size.width*.9f,size.height*y),2.dp.toPx(),StrokeCap.Round)
                 }
@@ -47,7 +46,7 @@ fun ArcadeTopHud(game: SpaceGameState) {
             }
             IconButton(onClick=game::fitCamera,modifier=Modifier.size(48.dp).testTag("find-core")
                 .semantics { contentDescription=core }) {
-                Canvas(Modifier.size(22.dp)) {
+                PixelCanvas(Modifier.size(22.dp)) {
                     drawCircle(accent,size.minDimension*.27f,style=Stroke(1.5.dp.toPx()))
                     drawCircle(accent,size.minDimension*.08f)
                     val w=size.width; val h=size.height

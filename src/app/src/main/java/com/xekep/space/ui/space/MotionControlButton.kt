@@ -3,7 +3,6 @@ package com.xekep.space.ui.space
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -26,9 +25,9 @@ fun MotionControlButton(game: SpaceGameState, options: GameOptions, tiltAvailabl
     val accent=if (active) Color(0xFF80FFDF) else MaterialTheme.colorScheme.primary
     val label=stringResource(if (joystick) R.string.virtual_joystick else R.string.motion_control)
     IconToggleButton(checked=active,onCheckedChange=game::setMotionControlEnabled,enabled=available,
-        modifier=Modifier.size(48.dp).testTag(tag).background(if (active) accent.copy(alpha=.16f) else Color.Transparent,CircleShape)
+        modifier=Modifier.size(48.dp).testTag(tag).background(if (active) accent.copy(alpha=.16f) else Color.Transparent,spaceShape(99.dp))
             .semantics { contentDescription=label }) {
-        Canvas(Modifier.size(24.dp)) {
+        PixelCanvas(Modifier.size(24.dp)) {
             val color=accent.copy(alpha=if (available) 1f else .3f)
             val stroke=Stroke(1.7.dp.toPx())
             if (joystick) {

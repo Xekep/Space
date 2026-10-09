@@ -91,6 +91,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     SideEffect { game.updateDensity(density) }
     val storage = remember(context) { SandboxStorage(context) }
     val options = remember(context) { GameOptions(context) }
+    val retroConsole=options.retroConsole
+    val retroRenderer=remember(retroConsole) { if (retroConsole) RetroRenderer() else null }
     val largeVehicleIcons = options.largeVehicleIcons
     SideEffect { game.largeVehicleIcons = largeVehicleIcons }
     val music = remember(context) { AmbientMusic(context.applicationContext) }
@@ -138,7 +140,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val importScene = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) notice = runCatching {
             val raw = context.contentResolver.openInputStream(uri)?.use { input ->
-                val bytes = input.readBytesLimited(2_000_000)
+                val bytes = input.readBytesLimited(com.xekep.space.storage.MAX_SANDBOX_IMPORT_BYTES)
                 String(bytes, Charsets.UTF_8)
             } ?: error("Cannot read file")
             game.loadSandbox(storage.decode(raw))
@@ -268,10 +270,13 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         }
     }
 
+    RetroUiTheme(retroConsole) {
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF02040B), Color(0xFF081125), Color(0xFF0D1834))))) {
         Canvas(Modifier.fillMaxSize().testTag("space-scene").semantics { contentDescription = context.getString(R.string.space_scene) }
             .onSizeChanged(game::resize).spaceGestures(game, hasSession)) {
             if (game.menuOpen) return@Canvas
+            drawRetroFrame(retroRenderer) {
+            if (retroRenderer != null) drawRect(Brush.verticalGradient(listOf(Color(0xFF02040B),Color(0xFF081125),Color(0xFF0D1834))))
             drawRect(Brush.radialGradient(listOf(Color(0x221E3A8A), Color.Transparent), center, max(size.width, size.height) * 0.75f))
             val bodies = game.bodies
             interpolation.begin(bodies,game.sandboxEditRevision,drawNanos,
@@ -332,6 +337,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             if (!options.reducedFlashes && game.mode == AppMode.Arcade && (arcade?.hitFlash ?: 0.0) > 0.0) {
                 drawRect(Color(0xFFFF6B6B).copy(alpha = (arcade!!.hitFlash * 0.16).toFloat()))
             }
+            }
         }
 
         if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available, tilt.available)
@@ -358,7 +364,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         game.tutorialText?.let { message ->
-                            androidx.compose.material3.Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                            androidx.compose.material3.Surface(shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(context.getString(message), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                                     TextButton(onClick = game::skipTutorial) { Text(context.getString(R.string.skip)) }
@@ -391,7 +397,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         if (!game.menuOpen && game.arcadeUpgradePending) ArcadeUpgradeDialog(game)
         if (game.menuOpen) {
             val menuPhase=rememberMenuPhase()
-            MenuCosmos(Modifier.fillMaxSize(),menuPhase)
+            MenuCosmos(Modifier.fillMaxSize(),menuPhase,retroConsole)
             SpaceMenu(game, summaries, notice, options = options, orbitPhase=menuPhase,
                 onExport = { game.pendingExport = game.snapshot(System.currentTimeMillis()); exportScene.launch("${game.sandbox?.name?.replace(Regex("[^A-Za-z0-9_-]"), "_") ?: context.getString(R.string.space)}.space.json") },
                 onImport = { importScene.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
@@ -408,6 +414,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     if (snapshot != null) game.loadSandbox(snapshot) else notice = context.getString(R.string.load_failed)
                 })
         }
+        if (retroConsole) RetroScreenOverlay()
+    }
     }
 }
 

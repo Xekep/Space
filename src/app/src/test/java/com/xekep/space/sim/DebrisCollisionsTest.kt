@@ -37,10 +37,10 @@ class DebrisCollisionsTest {
         assertEquals(Vec2.Zero,result.bodies.single().velocity)
     }
     @Test fun sceneLimitDoesNotLoseMassOrOverflowTheSaveLimit() {
-        for (count in listOf(995,999,1000)) {
+        for (count in listOf(1995,1999,2000)) {
             val before=pair()+List(count-2) { i -> CelestialBody(3L+i,Vec2(1000.0+i*50,1000.0),Vec2.Zero,.1,1f,Color.Gray) }
             val result=collide(before)
-            assertTrue(result.bodies.size <= 1000); verifyConserved(before,result.bodies)
+            assertTrue(result.bodies.size <= MAX_SANDBOX_BODIES); verifyConserved(before,result.bodies)
         }
     }
     @Test fun mergeDebrisAndDisabledCollisionModesRemainDistinct() {

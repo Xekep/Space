@@ -6,10 +6,10 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -58,13 +58,13 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
     LaunchedEffect(game.selectedBodyId) { editing = false; deleting = false }
     val accent = MaterialTheme.colorScheme.primary
     Box(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Surface(Modifier.align(Alignment.TopCenter).fillMaxWidth().blockWorldTouches(), shape = RoundedCornerShape(20.dp),
+        Surface(Modifier.retroFrame().align(Alignment.TopCenter).fillMaxWidth().blockWorldTouches(), shape = spaceShape(20.dp),
             color = Color(0xDB0B1425), contentColor = MaterialTheme.colorScheme.onSurface) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 HudButton("menu", context.getString(R.string.menu), "open-menu", game::openMenu)
                 Text(scene.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                 ObjectCounter(game)
-                if (game.dirty) Canvas(Modifier.padding(8.dp).size(6.dp).semantics { contentDescription = context.getString(R.string.unsaved) }) {
+                if (game.dirty) PixelCanvas(Modifier.padding(8.dp).size(6.dp).semantics { contentDescription = context.getString(R.string.unsaved) }) {
                     drawCircle(accent)
                 }
                 HudButton("fit", context.getString(R.string.fit_system), "fit-system", game::fitCamera)
@@ -72,14 +72,14 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
         }
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             game.tutorialText?.let { message ->
-                Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                Surface(Modifier.retroFrame().blockWorldTouches(), shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                     Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(context.getString(message), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = game::skipTutorial) { Text(context.getString(R.string.skip)) }
                     }
                 }
             }
-            if (game.orbitSource != null) Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+            if (game.orbitSource != null) Surface(Modifier.retroFrame().blockWorldTouches(), shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     val placement=candidate?.let { satellite -> game.orbitSource?.let { satellitePlacement(it,satellite,game.bodies) } }
                     val message=when (placement) {
@@ -99,7 +99,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
             }
             PilotHud(game, options.flightControl == com.xekep.space.input.FlightControlMode.Joystick)
             selection?.let { body ->
-                Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(16.dp), color = Color(0xEF14223A), contentColor = MaterialTheme.colorScheme.onSurface) {
+                Surface(Modifier.retroFrame().blockWorldTouches(), shape = spaceShape(16.dp), color = Color(0xEF14223A), contentColor = MaterialTheme.colorScheme.onSurface) {
                     Column(Modifier.padding(horizontal = 4.dp).testTag("body-toolbar")) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(context.getString(body.second), Modifier.weight(1f).padding(start = 12.dp), maxLines = 1,
@@ -117,7 +117,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                     }
                 }
             }
-            Surface(Modifier.blockWorldTouches(), shape = RoundedCornerShape(22.dp), color = Color(0xEF0B1425), contentColor = MaterialTheme.colorScheme.onSurface) {
+            Surface(Modifier.retroFrame().blockWorldTouches(), shape = spaceShape(22.dp), color = Color(0xEF0B1425), contentColor = MaterialTheme.colorScheme.onSurface) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     HudButton(if (scene.paused) "play" else "pause", context.getString(if (scene.paused) R.string.play else R.string.pause),
                         "sandbox-pause", game::toggleSandboxPause)
@@ -156,7 +156,7 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(context.getString(R.string.merge_impact), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                            Switch(scene.collisionsEnabled, game::setCollisions, Modifier.testTag("sandbox-collisions"))
+                            SpaceSwitch(scene.collisionsEnabled, game::setCollisions, Modifier.testTag("sandbox-collisions"))
                         }
                         if (scene.collisionsEnabled) CollisionModePicker(scene.collisionMode,game::setCollisionMode)
                         Text(context.getString(R.string.shake_universe), style = MaterialTheme.typography.titleSmall)
@@ -173,14 +173,20 @@ fun SandboxHud(game: SpaceGameState, candidate: CelestialBody?, options: com.xek
                             }
                         }
                         Text(context.getString(R.string.shake_intensity,(options.shakeIntensity*100).roundToInt()),style=MaterialTheme.typography.bodySmall)
-                        Slider(options.shakeIntensity,{ options.shakeIntensity=it },valueRange=.25f..2.5f,steps=8,
+                        SpaceSlider(options.shakeIntensity,{ options.shakeIntensity=it },valueRange=.25f..2.5f,steps=8,
                             enabled=shakeAvailable && options.shake, onValueChangeFinished=options::save,
                             modifier=Modifier.testTag("shake-intensity").semantics { contentDescription=context.getString(R.string.shake_intensity_label) })
                         if (!shakeAvailable) Text(context.getString(R.string.shake_unavailable), style = MaterialTheme.typography.bodySmall)
                         SandboxTools(game)
-                        OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.random_systems_name)); panel=null },
-                            modifier=Modifier.fillMaxWidth().testTag("generate-random-systems")) {
-                            Text(context.getString(R.string.generate_random_systems))
+                        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.random_systems_name)); panel=null },
+                                modifier=Modifier.weight(1f).testTag("generate-random-systems")) {
+                                Text(context.getString(R.string.random_systems_short),maxLines=2,textAlign=TextAlign.Center)
+                            }
+                            OutlinedButton(onClick={ game.generateRandomSystems(context.getString(R.string.system_galaxy_name),resolved=true); panel=null },
+                                modifier=Modifier.weight(1f).testTag("generate-system-galaxy")) {
+                                Text(context.getString(R.string.system_galaxy_short),maxLines=2,textAlign=TextAlign.Center)
+                            }
                         }
                         Text(context.getString(R.string.body_count, game.bodies.size) + " · " + context.getString(R.string.zoom) + " " +
                             String.format(java.util.Locale.ROOT, "%.2fx", game.camera.zoom), style = MaterialTheme.typography.labelMedium)
@@ -211,7 +217,7 @@ internal fun Modifier.blockWorldTouches(): Modifier = pointerInput(Unit) {
 private fun HudButton(glyph: String, label: String, tag: String, onClick: () -> Unit, enabled: Boolean = true, selected: Boolean = false) {
     val color = (if (selected) Color(0xFF80FFDF) else MaterialTheme.colorScheme.primary).copy(alpha = if (enabled) 1f else .3f)
     IconButton(onClick, Modifier.size(48.dp).testTag(tag).semantics { contentDescription = label }, enabled = enabled) {
-        Canvas(Modifier.size(22.dp)) {
+        PixelCanvas(Modifier.size(22.dp)) {
             val w = size.width; val h = size.height
             fun line(x1: Float, y1: Float, x2: Float, y2: Float) =
                 drawLine(color, Offset(w * x1, h * y1), Offset(w * x2, h * y2), 2.dp.toPx(), StrokeCap.Round)

@@ -1,7 +1,6 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
@@ -24,8 +23,9 @@ fun PilotHud(game: SpaceGameState, joystick: Boolean = false) {
     val context=LocalContext.current
     val speed=craft.velocity.magnitude()
     val fuel=craft.fuelFraction
+    val retro=LocalRetroUi.current
     val fuelColor=if (fuel <= .1f) Color(0xFFFF7A6B) else if (fuel <= .25f) Color(0xFFFFD166) else Color(0xFF80FFDF)
-    Surface(Modifier.fillMaxWidth().blockWorldTouches().testTag("pilot-hud"),shape=RoundedCornerShape(16.dp),color=Color(0xEF0B1425),contentColor=MaterialTheme.colorScheme.onSurface) {
+    Surface(Modifier.retroFrame().fillMaxWidth().blockWorldTouches().testTag("pilot-hud"),shape=spaceShape(16.dp),color=Color(0xEF0B1425),contentColor=MaterialTheme.colorScheme.onSurface) {
         Row(Modifier.padding(horizontal=12.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(if (joystick) 10.dp else 16.dp)) {
             if (joystick) VirtualJoystick(game, enabled=craft.fuelRemaining > 1e-9 && !game.sandboxOverlayOpen &&
                 !game.arcadeUpgradePending && (game.mode != AppMode.Sandbox || game.sandbox?.paused == false))
@@ -36,19 +36,22 @@ fun PilotHud(game: SpaceGameState, joystick: Boolean = false) {
                     modifier=Modifier.fillMaxWidth().testTag("pilot-speed").semantics {
                         contentDescription=context.getString(R.string.pilot_target_speed)
                     },thumb={
-                        Canvas(Modifier.size(width=14.dp,height=18.dp)) {
+                        PixelCanvas(Modifier.size(width=14.dp,height=18.dp)) {
                             drawLine(Color(0xFF8BD3FF),Offset(center.x,0f),Offset(center.x,size.height),3.dp.toPx())
                         }
                     },track={
-                        Canvas(Modifier.fillMaxWidth().height(4.dp)) {
+                        PixelCanvas(Modifier.fillMaxWidth().height(4.dp)) {
+                            if (retro) drawPixelMeter((speed/900).toFloat(),Color(0xFF8BD3FF)) else {
                             drawRoundRect(Color(0xFF253249))
                             drawRoundRect(Color(0xFF8BD3FF),size=androidx.compose.ui.geometry.Size(size.width*(speed/900).coerceIn(0.0,1.0).toFloat(),size.height))
+                            }
                         }
                     })
             }
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                 Text(context.getString(R.string.pilot_fuel,(fuel*100).roundToInt()),style=MaterialTheme.typography.labelSmall,color=fuelColor)
-                LinearProgressIndicator(progress={ fuel },modifier=Modifier.fillMaxWidth().padding(top=22.dp).height(4.dp).testTag("pilot-fuel"),color=fuelColor)
+                if (retro) PixelMeter(fuel,fuelColor,Modifier.fillMaxWidth().padding(top=22.dp).height(4.dp).testTag("pilot-fuel"))
+                else LinearProgressIndicator(progress={ fuel },modifier=Modifier.fillMaxWidth().padding(top=22.dp).height(4.dp).testTag("pilot-fuel"),color=fuelColor)
             }
         }
     }

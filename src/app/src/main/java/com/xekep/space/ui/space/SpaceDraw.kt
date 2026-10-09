@@ -1,6 +1,7 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
@@ -48,7 +49,14 @@ fun DrawScope.drawBody(
         return
     }
     if (simple && body.solar == null && body.kind in listOf(BodyKind.Ambient,BodyKind.Player)) {
-        drawCircle(body.color,(body.radius*zoom).coerceIn(2.5f,38f),center)
+        val radius=if (body.galaxySystemId != null) bodyScreenRadius(body,zoom,density) else (body.radius*zoom).coerceIn(2.5f,38f)
+        if (body.orbitParentId == body.galaxySystemId && body.galaxySystemId != null && body.mass > 60 && zoom > .12f) {
+            rotate(-25f,center) {
+                drawOval(body.color.copy(alpha=.55f),center-Offset(radius*1.8f,radius*.65f),
+                    Size(radius*3.6f,radius*1.3f),style=Stroke(maxOf(.7f,radius*.16f)))
+            }
+        }
+        drawCircle(body.color,radius,center)
         return
     }
     val screenRadius = bodyScreenRadius(body, zoom, density)
@@ -228,31 +236,33 @@ private fun DrawScope.drawConvoy(body: CelestialBody, center: Offset, zoom: Floa
 
 internal fun DrawScope.drawWorldBodies(bodies: List<CelestialBody>,viewport: IntSize,camera: SpaceCamera,rotation: Double,
     controlledId: Long?,largeIcons: Boolean,interpolation: SandboxInterpolation,large: Boolean) {
-    val dots=if (large) LinkedHashMap<Color,MutableList<Offset>>() else null
-    val stars=if (large) LinkedHashMap<Pair<Color,Float>,MutableList<Offset>>() else null
+    val dots=if (large) LinkedHashMap<Pair<Color,Float>,MutableList<Offset>>() else null
+    val stars=if (large) LinkedHashMap<Triple<Color,Float,Boolean>,MutableList<Offset>>() else null
     bodies.forEach { body ->
         val stellarRadius=bodyScreenRadius(body,camera.zoom,density)
-        if (stars != null && body.kind == BodyKind.Star && body.galaxyParticle && stellarRadius <= 8*density) {
+        if (stars != null && body.kind == BodyKind.Star &&
+            (body.galaxyParticle || body.galaxySystemId != null && camera.zoom < .08f) && stellarRadius <= 8.5*density) {
             val point=worldToScreen(interpolation.position(body),viewport,camera.center,camera.zoom)
             val margin=stellarRadius*3.4f
             val visible=if (abs(rotation) < .001) point.x >= -margin && point.y >= -margin && point.x <= size.width+margin && point.y <= size.height+margin
                 else (point-center).getDistance() <= hypot(size.width,size.height)*.5f+margin
             if (visible) {
                 val radius=kotlin.math.round(stellarRadius*2)/2
-                stars.getOrPut(body.color to radius) { ArrayList() }+=point
+                stars.getOrPut(Triple(body.color,radius,body.galaxySystemId != null)) { ArrayList() }+=point
             }
         } else if (dots != null && body.kind == BodyKind.Ambient && body.solar == null && body.mass < 2 && body.radius*camera.zoom <= 2.5f) {
             val point=worldToScreen(interpolation.position(body),viewport,camera.center,camera.zoom)
             val visible=if (abs(rotation) < .001) point.x >= -4 && point.y >= -4 && point.x <= size.width+4 && point.y <= size.height+4
                 else (point-center).getDistance() <= hypot(size.width,size.height)*.5f+4
-            if (visible) dots.getOrPut(body.color) { ArrayList() }+=point
+            val width=if (body.galaxySystemId != null) kotlin.math.round(stellarRadius*4)/2 else 2.5f
+            if (visible) dots.getOrPut(body.color to width) { ArrayList() }+=point
         } else drawBody(body,viewport,camera.center,camera.zoom,rotation,body.id == controlledId,largeIcons,
             interpolation.position(body),if (body.id == controlledId) body.heading else interpolation.heading(body),simple=large)
     }
-    dots?.forEach { (color,points) -> drawPoints(points,PointMode.Points,color,strokeWidth=2.5f,cap=StrokeCap.Round) }
+    dots?.forEach { (style,points) -> drawPoints(points,PointMode.Points,style.first,strokeWidth=style.second,cap=StrokeCap.Round) }
     stars?.forEach { (style,points) ->
-        val (color,radius)=style
-        drawPoints(points,PointMode.Points,color.copy(alpha=.13f),strokeWidth=radius*5.5f,cap=StrokeCap.Round)
+        val (color,radius,resolved)=style
+        drawPoints(points,PointMode.Points,color.copy(alpha=if (resolved) .10f else .13f),strokeWidth=radius*(if (resolved) 3.8f else 5.5f),cap=StrokeCap.Round)
         drawPoints(points,PointMode.Points,color,strokeWidth=radius*2,cap=StrokeCap.Round)
         drawPoints(points,PointMode.Points,Color.White.copy(alpha=.25f),strokeWidth=radius*.65f,cap=StrokeCap.Round)
     }
@@ -262,13 +272,18 @@ fun bodyScreenRadius(body: CelestialBody, zoom: Float, density: Float, largeVehi
     if (body.kind == BodyKind.Convoy) return (body.radius*zoom).coerceIn(10f*density,22f*density)
     if (body.kind == BodyKind.Star) {
         // Small stellar populations remain points at galaxy scale, rather than 500 giant icons.
-        val minimum=(if (body.galaxyParticle) minOf(4f,body.radius*.4f) else 14f)*density
+        val minimum=when {
+            body.galaxySystemId != null -> (1.5f+body.radius*.10f).coerceAtMost(8.5f)
+            body.galaxyParticle -> minOf(4f,body.radius*.4f)
+            else -> 14f
+        }*density
         return (body.radius*zoom).coerceIn(minimum,45f*density)
     }
     if (body.kind == BodyKind.BlackHole) return (body.radius*zoom).coerceIn(9f*density,24f*density)
     if (body.kind == BodyKind.Ship || body.kind == BodyKind.Rocket) return if (largeVehicleIcons)
         (body.radius*zoom).coerceIn(14f*density*vehicleSizeScale(body.kind,body.mass).toFloat(),
             24f*density*vehicleSizeScale(body.kind,body.mass).toFloat()) else body.radius*zoom
+    if (body.galaxySystemId != null) return (body.radius*zoom).coerceIn(minOf(3f,body.radius*.65f)*density,38f*density)
     val solar = body.solar ?: return (body.radius * zoom).coerceIn(4f, 38f)
     val symbolDp = if (solar == SolarBody.Sun) 22.0 else
         (6.0 * (solar.radiusKm / 6371.0).pow(.40)).coerceIn(3.0, 17.0)

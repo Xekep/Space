@@ -24,6 +24,18 @@ class SandboxStorageTest {
 
     @After fun cleanup() { target.deleteSharedPreferences(preferenceName) }
 
+    @Test fun twoThousandBodiesRoundTripAndTheNextBodyExceedsCapacity() {
+        val base=SimulationEngine.sandboxPreset(SandboxPresetKind.BinaryStars).bodies.first()
+        val bodies=List(com.xekep.space.sim.MAX_SANDBOX_BODIES) { index ->
+            base.copy(id=1L+index,position=Vec2(index*100.0,0.0),velocity=Vec2.Zero,trail=emptyList())
+        }
+        val snapshot=SandboxSnapshot(bodies,Vec2.Zero,1f,0.0,123)
+        val encoded=storage.encode(snapshot)
+        assertTrue(encoded.toByteArray(Charsets.UTF_8).size < MAX_SANDBOX_IMPORT_BYTES)
+        assertEquals(2000,storage.decode(encoded).bodies.size)
+        assertTrue(runCatching { storage.decode(storage.encode(snapshot.copy(bodies=bodies+base.copy(id=2001)))) }.isFailure)
+    }
+
     @Test fun guardianAndFuelEfficiencyRoundTripAndOldFilesKeepDefaultShipClass() {
         val craft=com.xekep.space.sim.CelestialBody(1,Vec2(240.0,0.0),Vec2(0.0,100.0),24.0,8f,
             androidx.compose.ui.graphics.Color.Cyan,com.xekep.space.sim.BodyKind.Ship,

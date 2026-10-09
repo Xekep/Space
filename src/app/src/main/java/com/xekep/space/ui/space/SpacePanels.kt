@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -62,7 +61,7 @@ fun ArcadeSelectionHud(game: SpaceGameState) {
 fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLives: Int, wave: Int,
     combo: Double, bodyCount: Int, cameraZoom: Float) {
     val context = LocalContext.current
-    Surface(modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    Surface(modifier.retroFrame(), shape = spaceShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             if (mode == AppMode.Arcade) {
@@ -82,16 +81,19 @@ fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLiv
 @Composable
 fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy) {
     val context = LocalContext.current
-    Surface(modifier, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    Surface(modifier.retroFrame(), shape = spaceShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(context.getString(R.string.launch_energy), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
                 Text("${energy.roundToInt()} / ${maximum.toInt()}", style = MaterialTheme.typography.labelMedium)
             }
-            Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(99.dp))) {
-                Box(Modifier.fillMaxWidth(energyRatio.coerceIn(0f, 1f)).height(6.dp)
-                    .background(Brush.horizontalGradient(listOf(Color(0xFF56E39F), Color(0xFF8BD3FF))), RoundedCornerShape(99.dp)))
+            if (LocalRetroUi.current) PixelMeter(energyRatio,Color(0xFF80FFDF),Modifier.fillMaxWidth().height(6.dp))
+            else {
+                Box(Modifier.fillMaxWidth().height(6.dp).background(Color.White.copy(alpha = 0.08f), spaceShape(99.dp))) {
+                    Box(Modifier.fillMaxWidth(energyRatio.coerceIn(0f, 1f)).height(6.dp)
+                        .background(Brush.horizontalGradient(listOf(Color(0xFF56E39F), Color(0xFF8BD3FF))), spaceShape(99.dp)))
+                }
             }
         }
     }
@@ -101,7 +103,7 @@ fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: D
 fun GameOverOverlay(modifier: Modifier = Modifier, score: Double, bestScore: Double, destroyed: Int,
     elapsed: Double = 0.0, wave: Int = 1, accuracy: Int = 0, onRetry: () -> Unit, onMenu: () -> Unit) {
     val context = LocalContext.current
-    Surface(modifier.widthIn(max = 340.dp).padding(20.dp), shape = RoundedCornerShape(28.dp), color = Color(0xFF0B1425),
+    Surface(modifier.widthIn(max = 340.dp).padding(20.dp).retroFrame(), shape = spaceShape(28.dp), color = Color(0xFF0B1425),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(context.getString(R.string.core_breached), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)

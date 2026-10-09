@@ -16,7 +16,8 @@ fun applyFlightControls(bodies: List<CelestialBody>, control: ManualFlightContro
     val routed=bodies.map { body ->
         if (!body.isVehicle || body.waypoints.isEmpty()) return@map body
         if (!body.enginePowered || body.id == manual?.bodyId)
-            return@map body.copy(waypoints=emptyList(),routePath=null,routeDistance=0.0)
+            return@map body.copy(waypoints=emptyList(),routePath=null,routeDistance=0.0,routeAvoiding=false)
+        if (body.routeAvoiding) return@map body
         val path=body.routePath ?: FlightPath.through(body.position,body.waypoints)
             ?: return@map body.copy(waypoints=emptyList())
         val speed=body.routeSpeed.takeIf { it > 0 } ?: routeCruiseSpeed(body.velocity.magnitude())
@@ -36,7 +37,8 @@ fun advanceWaypoints(before: List<CelestialBody>, after: List<CelestialBody>): L
         body.routePath?.let { path ->
             val remaining=path.remainingPoints(body.routeDistance)
             return@map body.copy(waypoints=remaining,routePath=path.takeIf { remaining.isNotEmpty() },
-                routeDistance=if (remaining.isEmpty()) 0.0 else body.routeDistance)
+                routeDistance=if (remaining.isEmpty()) 0.0 else body.routeDistance,
+                routeAvoiding=body.routeAvoiding && remaining.isNotEmpty())
         }
         val start=previous[body.id]?.position ?: body.position
         val radius=maxOf(body.radius*1.5,body.routeTolerance,.005)

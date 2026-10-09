@@ -167,7 +167,6 @@
     <string name="large_vehicle_icons_description">"Agrandir les icônes des vaisseaux et des fusées"</string>
     <string name="collision_merge">Fusion</string>
     <string name="collision_debris">Débris</string>
-    <string name="generate_random_systems">Générer une galaxie · 500 corps</string>
     <string name="random_systems_name">Galaxie</string>
     <string name="settings">Réglages</string>
     <string name="worlds">Mondes</string>
@@ -178,7 +177,7 @@
     <string name="start_game">Jouer</string>
     <string name="new_game">Nouvelle partie</string>
     <string name="how_to_play">Comment jouer</string>
-    <string name="random_systems_short">Galaxie · 500 corps</string>
+    <string name="random_systems_short">Galaxie · 500</string>
     <string name="random_systems_description">Une galaxie de 500 corps en rotation : noyau compact, bras spiraux et amas stellaires variés.</string>
     <string name="pilot_target_speed">Vitesse cible</string>
     <string name="spawn_guardian">Gardien</string>
@@ -220,4 +219,10 @@
     <string name="control_joystick">Joystick</string>
     <string name="tilt_sensitivity">Sensibilité de l’inclinaison</string>
     <string name="virtual_joystick">Joystick virtuel</string>
+    <string name="system_galaxy_name">Galaxie de systèmes</string>
+    <string name="system_galaxy_short">Galaxie · 1000</string>
+    <string name="system_galaxy_description">Une galaxie de 1000 corps en rotation : étoiles, planètes et satellites, bras spiraux et amas variés.</string>
+    <string name="galaxy_planet">Planète</string>
+    <string name="galaxy_moon">Satellite</string>
+    <string name="retro_console">Console rétro</string>
 </resources>

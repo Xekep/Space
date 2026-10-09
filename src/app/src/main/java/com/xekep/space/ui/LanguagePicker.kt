@@ -7,7 +7,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import com.xekep.space.ui.space.spaceShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -58,7 +58,7 @@ private fun LanguageChoices(current: AppLanguage, onChoose: (AppLanguage) -> Uni
             Surface(onClick = { onChoose(language) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("language-${language.tag}")
                     .semantics { selected = active; role = Role.RadioButton },
-                shape = RoundedCornerShape(14.dp),
+                shape = spaceShape(14.dp),
                 color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = .12f) else Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = .14f))) {

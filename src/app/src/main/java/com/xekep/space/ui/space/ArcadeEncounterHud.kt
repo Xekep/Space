@@ -41,7 +41,7 @@ internal fun ArcadeEncounterHud(game: SpaceGameState) {
                 contentPadding=PaddingValues(horizontal=12.dp,vertical=2.dp)) {
                 Text(stringResource(R.string.convoy_hull,convoy.hull),style=MaterialTheme.typography.labelMedium,color=Color(0xFF82EAC8))
                 Spacer(Modifier.width(8.dp))
-                Canvas(Modifier.size(16.dp)) {
+                PixelCanvas(Modifier.size(16.dp)) {
                     val color=Color(0xFF82EAC8)
                     drawCircle(color,size.minDimension*.30f,style=Stroke(1.dp.toPx()))
                     drawCircle(color,size.minDimension*.08f)

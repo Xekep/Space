@@ -85,7 +85,7 @@ internal object NumericIntegrator {
             // The navigator compensates gravity and follows the same spline drawn in the preview.
             // Apply each physics substep so collision sweeps follow the curve, not its end-to-end chord.
             if (hasRoutes) bodies.forEachIndexed { i, body ->
-                val path = body.routePath?.takeIf { body.fuelRemaining > 1e-9 } ?: return@forEachIndexed
+                val path = body.routePath?.takeIf { body.fuelRemaining > 1e-9 && !body.routeAvoiding } ?: return@forEachIndexed
                 val elapsed = (step+1)*dt
                 val powered = minOf(elapsed, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
                 val sample = path.sample(body.routeDistance+body.routeSpeed*powered)
@@ -104,8 +104,11 @@ internal object NumericIntegrator {
                 burnRemaining = (body.burnRemaining - seconds).coerceAtLeast(0.0),
                 fuelRemaining = fuel,
                 driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(seconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
-                routeDistance = if (body.routePath != null && fuel > 1e-9)
-                    body.routePath.normalizeDistance(body.routeDistance+body.routeSpeed*powered) else 0.0,
+                routeDistance = if (body.routePath != null && fuel > 1e-9) {
+                    val direction=body.routePath.sample(body.routeDistance).direction
+                    val progress=if (body.routeAvoiding) maxOf(0.0,body.velocity.x*direction.x+body.velocity.y*direction.y) else body.routeSpeed
+                    body.routePath.normalizeDistance(body.routeDistance+progress*powered)
+                } else 0.0,
                 routePath = body.routePath.takeIf { fuel > 1e-9 },
                 waypoints = if (body.isVehicle && fuel <= 1e-9) emptyList() else body.waypoints,
                 trail = if (recordTrail) appendMotionTrail(body,point,count >= BARNES_HUT_THRESHOLD) else body.trail)

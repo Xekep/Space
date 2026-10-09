@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -107,8 +106,8 @@ fun SpaceMenu(
                 if (selectedMode == AppMode.Arcade) {
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         ArcadeDifficulty.entries.forEach { level ->
-                            FilterChip(difficulty == level,{ difficulty=level },modifier=Modifier.weight(1f).testTag("difficulty-${level.name}"),
-                                shape=RoundedCornerShape(8.dp),colors=FilterChipDefaults.filterChipColors(
+                            FilterChip(difficulty == level,{ difficulty=level },modifier=Modifier.weight(1f).testTag("difficulty-${level.name}").retroFrame(if (difficulty == level) accent else MaterialTheme.colorScheme.outline),
+                                shape=spaceShape(8.dp),colors=FilterChipDefaults.filterChipColors(
                                     selectedContainerColor=accent.copy(alpha=.14f),selectedLabelColor=accent),
                                 label={ Text(context.getString(level.labelId()),maxLines=1,overflow=TextOverflow.Ellipsis) })
                         }
@@ -123,6 +122,7 @@ fun SpaceMenu(
                         listOf(SandboxPresetKind.SolarSystem,SandboxPresetKind.BinaryStars,SandboxPresetKind.ClassicOrbits).forEach { choice ->
                             val label=when (choice) {
                                 SandboxPresetKind.RandomSystems -> R.string.random_systems_short
+                                SandboxPresetKind.SystemGalaxy -> R.string.system_galaxy_short
                                 SandboxPresetKind.SolarSystem -> R.string.solar
                                 SandboxPresetKind.BinaryStars -> R.string.binary
                                 SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits
@@ -130,8 +130,8 @@ fun SpaceMenu(
                             }
                             val active=preset == choice
                             Surface(onClick={ preset=choice },modifier=Modifier.weight(1f).fillMaxHeight().heightIn(min=48.dp)
-                                .testTag("preset-${choice.name}").semantics { selected=active; role=Role.RadioButton },
-                                shape=RoundedCornerShape(8.dp),color=if (active) accent.copy(alpha=.14f) else Color(0xFF141E30),
+                                .testTag("preset-${choice.name}").semantics { selected=active; role=Role.RadioButton }.retroFrame(if (active) accent else MaterialTheme.colorScheme.outline),
+                                shape=spaceShape(8.dp),color=if (active) accent.copy(alpha=.14f) else Color(0xFF141E30),
                                 contentColor=if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant) {
                                 Box(Modifier.padding(horizontal=4.dp,vertical=12.dp),contentAlignment=Alignment.Center) {
                                     Text(context.getString(label),maxLines=2,textAlign=TextAlign.Center,
@@ -140,12 +140,19 @@ fun SpaceMenu(
                             }
                         }
                     }
-                    val randomActive=preset == SandboxPresetKind.RandomSystems
-                    Surface(onClick={ preset=SandboxPresetKind.RandomSystems },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
-                        .testTag("preset-RandomSystems").semantics { selected=randomActive; role=Role.RadioButton },
-                        shape=RoundedCornerShape(8.dp),color=if (randomActive) accent.copy(alpha=.14f) else Color(0xFF141E30),
-                        contentColor=if (randomActive) accent else MaterialTheme.colorScheme.onSurfaceVariant) {
-                        Box(Modifier.padding(horizontal=12.dp,vertical=12.dp),contentAlignment=Alignment.Center) { Text(context.getString(R.string.random_systems_short)) }
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                        listOf(SandboxPresetKind.RandomSystems,SandboxPresetKind.SystemGalaxy).forEach { choice ->
+                            val active=preset == choice
+                            val label=if (choice == SandboxPresetKind.SystemGalaxy) R.string.system_galaxy_short else R.string.random_systems_short
+                            Surface(onClick={ preset=choice },modifier=Modifier.weight(1f).heightIn(min=48.dp)
+                                .testTag("preset-${choice.name}").semantics { selected=active; role=Role.RadioButton }.retroFrame(if (active) accent else MaterialTheme.colorScheme.outline),
+                                shape=spaceShape(8.dp),color=if (active) accent.copy(alpha=.14f) else Color(0xFF141E30),
+                                contentColor=if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant) {
+                                Box(Modifier.padding(horizontal=6.dp,vertical=12.dp),contentAlignment=Alignment.Center) {
+                                    Text(context.getString(label),maxLines=2,textAlign=TextAlign.Center,style=MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
                     }
                     if (!wide) worldsActions()
                 }
@@ -155,7 +162,7 @@ fun SpaceMenu(
                 if (notice != null) Text(notice,Modifier.fillMaxWidth(),textAlign=TextAlign.Center,
                     style=MaterialTheme.typography.bodySmall,color=accent)
                 Button(onClick={ if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
-                    modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("menu-primary"),shape=RoundedCornerShape(10.dp),
+                    modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("menu-primary").retroFrame(accent),shape=spaceShape(10.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF041018))) {
                     Text(context.getString(if (hasSelectedSession) R.string.resume_game else if (selectedMode == AppMode.Arcade)
                         R.string.start_game else R.string.create_universe),fontWeight=FontWeight.SemiBold)
@@ -167,7 +174,7 @@ fun SpaceMenu(
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(if (orbitPhase != null) Color(0x2802040B) else Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
         val wide=maxHeight < 380.dp && maxWidth >= 500.dp
-        Surface(Modifier.widthIn(max=if (wide) 680.dp else 420.dp).fillMaxWidth(),shape=RoundedCornerShape(16.dp),color=Color(0xF20B1425)) {
+        Surface(Modifier.widthIn(max=if (wide) 680.dp else 420.dp).fillMaxWidth().retroFrame(),shape=spaceShape(16.dp),color=Color(0xF20B1425)) {
             if (wide) Row(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()).testTag("menu-content"),
                 horizontalArrangement=Arrangement.spacedBy(24.dp),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1.3f).padding(bottom=12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) { header(); choices(true) }
@@ -179,7 +186,7 @@ fun SpaceMenu(
 
     panel?.let { openPanel ->
         ModalBottomSheet(onDismissRequest={ panel=null },sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),
-            containerColor=Color(0xFF0B1425),contentColor=MaterialTheme.colorScheme.onSurface,shape=RoundedCornerShape(topStart=16.dp,topEnd=16.dp)) {
+            containerColor=Color(0xFF0B1425),contentColor=MaterialTheme.colorScheme.onSurface,shape=spaceShape(topStart=16.dp,topEnd=16.dp)) {
             Column(Modifier.widthIn(max=520.dp).fillMaxWidth().align(Alignment.CenterHorizontally).padding(horizontal=20.dp)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Text(context.getString(if (openPanel == MenuPanel.Settings) R.string.settings else R.string.worlds),
@@ -195,6 +202,9 @@ fun SpaceMenu(
                         OptionSwitch(context.getString(R.string.music),settings.music,"ambient-music-switch") { settings.music=it; settings.save() }
                         OptionSwitch(context.getString(R.string.sound),settings.sound,"sound-switch") { settings.sound=it; settings.save() }
                         OptionSwitch(context.getString(R.string.vibration),settings.vibration,"vibration-switch") { settings.vibration=it; settings.save() }
+                        OptionSwitch(context.getString(R.string.retro_console),settings.retroConsole,"retro-console-switch") {
+                            settings.retroConsole=it; settings.save()
+                        }
                         OptionSwitch(context.getString(R.string.reduced_flashes),settings.reducedFlashes,"reduced-flashes-switch") { settings.reducedFlashes=it; settings.save() }
                         OptionSwitch(context.getString(R.string.large_vehicle_icons),settings.largeVehicleIcons,"large-vehicle-icons",
                             context.getString(R.string.large_vehicle_icons_description)) { settings.largeVehicleIcons=it; settings.save() }
@@ -251,7 +261,7 @@ fun SpaceMenu(
 private fun OptionSwitch(label: String,checked: Boolean,tag: String,description: String=label,onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
         Text(label,Modifier.weight(1f).padding(end=12.dp),style=MaterialTheme.typography.bodyMedium)
-        Switch(checked,onChange,Modifier.testTag(tag).semantics { contentDescription=description })
+        SpaceSwitch(checked,onChange,Modifier.testTag(tag).semantics { contentDescription=description })
     }
 }
 
@@ -279,7 +289,7 @@ private fun InfoButton(onClick: () -> Unit) {
 
 @Composable
 private fun OrbitGlyph(modifier: Modifier,color: Color,phase: State<Float>?) {
-    Canvas(modifier) {
+    PixelCanvas(modifier) {
         val angle=phase?.value ?: .4f
         drawOval(color.copy(alpha=.4f),Offset(size.width*.06f,size.height*.28f),Size(size.width*.88f,size.height*.44f),style=Stroke(1.dp.toPx()))
         drawCircle(color,size.minDimension*.12f)
@@ -289,7 +299,7 @@ private fun OrbitGlyph(modifier: Modifier,color: Color,phase: State<Float>?) {
 
 @Composable
 private fun SettingsGlyph(modifier: Modifier,color: Color) {
-    Canvas(modifier) {
+    PixelCanvas(modifier) {
         val r=size.minDimension*.32f
         drawCircle(color,r,style=Stroke(1.5.dp.toPx()))
         drawCircle(color,r*.38f,style=Stroke(1.5.dp.toPx()))

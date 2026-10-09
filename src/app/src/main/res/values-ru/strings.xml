@@ -189,7 +189,6 @@
     <string name="large_vehicle_icons_description">Увеличивать значки кораблей и ракет</string>
     <string name="collision_merge">Слияние</string>
     <string name="collision_debris">Обломки</string>
-    <string name="generate_random_systems">Создать галактику · 500 тел</string>
     <string name="random_systems_name">Галактика</string>
     <string name="settings">Настройки</string>
     <string name="worlds">Миры</string>
@@ -200,7 +199,7 @@
     <string name="start_game">Начать игру</string>
     <string name="new_game">Новая игра</string>
     <string name="how_to_play">Как играть</string>
-    <string name="random_systems_short">Галактика · 500 тел</string>
+    <string name="random_systems_short">Галактика · 500</string>
     <string name="random_systems_description">Вращающаяся галактика из 500 тел: компактное ядро, рукава и разнообразные звёздные скопления.</string>
     <string name="pilot_target_speed">Заданная скорость</string>
     <string name="spawn_guardian">Страж</string>
@@ -242,4 +241,10 @@
     <string name="control_joystick">Джойстик</string>
     <string name="tilt_sensitivity">Чувствительность наклона</string>
     <string name="virtual_joystick">Виртуальный джойстик</string>
+    <string name="system_galaxy_name">Галактика систем</string>
+    <string name="system_galaxy_short">Галактика · 1000</string>
+    <string name="system_galaxy_description">Вращающаяся галактика из 1000 тел: звёзды с планетами и спутниками, рукава и разнообразные скопления.</string>
+    <string name="galaxy_planet">Планета</string>
+    <string name="galaxy_moon">Спутник</string>
+    <string name="retro_console">Ретроконсоль</string>
 </resources>

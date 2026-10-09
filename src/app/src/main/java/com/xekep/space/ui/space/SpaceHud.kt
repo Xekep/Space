@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,14 +49,14 @@ fun SandboxSlotRow(
 ) {
     val context = LocalContext.current
     Surface(
-        shape = RoundedCornerShape(10.dp),
+        shape = spaceShape(10.dp),
         color = Color.White.copy(alpha = 0.04f),
         contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp,
     ) {
         androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(12.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.foundation.Canvas(Modifier.size(48.dp)) {
+                PixelCanvas(Modifier.size(48.dp)) {
                     val points = summary?.preview.orEmpty()
                     if (points.isNotEmpty()) {
                         val minX = points.minOf { it.position.x }; val maxX = points.maxOf { it.position.x }

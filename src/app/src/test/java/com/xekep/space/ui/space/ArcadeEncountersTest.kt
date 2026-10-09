@@ -73,7 +73,7 @@ class ArcadeEncountersTest {
         val siege=advanceArcade(run(13,3.0).copy(spawnTimer=0.0),.01,Random(7))
         val calm=advanceArcade(run(11,3.0).copy(spawnTimer=0.0),.01,Random(7))
         val pincer=advanceArcade(run(14,3.0).copy(spawnTimer=0.0),.01,Random(7))
-        assertEquals(WaveCharacter.Swarm,swarm.character); assertEquals(6,swarm.pending.size)
+        assertEquals(WaveCharacter.Swarm,swarm.character); assertEquals(4,swarm.pending.size)
         assertTrue(swarm.pending.all { it.body.mass in 55.0..105.0 })
         assertEquals(4,siege.pending.size); assertEquals(1020.0,siege.pending.first().body.mass,0.0)
         assertTrue(siege.pending.drop(1).all { it.body.mass < 400 })
@@ -84,6 +84,44 @@ class ArcadeEncountersTest {
         assertTrue("Pincer must arrive from opposing sectors",a.x*b.x+a.y*b.y < -.7)
         val rest=advanceArcade(run(12,24.5).copy(spawnTimer=0.0),.01,Random(7))
         assertTrue(rest.pending.isEmpty()); assertTrue(rest.resting)
+    }
+
+    @Test fun latePressureGrowsGraduallyWithoutChangingDifficultyMultipliers() {
+        val early=advanceArcade(run(6,3.0).copy(spawnTimer=0.0),.01,Random(17))
+        val late=advanceArcade(run(12,3.0).copy(spawnTimer=0.0),.01,Random(17))
+        val siege=advanceArcade(run(13,3.0).copy(spawnTimer=0.0),.01,Random(17))
+        assertTrue(late.pending.size/late.spawnTimer <= 2*early.pending.size/early.spawnTimer)
+        assertTrue(siege.spawnTimer >= 2.45)
+        val hard=advanceArcade(run(13,3.0).copy(difficulty=ArcadeDifficulty.Hard,spawnTimer=0.0),.01,Random(17))
+        val easy=advanceArcade(run(13,3.0).copy(difficulty=ArcadeDifficulty.Easy,spawnTimer=0.0),.01,Random(17))
+        assertTrue(hard.spawnTimer < siege.spawnTimer); assertTrue(easy.spawnTimer > siege.spawnTimer)
+        assertTrue(waveGroupSize(20,WaveCharacter.Swarm) > late.pending.size)
+    }
+
+    @Test fun easyLatePincerLeavesLongerGapsWithoutWeakeningHardOrChangingEarlyWaves() {
+        fun spawn(wave: Int, difficulty: ArcadeDifficulty)=advanceArcade(
+            run(wave,3.0).copy(difficulty=difficulty,lives=difficulty.lives,spawnTimer=0.0),.01,Random(17))
+        val easy=spawn(18,ArcadeDifficulty.Easy); val normal=spawn(18,ArcadeDifficulty.Normal)
+        val hard=spawn(18,ArcadeDifficulty.Hard)
+        assertEquals(4,easy.pending.size); assertEquals(normal.pending.size,hard.pending.size)
+        assertTrue(easy.spawnTimer > 2.95)
+        assertEquals(1.39,normal.spawnTimer,1e-6); assertEquals(1.04,hard.spawnTimer,1e-6)
+        val early=spawn(8,ArcadeDifficulty.Easy)
+        assertEquals((4.6-8*.25)*1.3-.01,early.spawnTimer,1e-6)
+    }
+
+    @Test fun transportWaitsForEscortThenDepartsAndFlankingWarningsStartFarAway() {
+        val random=Random(17)
+        val started=advanceArcade(run(15).copy(spawnTimer=0.0),.01,random)
+        val transport=started.bodies.single { it.kind == BodyKind.Convoy }
+        assertEquals(3,started.pending.size)
+        assertTrue(started.pending.take(2).all { (it.body.position-transport.position).magnitude() > 800.0 })
+        var waiting=started
+        repeat(150) { waiting=advanceArcade(waiting.copy(spawnTimer=1000.0),1.0/30,random) }
+        val still=waiting.bodies.first { it.id == transport.id }
+        assertTrue((still.position-transport.position).magnitude() < 2.0)
+        val departure=prepareArcadeEncounters(waiting.copy(convoy=waiting.convoy!!.copy(elapsed=6.0)),.01,random)
+        assertEquals(75.0,departure.bodies.first { it.id == transport.id }.velocity.magnitude(),1e-6)
     }
 
     @Test fun convoyAppearsOnceOutsideTheArenaAndDoesNotOccupyAPlayerShipSlot() {
@@ -214,6 +252,49 @@ class ArcadeEncountersTest {
             println("CONVOY_ESCORTED,seed=$seed,status=${next.convoy!!.status},hull=${next.convoy!!.hull},intercepts=${next.destroyed}")
         }
         assertTrue("The available fleet must be able to escort the transport",delivered >= 2)
+    }
+
+    @Test fun identicalFleetProtectsConvoyBetterWhenTwoInterceptorsLeaveTheCorePatrol() {
+        var passiveDeliveries=0; var escortDeliveries=0; var passiveHull=0; var escortHull=0
+        for (difficulty in ArcadeDifficulty.entries) for (seed in listOf(7,17,53,73)) {
+            fun attempt(escort: Boolean): ArcadeSession {
+                val random=Random(seed)
+                var state=advanceArcade(run(15).copy(difficulty=difficulty,lives=difficulty.lives,spawnTimer=0.0),.01,random)
+                val core=state.bodies.first { it.kind == BodyKind.Core }
+                val transport=state.bodies.first { it.kind == BodyKind.Convoy }
+                val guards=List(2) { index ->
+                    val point=core.position+Vec2(if (index == 0) 240.0 else -240.0,0.0)
+                    CelestialBody(SimulationEngine.newBodyId(),point,SimulationEngine.orbitVelocity(core,point),
+                        24.0,8f,Color.Green,BodyKind.Ship,shipClass=ShipClass.Guardian)
+                }
+                val interceptors=List(2) { index ->
+                    val point=if (escort) transport.position+transport.heading.perpendicular()*((index*2-1)*70.0)
+                        else core.position+Vec2(if (index == 0) 300.0 else -300.0,0.0)
+                    val knots=(0..3).map { phase -> core.position+Vec2(cos(index*PI+phase*PI/2),sin(index*PI+phase*PI/2))*300.0 }
+                    val path=if (escort) null else FlightPath(knots,0)
+                    CelestialBody(SimulationEngine.newBodyId(),point,if (escort) transport.velocity else path!!.sample(0.0).direction*220.0,
+                        24.0,8f,Color.Cyan,BodyKind.Ship,heading=transport.heading,
+                        waypoints=path?.knots?.drop(1) ?: emptyList(),routePath=path,routeSpeed=if (escort) 0.0 else 220.0)
+                }
+                state=state.copy(bodies=state.bodies+guards+interceptors)
+                repeat(1290) {
+                    if (state.convoy!!.status == ConvoyStatus.Approaching && state.lives > 0) {
+                        state.upgradeOffer?.let { state=selectUpgrade(state,it.choices.first()) }
+                        state=advanceArcade(state,1.0/30,random)
+                    }
+                }
+                return state
+            }
+            val passive=attempt(false); val escorted=attempt(true)
+            if (passive.convoy!!.status == ConvoyStatus.Delivered) passiveDeliveries++
+            if (escorted.convoy!!.status == ConvoyStatus.Delivered) escortDeliveries++
+            passiveHull+=passive.convoy!!.hull; escortHull+=escorted.convoy!!.hull
+            println("CONVOY_PAIRED,difficulty=$difficulty,seed=$seed,passive=${passive.convoy!!.status}/${passive.convoy!!.hull},escort=${escorted.convoy!!.status}/${escorted.convoy!!.hull},corePassive=${passive.lives},coreEscort=${escorted.lives}")
+        }
+        assertTrue("Core patrol must not guarantee the optional reward",passiveDeliveries < 12)
+        assertTrue("Moving the same ships should improve transport survival",escortDeliveries > passiveDeliveries)
+        assertTrue("Escort must tolerate some mistakes",escortDeliveries >= 6)
+        assertTrue(escortHull > passiveHull)
     }
 
     @Test fun aBusyPlanetOrbitDoesNotPreventTheConvoyFromArriving() {

@@ -54,9 +54,9 @@ class MotionControlTest {
     }
     @Test fun counterShowsCapacityAndFullScenesDoNotProduceABanner() {
         val game=game()
-        repeat(1000) { game.launchAt(it*100.0,BodyKind.Ambient) }
-        assertEquals(1000,game.spawnCount); assertEquals(1000,game.spawnLimit)
-        game.launchAt(100000.0); assertEquals(1000,game.bodies.size); assertNull(game.feedback)
+        repeat(MAX_SANDBOX_BODIES) { game.launchAt(it*100.0,BodyKind.Ambient) }
+        assertEquals(MAX_SANDBOX_BODIES,game.spawnCount); assertEquals(MAX_SANDBOX_BODIES,game.spawnLimit)
+        game.launchAt(300000.0); assertEquals(MAX_SANDBOX_BODIES,game.bodies.size); assertNull(game.feedback)
         game.startArcade(); game.chooseSpawnKind(BodyKind.Ship)
         assertEquals(3,game.spawnLimit)
     }

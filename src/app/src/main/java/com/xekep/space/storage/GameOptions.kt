@@ -24,9 +24,10 @@ class GameOptions(context: Context) {
     var shake: Boolean
         get() = shakeMode != ShakeMode.Off
         set(value) { shakeMode = if (value) ShakeMode.Inertial else ShakeMode.Off }
+    var retroConsole by mutableStateOf(preferences.getBoolean("retroConsole", false))
     var reducedFlashes by mutableStateOf(preferences.getBoolean("reducedFlashes", false))
     fun save() { preferences.edit().putBoolean("sound", sound).putBoolean("music", music).putBoolean("vibration", vibration)
-        .remove("motionControl").putBoolean("reducedFlashes", reducedFlashes).putBoolean("shake", shake)
+        .putBoolean("retroConsole",retroConsole).remove("motionControl").putBoolean("reducedFlashes", reducedFlashes).putBoolean("shake", shake)
         .putString("flightControl",flightControl.name)
         .putFloat("tiltSensitivity",tiltSensitivity.takeIf { it.isFinite() }?.coerceIn(.5f,1.75f) ?: 1f)
         .putBoolean("largeVehicleIcons", largeVehicleIcons)

@@ -109,7 +109,9 @@ class ArcadePlaythroughUiTest {
             assertTrue("Run ended at wave ${result.wave}",result.wave >= 21)
             assertTrue(result.challenge?.rewarded == true && result.challenge?.failed == false)
             assertNotNull(result.planetId)
-            assertEquals(ConvoyStatus.Delivered,result.convoy!!.status)
+            // This policy keeps its fleet at the core. The optional transport is no longer
+            // guaranteed by passive patrol; active delivery is covered by ConvoyEscortUiTest.
+            assertTrue(result.convoy!!.status in listOf(ConvoyStatus.Delivered,ConvoyStatus.Lost))
         } finally { prefs.edit().putBoolean("motionControl",oldMotion).commit() }
     }
 }

@@ -22,9 +22,11 @@ internal fun rememberMenuPhase(): State<Float> {
 }
 
 @Composable
-internal fun MenuCosmos(modifier: Modifier,phase: State<Float>) {
+internal fun MenuCosmos(modifier: Modifier,phase: State<Float>,retroConsole: Boolean = false) {
+    val renderer=remember(retroConsole) { if (retroConsole) RetroRenderer() else null }
     val points=remember { val random=Random(79); List(100) { Triple(random.nextFloat(),random.nextFloat(),random.nextFloat()) } }
     Canvas(modifier.testTag("menu-cosmos")) {
+        drawRetroFrame(renderer) {
         val t=phase.value
         drawRect(Brush.verticalGradient(listOf(Color(0xFF020611),Color(0xFF0A1530),Color(0xFF030A19))))
         val anchor=Offset(size.width*.22f,size.height*.19f)
@@ -55,6 +57,7 @@ internal fun MenuCosmos(modifier: Modifier,phase: State<Float>) {
             val r=(1.8f+i%3*.6f).dp.toPx()
             drawCircle(color.copy(alpha=.1f),r*2.8f,planet)
             drawCircle(color.copy(alpha=.8f),r,planet)
+        }
         }
     }
 }

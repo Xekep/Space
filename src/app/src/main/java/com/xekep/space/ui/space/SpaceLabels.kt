@@ -43,6 +43,7 @@ fun SandboxPresetKind.labelId(): Int = when (this) {
     SandboxPresetKind.BinaryStars -> R.string.binary_stars
     SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits
     SandboxPresetKind.RandomSystems -> R.string.random_systems_name
+    SandboxPresetKind.SystemGalaxy -> R.string.system_galaxy_name
     SandboxPresetKind.Empty -> R.string.empty_space
 }
 
@@ -52,6 +53,7 @@ fun SandboxPresetKind.descriptionId(): Int = when (this) {
     SandboxPresetKind.BinaryStars -> R.string.binary_description
     SandboxPresetKind.ClassicOrbits -> R.string.classic_orbits_description
     SandboxPresetKind.RandomSystems -> R.string.random_systems_description
+    SandboxPresetKind.SystemGalaxy -> R.string.system_galaxy_description
     SandboxPresetKind.Empty -> R.string.empty_description
 }
 
@@ -75,6 +77,7 @@ fun com.xekep.space.sim.CelestialBody.labelId(): Int = when (solar) {
     com.xekep.space.sim.SolarBody.Titan -> R.string.titan
     com.xekep.space.sim.SolarBody.Triton -> R.string.triton
     null -> when {
+        orbitParentId != null && galaxySystemId != null -> if (orbitParentId == galaxySystemId) R.string.galaxy_planet else R.string.galaxy_moon
         hullClass == com.xekep.space.sim.VehicleHullClass.Heavy && kind == BodyKind.Ship ->
             if (shipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_heavy_guardian else R.string.spawn_heavy_ship
         hullClass == com.xekep.space.sim.VehicleHullClass.Heavy && kind == BodyKind.Rocket -> R.string.spawn_heavy_rocket

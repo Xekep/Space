@@ -167,7 +167,6 @@
     <string name="large_vehicle_icons_description">"放大飞船和火箭图标"</string>
     <string name="collision_merge">合并</string>
     <string name="collision_debris">碎片</string>
-    <string name="generate_random_systems">生成星系 · 500 个天体</string>
     <string name="random_systems_name">星系</string>
     <string name="settings">设置</string>
     <string name="worlds">世界</string>
@@ -178,7 +177,7 @@
     <string name="start_game">开始游戏</string>
     <string name="new_game">新游戏</string>
     <string name="how_to_play">玩法说明</string>
-    <string name="random_systems_short">星系 · 500 个天体</string>
+    <string name="random_systems_short">星系 · 500</string>
     <string name="random_systems_description">由 500 个天体组成的旋转星系：紧凑核心、旋臂与多样的恒星聚集区。</string>
     <string name="pilot_target_speed">目标速度</string>
     <string name="spawn_guardian">守卫舰</string>
@@ -220,4 +219,10 @@
     <string name="control_joystick">摇杆</string>
     <string name="tilt_sensitivity">倾斜灵敏度</string>
     <string name="virtual_joystick">虚拟摇杆</string>
+    <string name="system_galaxy_name">恒星系统星系</string>
+    <string name="system_galaxy_short">星系 · 1000</string>
+    <string name="system_galaxy_description">由 1000 个天体组成的旋转星系：恒星、行星、卫星、旋臂和多样的星团。</string>
+    <string name="galaxy_planet">行星</string>
+    <string name="galaxy_moon">卫星</string>
+    <string name="retro_console">复古游戏机</string>
 </resources>

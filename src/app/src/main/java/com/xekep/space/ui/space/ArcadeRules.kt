@@ -73,7 +73,7 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     pending.removeAll { it.seconds <= 0 }
     var timer = current.spawnTimer - dt
     if (cycle >= 24.0) timer = 1.5
-    if (lives > 0 && cycle < 24.0 && timer <= 0.0) {
+    if (lives > 0 && waveMaySpawn(wave,cycle,challenge,current.practice) && timer <= 0.0) {
         val character=waveCharacter(wave,current.practice)
         val attackSide=random.nextInt(4)
         repeat(waveGroupSize(wave,character)) {
@@ -94,13 +94,22 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
                 if (!boss && !current.practice) meteor=shapeWaveMeteor(meteor,wave,it,character,random)
                 val incoming=if (current.practice) meteor.copy(position = Vec2(964.0, 700.0), velocity = Vec2(-40.0, 0.0), mass = 90.0,
                     radius = SimulationEngine.radiusForMass(90.0)) else meteor.copy(velocity = meteor.velocity * (0.60 + minOf(wave, 16) * 0.035))
-                val distant=distantThreat(incoming,current,view,target)
-                val threat=if (transport != null) aimConvoyThreat(distant,transport,bodies,current.difficulty.warningSeconds) else distant
+                // Flanking ambushes meet the transport outside the core patrol, with the
+                // same off-screen lead and warning as ordinary threats. No homing after spawn.
+                val approach=if (transport != null) {
+                    val radial=(transport.position-corePosition).normalized()
+                    val flank=(radial*.45+radial.perpendicular()*(if (it == 0) 1.0 else -1.0)).normalized()
+                    incoming.copy(position=transport.position+flank*1100.0,velocity=flank*-210.0)
+                } else incoming
+                val distant=distantThreat(approach,current,view,target)
+                val threat=if (transport != null) aimConvoyThreat(distant,transport,bodies,current.difficulty.warningSeconds,
+                    current.convoy?.elapsed ?: 0.0) else distant
                 pending += PendingThreat(threat,current.difficulty.warningSeconds)
             }
         }
-        timer += waveSpawnDelay(wave,waveCharacter(wave,current.practice)) * current.difficulty.spawnDelay
+        timer += waveSpawnDelay(wave,waveCharacter(wave,current.practice),current.difficulty) * current.difficulty.spawnDelay
     }
+    if (!waveMaySpawn(wave,cycle,challenge,current.practice)) timer=maxOf(timer,.25)
     // A missed challenge fragment may leave the arena; it must not freeze the wave forever.
     challenge?.let { active ->
         val present=bodies.map { it.id }.toSet()+pending.map { it.body.id }

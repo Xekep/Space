@@ -96,7 +96,7 @@ class SpaceGameState(
     }
     val spawnLimit: Int get() = spawnLimitFor(spawnKind)
     val spawnCount: Int get() = spawnCountFor(spawnKind)
-    fun spawnLimitFor(kind: BodyKind): Int = if (mode == AppMode.Sandbox) 1000 else arcade?.launchLimit(kind) ?: when (kind) { BodyKind.Ship -> 3; BodyKind.Rocket -> 10; else -> 30 }
+    fun spawnLimitFor(kind: BodyKind): Int = if (mode == AppMode.Sandbox) MAX_SANDBOX_BODIES else arcade?.launchLimit(kind) ?: when (kind) { BodyKind.Ship -> 3; BodyKind.Rocket -> 10; else -> 30 }
     fun spawnCountFor(kind: BodyKind): Int = if (mode == AppMode.Sandbox) bodies.size else bodies.count {
         it.kind == if (kind == BodyKind.Ambient) BodyKind.Player else kind
     }
@@ -217,7 +217,7 @@ class SpaceGameState(
         history.clear(); undoCount = 0; checkpoint = sandbox; dirty = false; clearSelection()
         mode = AppMode.Sandbox; touchPreview = null; menuOpen = false; feedback = null; tutorialStep = -1; resetFrameClock()
         spawnKind = BodyKind.Ambient
-        if (preset == SandboxPresetKind.RandomSystems && viewport != IntSize.Zero) fitCamera()
+        if (preset in listOf(SandboxPresetKind.RandomSystems,SandboxPresetKind.SystemGalaxy) && viewport != IntSize.Zero) fitCamera()
         explosions = emptyList()
         if (preset == SandboxPresetKind.SolarSystem && viewport != IntSize.Zero) { focusSolar(SolarBody.Sun); clearSelection() }
         checkpoint = sandbox
@@ -600,12 +600,12 @@ class SpaceGameState(
     fun setCollisionMode(value: SandboxCollisionMode) {
         sandbox?.let { if (it.collisionMode != value) { sandboxRevision++; rememberEdit(); sandbox=it.copy(collisionMode=value); dirty=true } }
     }
-    fun generateRandomSystems(name: String) {
+    fun generateRandomSystems(name: String, resolved: Boolean = false) {
         if (mode != AppMode.Sandbox || sandbox == null) return
         sandboxRevision++; resetMotionControl(); rememberEdit(); clearSelection(); resetFrameClock(); resetPresentation()
-        val scene=RandomSystems.create(random,SimulationEngine::newBodyId)
+        val scene=if (resolved) SystemGalaxy.create(random,SimulationEngine::newBodyId) else RandomSystems.create(random,SimulationEngine::newBodyId)
         lastSandboxVehicleId=null; explosions=emptyList(); touchPreview=null
-        sandbox=sandbox?.copy(bodies=scene,referenceEnergy=SimulationEngine.totalEnergy(scene),name=name,preset=SandboxPresetKind.RandomSystems,
+        sandbox=sandbox?.copy(bodies=scene,referenceEnergy=SimulationEngine.totalEnergy(scene),name=name,preset=if (resolved) SandboxPresetKind.SystemGalaxy else SandboxPresetKind.RandomSystems,
             timeScale=1.0)
         dirty=true; feedback=null; fitCamera()
     }

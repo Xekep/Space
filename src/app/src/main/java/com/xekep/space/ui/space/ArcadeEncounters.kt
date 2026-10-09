@@ -25,19 +25,55 @@ val ArcadeSession.character: WaveCharacter get() = waveCharacter(wave,practice)
 
 internal fun waveGroupSize(wave: Int, character: WaveCharacter): Int = when (character) {
     WaveCharacter.Approach, WaveCharacter.Giant, WaveCharacter.Recovery -> 1
-    WaveCharacter.Swarm -> (2+wave/3).coerceAtMost(6)
+    WaveCharacter.Swarm -> if (wave < 10) (2+wave/3).coerceAtMost(4) else (4+(wave-12)/4).coerceIn(4,6)
     WaveCharacter.Pincer -> if (wave < 8) 2 else 4
     WaveCharacter.Escort -> 3
     WaveCharacter.Siege -> (1+wave/3).coerceIn(2,4)
 }
-internal fun waveSpawnDelay(wave: Int, character: WaveCharacter): Double =
-    (4.6-wave*.25).coerceAtLeast(1.4)*when (character) {
+internal fun waveSpawnDelay(wave: Int, character: WaveCharacter, difficulty: ArcadeDifficulty = ArcadeDifficulty.Normal): Double {
+    val base=(4.6-wave*.25).coerceAtLeast(1.4)*when (character) {
         WaveCharacter.Recovery -> 2.1
         WaveCharacter.Swarm -> 1.25
         WaveCharacter.Siege -> 1.35
         WaveCharacter.Escort -> 1.8
         else -> 1.0
     }
+    // The first late siege leaves time to react to its much heavier lead target.
+    val paced=when {
+        character == WaveCharacter.Siege && wave >= 13 -> maxOf(base,2.5-(wave-13)*.10)
+        character == WaveCharacter.Escort -> maxOf(base,5.0)
+        else -> base
+    }
+    // Easy gives beginners longer gaps when late attacks come from several directions.
+    val easyFloor=if (difficulty == ArcadeDifficulty.Easy && wave >= 12) when (character) {
+        WaveCharacter.Pincer -> 2.3
+        WaveCharacter.Swarm -> 2.1
+        else -> 0.0
+    } else 0.0
+    return maxOf(paced,easyFloor)
+}
+
+// Quiet end to wave 9 lets its distant threats approach before the giant arrives.
+internal fun waveMaySpawn(wave: Int, cycle: Double, challenge: ArcadeChallenge?, practice: Boolean): Boolean =
+    cycle < 24.0 && (practice || when (wave) {
+        9 -> cycle < 18.0
+        10 -> cycle >= 6.0 && challenge == null
+        else -> true
+    })
+
+internal const val CONVOY_DEPARTURE_DELAY=6.0
+
+internal fun convoySpeed(transport: CelestialBody, core: CelestialBody, planet: CelestialBody?, elapsed: Double): Double {
+    if (elapsed < CONVOY_DEPARTURE_DELAY) return 0.0
+    if (planet != null) {
+        val offset=transport.position-core.position
+        val planetOffset=planet.position-core.position
+        val radial=offset.normalized(); val planetRadial=planetOffset.normalized()
+        val sameSector=radial.x*planetRadial.x+radial.y*planetRadial.y > .4
+        if (offset.magnitude() in (planetOffset.magnitude()+140.0)..(planetOffset.magnitude()+240.0) && sameSector) return 0.0
+    }
+    return 75.0
+}
 
 internal fun shapeWaveMeteor(body: CelestialBody, wave: Int, index: Int, character: WaveCharacter, random: Random): CelestialBody {
     val mass=when {
@@ -55,7 +91,7 @@ internal fun shapeWaveMeteor(body: CelestialBody, wave: Int, index: Int, charact
 /** Ballistic lead for the moving transport; threats keep normal gravity after launch.
  * A few bounded shooting corrections account for the core and the orbiting planet.
  */
-internal fun aimConvoyThreat(threat: CelestialBody, transport: CelestialBody, scene: List<CelestialBody>, warning: Double): CelestialBody {
+internal fun aimConvoyThreat(threat: CelestialBody, transport: CelestialBody, scene: List<CelestialBody>, warning: Double, convoyElapsed: Double = CONVOY_DEPARTURE_DELAY): CelestialBody {
     val core=scene.firstOrNull { it.kind == BodyKind.Core } ?: return threat
     val radial=(transport.position-core.position).normalized()
     val distance=(transport.position-core.position).magnitude()
@@ -63,7 +99,7 @@ internal fun aimConvoyThreat(threat: CelestialBody, transport: CelestialBody, sc
     var time=(threat.position-transport.position).magnitude()/speed
     var target=transport.position
     repeat(6) {
-        target=core.position+radial*maxOf(core.radius+transport.radius+95.0,distance-75*(time+warning))
+        target=core.position+radial*maxOf(core.radius+transport.radius+95.0,distance-75*(time+warning-(CONVOY_DEPARTURE_DELAY-convoyElapsed).coerceAtLeast(0.0)).coerceAtLeast(0.0))
         time=((threat.position-target).magnitude()/speed).coerceIn(2.0,12.0)
     }
     var velocity=(target-threat.position)/time
@@ -113,17 +149,7 @@ internal fun prepareArcadeEncounters(run: ArcadeSession, dt: Double, random: Ran
     if (convoy?.status == ConvoyStatus.Approaching) bodies=bodies.map { body ->
         if (body.id != convoy.bodyId) body else {
             val target=core.position
-            var speed=75.0
-            if (planet != null) {
-                val offset=body.position-core.position
-                val planetOffset=planet.position-core.position
-                val distance=offset.magnitude(); val orbit=planetOffset.magnitude()
-                val radial=offset.normalized(); val planetRadial=planetOffset.normalized()
-                val sameSector=radial.x*planetRadial.x+radial.y*planetRadial.y > .4
-                // Wait outside the orbit until the planet passes the arrival lane.
-                // Steering around a linear prediction can hit a fast orbiting obstacle.
-                if (distance in (orbit+140.0)..(orbit+240.0) && sameSector) speed=0.0
-            }
+            val speed=convoySpeed(body,core,planet,convoy.elapsed)
             val heading=turnHeading(body.heading,target-body.position,dt,1.8)
             body.copy(heading=heading,velocity=heading*speed)
         }

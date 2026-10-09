@@ -13,6 +13,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
+const val MAX_SANDBOX_BODIES = 2000
+
 data class Vec2(
     val x: Double,
     val y: Double,
@@ -77,6 +79,9 @@ data class CelestialBody(
     val shipClass: ShipClass = ShipClass.Interceptor,
     val fuelConsumptionScale: Double = 1.0,
     val galaxyParticle: Boolean = false, // Coarse stellar population, not a close two-body star system.
+    val galaxySystemId: Long? = null,
+    val orbitParentId: Long? = null,
+    val routeAvoiding: Boolean = false, // Transient arcade detour; retain the authored spline.
 )
 
 data class CollisionEvent(
@@ -109,6 +114,7 @@ enum class SandboxPresetKind(val title: String, val description: String) {
     BinaryStars("Binary stars", "Two stars orbit a shared center of gravity."),
     ClassicOrbits("Orbits", "A star and eight planets in a playful gravity scale."),
     RandomSystems("Galaxy", "A rotating stellar disk with a nucleus, arms and varied clusters."),
+    SystemGalaxy("System galaxy", "A galaxy of stars, planets and moons in hierarchical orbits."),
     Empty("Empty space", "A blank universe. Build your own system."),
 }
 
@@ -174,6 +180,10 @@ object SimulationEngine {
     }
 
     fun sandboxPreset(kind: SandboxPresetKind = SandboxPresetKind.SolarSystem): SandboxPreset {
+        if (kind == SandboxPresetKind.SystemGalaxy) {
+            val bodies=SystemGalaxy.create(Random.Default,::newBodyId)
+            return SandboxPreset(bodies,Vec2.Zero,.007f,totalEnergy(bodies))
+        }
         if (kind == SandboxPresetKind.RandomSystems) {
             val bodies=RandomSystems.create(Random.Default,::newBodyId)
             return SandboxPreset(bodies,Vec2.Zero,.09f,totalEnergy(bodies))

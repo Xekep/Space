@@ -7,6 +7,7 @@ import kotlin.random.Random
 
 class RandomSystemsStateTest {
     @Test fun generationReplacesTheWorldAndUndoRestoresBodiesNameAndSettings() {
+        for (resolved in listOf(false,true)) {
         val game=SpaceGameState(random=Random(17)).apply {
             resize(androidx.compose.ui.unit.IntSize(1080,2340))
             startSandbox(SandboxPresetKind.BinaryStars,"Original")
@@ -14,13 +15,14 @@ class RandomSystemsStateTest {
         }
         game.selectBody(game.bodies.first().id); game.prepareOrbit()
         val before=game.sandbox!!
-        game.generateRandomSystems("Random")
-        assertEquals(500,game.bodies.size); assertEquals("Random",game.sandbox!!.name)
+        game.generateRandomSystems("Random",resolved)
+        assertEquals(if (resolved) 1000 else 500,game.bodies.size); assertEquals("Random",game.sandbox!!.name)
         assertTrue(game.sandbox!!.paused); assertTrue(game.sandbox!!.collisionsEnabled)
         assertEquals(SandboxCollisionMode.Debris,game.sandbox!!.collisionMode)
         assertNull(game.orbitSourceId); assertTrue(game.dirty)
         assertTrue(game.bodies.map { it.id }.intersect(before.bodies.map { it.id }.toSet()).isEmpty())
         game.undo(); assertEquals(before,game.sandbox)
+        }
     }
     @Test fun collisionModeIsPartOfSnapshotsAndCanBeUndone() {
         val game=SpaceGameState().apply { startSandbox(); setCollisions(true) }

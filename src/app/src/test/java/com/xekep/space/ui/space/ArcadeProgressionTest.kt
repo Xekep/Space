@@ -82,15 +82,34 @@ class ArcadeProgressionTest {
         assertEquals(120.0,state.bodies.first { it.kind == BodyKind.Ship }.fuelRemaining,1e-6)
     }
     @Test fun tenthWaveSpawnsOneGiantWithAnOrdinaryDistantWarning() {
-        val first=advanceArcade(run(10,3.0).copy(spawnTimer=0.0),.01,Random(5))
+        val first=advanceArcade(run(10,6.0).copy(spawnTimer=0.0),.01,Random(5))
         assertNotNull(first.challenge); assertEquals(1,first.pending.size)
         val giant=first.pending.single().body
         assertEquals(1800.0,giant.mass,0.0); assertEquals(setOf(giant.id),first.challenge!!.ids)
         assertTrue((giant.position-core().position).magnitude() > 900.0)
         val next=advanceArcade(first.copy(spawnTimer=0.0),.01,Random(5))
+        assertEquals(1,next.pending.size)
         assertEquals(1,next.pending.count { it.body.id == giant.id })
         assertEquals(first.challenge!!.parentId,next.challenge!!.parentId)
     }
+    @Test fun giantTransitionKeepsOldThreatsButStopsAddingBackgroundPressure() {
+        val old=core().copy(id=21,kind=BodyKind.Meteor,position=Vec2(3000.0,700.0),velocity=Vec2(-10.0,0.0))
+        val warned=old.copy(id=22,position=Vec2(-3000.0,700.0),velocity=Vec2(10.0,0.0))
+        for ((wave,cycle) in listOf(9 to 20.0,10 to 3.0)) {
+            val before=run(wave,cycle).copy(bodies=listOf(core(),old),pending=listOf(PendingThreat(warned,20.0)),spawnTimer=0.0)
+            val quiet=advanceArcade(before,.1,Random(17))
+            assertEquals(setOf(22L),quiet.pending.map { it.body.id }.toSet())
+            assertTrue(quiet.bodies.any { it.id == old.id }); assertNull(quiet.challenge)
+        }
+        val active=run(10,12.0).copy(bodies=listOf(core(),old),challenge=ArcadeChallenge(old.id,setOf(old.id)),spawnTimer=0.0)
+        val held=advanceArcade(active,.1,Random(17))
+        assertTrue(held.pending.isEmpty()); assertEquals(setOf(old.id),held.challenge!!.ids)
+        val cleared=advanceArcade(active.copy(bodies=listOf(core()),challenge=active.challenge!!.copy(ids=emptySet())),.1,Random(17))
+        assertTrue(cleared.pending.isEmpty())
+        val practice=advanceArcade(run(10,3.0).copy(practice=true,spawnTimer=0.0),.1,Random(17))
+        assertEquals(1,practice.pending.size); assertNull(practice.challenge)
+    }
+
     @Test fun destroyingGiantSplitsOnceAndHoldsWaveUntilAllFragmentsAreResolved() {
         val parent=core().copy(id=20,position=Vec2(1100.0,700.0),mass=100.0,kind=BodyKind.Meteor,velocity=Vec2(-140.0,0.0))
         val shot=SpaceProjectile(Vec2(1080.0,700.0),Vec2(10000.0,0.0),30)

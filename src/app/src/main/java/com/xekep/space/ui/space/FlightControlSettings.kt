@@ -23,7 +23,7 @@ fun FlightControlSettings(options: GameOptions) {
     }
     if (options.flightControl == FlightControlMode.Tilt) {
         Text(stringResource(R.string.tilt_sensitivity),style=MaterialTheme.typography.labelMedium)
-        Slider(value=options.tiltSensitivity,onValueChange={ options.tiltSensitivity=it; options.save() },
+        SpaceSlider(value=options.tiltSensitivity,onValueChange={ options.tiltSensitivity=it; options.save() },
             valueRange=.5f..1.75f,modifier=Modifier.fillMaxWidth().testTag("tilt-sensitivity"))
     }
 }

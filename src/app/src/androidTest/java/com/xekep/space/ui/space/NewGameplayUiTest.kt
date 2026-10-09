@@ -315,7 +315,7 @@ class NewGameplayUiTest {
         try {
             val game = SpaceGameState().apply { resize(IntSize(1080,2340)); startSandbox(); toggleSandboxPause() }
             compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
-            compose.onNodeWithTag("object-counter").assertTextEquals("17/1000")
+            compose.onNodeWithTag("object-counter").assertTextEquals("17/2000")
             compose.onNodeWithTag("sandbox-motion-control").assertIsOff().performClick()
             compose.mainClock.advanceTimeByFrame()
             compose.onNodeWithTag("sandbox-motion-control").assertIsOn()

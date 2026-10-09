@@ -82,7 +82,7 @@ internal fun debrisCollisions(bodies: List<CelestialBody>,previous: List<Celesti
         val energy=.5*(a.mass*b.mass/mass)*speed*speed
         val perImpact=if (bodies.size >= BARNES_HUT_THRESHOLD) 2 else if (bodies.size >= 80) 4 else 6
         val count=if (a.isDebris || b.isDebris || speed <= max(12.0,escape*.3)) 0
-            else minOf(perImpact,1000-activeCount,budget.remaining)/2*2
+            else minOf(perImpact,MAX_SANDBOX_BODIES-activeCount,budget.remaining)/2*2
         val loss=if (count == 0) 0.0 else min(a.mass,b.mass)*(speed/(escape+1)*.04).coerceIn(.015,.12)
         val volume=a.radius.toDouble().pow(3)+b.radius.toDouble().pow(3)
         val remnantRadius=cbrt(volume*(1-loss/mass)).toFloat()

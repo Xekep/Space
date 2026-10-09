@@ -25,7 +25,7 @@ class MassCollisionStressTest {
         repeat(60) {
             val previous=bodies.size
             bodies=SimulationEngine.stepSandbox(bodies,1.0/30,energy,true,collisionMode=SandboxCollisionMode.Debris).bodies
-            assertTrue(bodies.size <= previous+16 && bodies.size <= 1000)
+            assertTrue(bodies.size <= previous+16 && bodies.size <= MAX_SANDBOX_BODIES)
             assertEquals(initial.sumOf { it.mass },bodies.sumOf { it.mass },1e-6)
             assertEquals(bodies.size,bodies.map { it.id }.distinct().size)
             assertTrue(bodies.all { it.position.x.isFinite() && it.velocity.y.isFinite() })

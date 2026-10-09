@@ -52,7 +52,7 @@ fun CoreDirectionIndicator(game: SpaceGameState) {
     val marker = coreDirectionMarker(worldToScreen(core.position, viewport, game.camera.center, game.camera.zoom, game.cameraRotation),
         bodyScreenRadius(core, game.camera.zoom, density.density), viewport, bounds) ?: return
     val label = stringResource(R.string.direction_to_core)
-    Canvas(Modifier.fillMaxSize().testTag("core-direction").semantics { contentDescription = label }) {
+    PixelCanvas(Modifier.fillMaxSize().testTag("core-direction").semantics { contentDescription = label }) {
         val color = Color(0xFFFFD166)
         drawCircle(color.copy(alpha = .2f), 12.dp.toPx(), marker.position)
         drawArrow(marker.position - marker.direction * 16.dp.toPx(), marker.position, color)

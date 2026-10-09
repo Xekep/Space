@@ -47,7 +47,7 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean) {
         } finally { game.setSteeringInput(Vec2.Zero) }
     }
     DisposableEffect(game) { onDispose { game.setSteeringInput(Vec2.Zero) } }
-    Canvas(Modifier.size(96.dp).testTag("flight-joystick").semantics {
+    PixelCanvas(Modifier.size(96.dp).testTag("flight-joystick").semantics {
         contentDescription=label; if (!enabled) disabled()
     }.pointerInput(game,enabled,game.controlledVehicleId) {
         if (!enabled) return@pointerInput

@@ -36,7 +36,7 @@ fun SpawnCycleButton(game: SpaceGameState, modifier: Modifier = Modifier, tag: S
 
 @Composable
 internal fun SpawnKindIcon(kind: BodyKind, modifier: Modifier = Modifier, shipClass: ShipClass = ShipClass.Interceptor) {
-        Canvas(modifier) {
+        PixelCanvas(modifier) {
             clipRect { scale(if (kind == BodyKind.Star || kind == BodyKind.BlackHole) .6f else 1f) {
             drawBody(CelestialBody(-1, Vec2.Zero, Vec2.Zero, 20.0, 8f,
                 when (kind) { BodyKind.Rocket -> Color(0xFFFFB36B); BodyKind.Star -> Color(0xFFFFD166); BodyKind.BlackHole -> Color(0xFFCB9BFF); else -> if (shipClass == ShipClass.Guardian) Color(0xFF81E5C4) else Color(0xFF8BD3FF) }, kind,shipClass=shipClass),

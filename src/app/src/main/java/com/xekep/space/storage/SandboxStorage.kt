@@ -3,6 +3,7 @@ package com.xekep.space.storage
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.xekep.space.sim.MAX_SANDBOX_BODIES
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.SandboxPresetKind
@@ -11,6 +12,8 @@ import com.xekep.space.sim.SolarBody
 import com.xekep.space.sim.SandboxCollisionMode
 import org.json.JSONArray
 import org.json.JSONObject
+
+const val MAX_SANDBOX_IMPORT_BYTES = 16_000_000
 
 data class SandboxSnapshot(
     val bodies: List<CelestialBody>,
@@ -94,6 +97,8 @@ class SandboxStorage(context: Context) {
                     .put("physicalScale", body.physicalScale)
                     .put("isDebris",body.isDebris)
                     .put("galaxyParticle",body.galaxyParticle)
+                    .put("galaxySystemId",body.galaxySystemId)
+                    .put("orbitParentId",body.orbitParentId)
                     .put("shipClass",body.shipClass.name)
                     .put("fuelConsumptionScale",body.fuelConsumptionScale)
                     .put("pilotTargetSpeed",body.pilotTargetSpeed)
@@ -121,16 +126,21 @@ class SandboxStorage(context: Context) {
         val root = JSONObject(raw)
         val camera = root.getJSONObject("cameraCenter")
         val bodiesJson = root.getJSONArray("bodies")
-        require(bodiesJson.length() <= 1000) { "Scene contains too many bodies" }
+        require(bodiesJson.length() <= MAX_SANDBOX_BODIES) { "Scene contains too many bodies" }
         val bodies = buildList {
             for (index in 0 until bodiesJson.length()) {
                 val body = bodiesJson.getJSONObject(index)
                 val position = Vec2(body.getDouble("x"), body.getDouble("y"))
                 val velocity = Vec2(body.getDouble("vx"), body.getDouble("vy"))
                 val id = body.getLong("id")
-                require(id in 1..Long.MAX_VALUE - 1001)
+                require(id in 1..Long.MAX_VALUE - MAX_SANDBOX_BODIES - 1)
                 require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1e-30..100000000.0)
                 require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 1e-20..10000.0)
+                fun optionalId(key: String): Long? = if (!body.has(key) || body.isNull(key)) null else body.getLong(key).also {
+                    require(it in 1..Long.MAX_VALUE-MAX_SANDBOX_BODIES-1)
+                }
+                val systemId=optionalId("galaxySystemId"); val parentId=optionalId("orbitParentId")
+                require(parentId == null || parentId != id)
                 val burn = body.optDouble("burnRemaining", 0.0)
                 val heading = Vec2(body.optDouble("headingX", 0.0), body.optDouble("headingY", -1.0))
                 require(burn in 0.0..3.0 && heading.x.isFinite() && heading.y.isFinite() && kotlin.math.abs(heading.magnitude() - 1.0) < 1e-6)
@@ -193,6 +203,7 @@ class SandboxStorage(context: Context) {
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
                         shipClass=shipClass,fuelConsumptionScale=fuelScale,
                         galaxyParticle=body.optBoolean("galaxyParticle",false),
+                        galaxySystemId=systemId,orbitParentId=parentId,
                         fuelRemaining = fuel,
                         driftRemaining = drift, routePath = path, routeDistance = routeDistance,
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),

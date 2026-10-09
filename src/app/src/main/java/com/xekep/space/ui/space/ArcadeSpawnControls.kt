@@ -1,7 +1,6 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,7 +39,7 @@ fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailabl
                         maxLines=2,overflow=TextOverflow.Ellipsis)
                     FlightLoopButton(game)
                 }
-            Surface(shape=RoundedCornerShape(18.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.65f)) {
+            Surface(modifier=Modifier.retroFrame(MaterialTheme.colorScheme.secondary),shape=spaceShape(18.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.65f)) {
                 Row {
                     for ((kind,shipClass) in entries) {
                         val count by remember(game,kind) { derivedStateOf { game.spawnCountFor(kind) } }
@@ -52,9 +51,9 @@ fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailabl
                             if (kind == BodyKind.Ambient) R.string.spawn_body_short else kind.labelId())
                         val countLabel=stringResource(R.string.object_count,count,maximum)
                         Surface(onClick={ if (kind == BodyKind.Ship) game.chooseArcadeShipClass(shipClass) else game.chooseSpawnKind(kind) },
-                            modifier=Modifier.width(48.dp).height(64.dp).testTag("arcade-spawn-$tag")
+                            modifier=Modifier.width(48.dp).height(64.dp).testTag("arcade-spawn-$tag").retroFrame(if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
                                 .semantics { role=Role.RadioButton; selected=active; contentDescription="$name. $countLabel" },
-                            shape=RoundedCornerShape(14.dp),
+                            shape=spaceShape(14.dp),
                             color=if (active) MaterialTheme.colorScheme.secondary.copy(alpha=.16f) else Color.Transparent) {
                             Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                                 SpawnKindIcon(kind,Modifier.size(26.dp),shipClass)

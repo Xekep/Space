@@ -167,7 +167,6 @@
     <string name="large_vehicle_icons_description">"Symbole für Raumschiffe und Raketen vergrößern"</string>
     <string name="collision_merge">Verschmelzen</string>
     <string name="collision_debris">Trümmer</string>
-    <string name="generate_random_systems">Galaxie erzeugen · 500 Körper</string>
     <string name="random_systems_name">Galaxie</string>
     <string name="settings">Einstellungen</string>
     <string name="worlds">Welten</string>
@@ -178,7 +177,7 @@
     <string name="start_game">Spielen</string>
     <string name="new_game">Neues Spiel</string>
     <string name="how_to_play">Spielanleitung</string>
-    <string name="random_systems_short">Galaxie · 500 Körper</string>
+    <string name="random_systems_short">Galaxie · 500</string>
     <string name="random_systems_description">Eine rotierende Galaxie mit 500 Körpern: kompakter Kern, Spiralarme und vielfältige Sternhaufen.</string>
     <string name="pilot_target_speed">Zielgeschwindigkeit</string>
     <string name="spawn_guardian">Wächter</string>
@@ -220,4 +219,10 @@
     <string name="control_joystick">Joystick</string>
     <string name="tilt_sensitivity">Neigungsempfindlichkeit</string>
     <string name="virtual_joystick">Virtueller Joystick</string>
+    <string name="system_galaxy_name">Systemgalaxie</string>
+    <string name="system_galaxy_short">Galaxie · 1000</string>
+    <string name="system_galaxy_description">Eine rotierende Galaxie mit 1000 Körpern: Sterne mit Planeten und Monden, Spiralarme und vielfältige Sternhaufen.</string>
+    <string name="galaxy_planet">Planet</string>
+    <string name="galaxy_moon">Mond</string>
+    <string name="retro_console">Retro-Konsole</string>
 </resources>
