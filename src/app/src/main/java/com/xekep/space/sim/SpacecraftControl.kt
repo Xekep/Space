@@ -8,7 +8,7 @@ const val MAX_FLIGHT_ROLL = PI*70/180
 fun CelestialBody.pilotSpeedLimit(): Double = if (physicalScale) 5000.0 else 900.0
 
 data class ManualFlightControl(val bodyId: Long, val steering: Double, val boost: Double = 0.0, val pitch: Double = 0.0,
-    val roll: Double = 0.0, val attitudeRates: Boolean = false)
+    val roll: Double = 0.0, val attitudeRates: Boolean = false, val attitudeTimeScale: Double = 1.0)
 
 fun turnHeading(current: Vec2, desired: Vec2, seconds: Double, radiansPerSecond: Double = 3.6): Vec2 {
     if (desired.magnitude() < 1e-6 || seconds <= 0) return current
@@ -19,7 +19,8 @@ fun turnHeading(current: Vec2, desired: Vec2, seconds: Double, radiansPerSecond:
 }
 
 fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, seconds: Double): List<CelestialBody> {
-    if (control == null || !control.steering.isFinite() || !control.boost.isFinite() || !control.pitch.isFinite() || !control.roll.isFinite() || !seconds.isFinite() || seconds <= 0) return bodies
+    if (control == null || !control.steering.isFinite() || !control.boost.isFinite() || !control.pitch.isFinite() || !control.roll.isFinite() || !control.attitudeTimeScale.isFinite() || !seconds.isFinite() || seconds <= 0) return bodies
+    val attitudeSeconds=if (control.attitudeRates) seconds*control.attitudeTimeScale.coerceIn(1.0/6.0,10000.0) else seconds
     return bodies.map { body ->
         if (body.id != control.bodyId || !body.isVehicle || body.fuelRemaining <= 1e-9) body else {
             val limit=body.pilotSpeedLimit()
@@ -27,18 +28,19 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
                 ?: if (control.pitch != 0.0 || body.pitch != 0.0 || control.roll != 0.0 || body.roll != 0.0) body.flightSpeed().coerceIn(70.0,limit) else null
             // A stopped engine provides neither steering torque nor braking thrust.
             if (target == 0.0) return@map body.copy(pilotThrottle=0.0)
-            // Like a steering wheel: input changes turn rate relative to the craft's course.
-            val angle = atan2(body.heading.y, body.heading.x) + control.steering.coerceIn(-1.0, 1.0) * 3.6 * body.vehicleTurnScale * seconds
-            val heading = Vec2(cos(angle), sin(angle))
             val desiredPitch = control.pitch.coerceIn(-1.0,1.0)*MAX_FLIGHT_PITCH
             // FPV sticks command angular rates; neutral stops rotation, retaining attitude.
-            val pitch = if (control.attitudeRates) (body.pitch+control.pitch.coerceIn(-1.0,1.0)*1.8*body.vehicleTurnScale*seconds)
+            val pitch = if (control.attitudeRates) (body.pitch+control.pitch.coerceIn(-1.0,1.0)*3.6*body.vehicleTurnScale*attitudeSeconds)
                 .coerceIn(-MAX_FLIGHT_PITCH,MAX_FLIGHT_PITCH)
                 else body.pitch+(desiredPitch-body.pitch)*(1-exp(-seconds/.16))
-            val roll = if (control.attitudeRates) (body.roll+control.roll.coerceIn(-1.0,1.0)*2.4*body.vehicleTurnScale*seconds)
+            val roll = if (control.attitudeRates) (body.roll+control.roll.coerceIn(-1.0,1.0)*4.8*body.vehicleTurnScale*attitudeSeconds)
                 .coerceIn(-MAX_FLIGHT_ROLL,MAX_FLIGHT_ROLL)
                 else body.roll*(exp(-seconds/.16))
-            // Assisted lateral manoeuvring jets, relative to the hull, for the 2.5D world.
+            // Coordinated banking is assisted by manoeuvring jets, not atmospheric lift.
+            val bankTurn=if (control.attitudeRates) 1.6*sin(roll)*cos(pitch) else 0.0
+            val yawChange=(control.steering.coerceIn(-1.0,1.0)*3.6*attitudeSeconds+bankTurn*seconds)*body.vehicleTurnScale
+            val angle=atan2(body.heading.y,body.heading.x)+yawChange
+            val heading=Vec2(cos(angle),sin(angle))
             val right=Vec2(-heading.y,heading.x)
             val course=(heading+right*(sin(roll)*.65)).normalized()
             target?.let { target ->

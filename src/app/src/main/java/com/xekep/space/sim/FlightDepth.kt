@@ -33,7 +33,7 @@ internal fun returnAutopilotsToPlane(bodies: List<CelestialBody>, controlledId: 
 }
 
 fun CelestialBody.flightSpeed(): Double = hypot(velocity.magnitude(),verticalVelocity)
-fun CelestialBody.flightVisualScale(): Float = (1+.65*tanh(flightHeight/maxOf(40.0,radius*3.0))).toFloat()
+fun CelestialBody.flightVisualScale(): Float = (1+.65*tanh(flightHeight/maxOf(40.0,radius*3.0))+.35*sin(pitch)).coerceIn(.35,1.85).toFloat()
 
 /** Flight computer feed-forward in catalogue units; zero thrust always bypasses it. */
 internal fun flightGravity(body: CelestialBody,scene: List<CelestialBody>): DepthGravity {

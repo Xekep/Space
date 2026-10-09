@@ -68,9 +68,9 @@ class FlightDepthTest {
             var body=craft(kind)
             val input=ManualFlightControl(1,0.0,pitch=.25,roll=bank,attitudeRates=true)
             repeat(30) { body=steerManually(listOf(body),input,1.0/60).single() }
-            assertEquals(.225*body.vehicleTurnScale,body.pitch,1e-8)
-            assertEquals(bank*1.2*body.vehicleTurnScale,body.roll,1e-8)
-            assertEquals(Vec2(1.0,0.0),body.heading)
+            assertEquals(.45*body.vehicleTurnScale,body.pitch,1e-8)
+            assertEquals(bank*MAX_FLIGHT_ROLL,body.roll,1e-8)
+            assertTrue(body.heading.y*bank > .15)
             assertTrue(body.velocity.y*bank > 40)
             val neutral=steerManually(listOf(body),input.copy(pitch=0.0,roll=0.0),.1).single()
             assertEquals(body.pitch,neutral.pitch,0.0); assertEquals(body.roll,neutral.roll,0.0)
@@ -90,6 +90,30 @@ class FlightDepthTest {
         assertEquals(listOf(body),steerManually(listOf(body),ManualFlightControl(1,0.0,roll=Double.NaN),.1))
         val max=steerManually(listOf(body),ManualFlightControl(1,0.0,pitch=1.0,roll=1.0,attitudeRates=true),10.0).single()
         assertEquals(MAX_FLIGHT_PITCH,max.pitch,0.0); assertEquals(MAX_FLIGHT_ROLL,max.roll,0.0)
+    }
+
+    @Test fun pitchHasAVisibleDepthCueInTheFirstTenthOfASecondWithoutTeleporting() {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (axis in listOf(-1.0,1.0)) {
+            var body=craft(kind).copy(flightHeight=0.0)
+            repeat(6) {
+                val steered=steerManually(listOf(body),ManualFlightControl(1,0.0,pitch=axis,attitudeRates=true),1.0/60)
+                body=NumericIntegrator.advance(steered,1.0/60,1.0/120,controlledId=1).single()
+            }
+            assertTrue(body.pitch*axis > .3); assertTrue(body.verticalVelocity*axis > 0)
+            assertTrue(body.flightHeight*axis in 0.0..10.0)
+            assertTrue(if (axis > 0) body.flightVisualScale() > 1.12f else body.flightVisualScale() < .88f)
+        }
+    }
+
+    @Test fun fpvAngularInputRespondsInWallTimeEvenAtSolarInspectionSpeed() {
+        for (scale in listOf(.0001,.001,.01,.25,1.0,3.0,6.0)) {
+            val body=steerManually(listOf(craft()),ManualFlightControl(1,.5,pitch=1.0,roll=-1.0,
+                attitudeRates=true,attitudeTimeScale=1.0/scale),.1*scale).single()
+            assertEquals(.36,body.pitch,1e-8); assertEquals(-.48,body.roll,1e-8)
+            assertTrue(body.flightVisualScale() > 1.1)
+            // Translation remains simulation-time based; this only accelerates control input.
+            if (scale < .01) assertTrue(body.verticalVelocity < .1)
+        }
     }
 
 }

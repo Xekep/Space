@@ -141,7 +141,7 @@ fun DrawScope.drawBody(
 }
 
 private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Float, piloted: Boolean, largeVehicleIcons: Boolean,heading: com.xekep.space.sim.Vec2,pilotVisualZoom: Float?) {
-    val r = if (piloted && pilotVisualZoom != null) pilotScreenRadius(body,pilotVisualZoom,density,largeVehicleIcons) else bodyScreenRadius(body, zoom, density, largeVehicleIcons)
+    val r = vehicleRenderRadius(body,zoom,density,largeVehicleIcons,if (piloted) pilotVisualZoom else null)
     val angle = (kotlin.math.atan2(heading.y, heading.x) * 180.0 / Math.PI + 90.0).toFloat()
     drawCircle(body.color.copy(alpha = .10f), r * 1.8f, center)
     rotate(angle, center) {
@@ -156,6 +156,13 @@ private fun DrawScope.drawVehicle(body: CelestialBody, center: Offset, zoom: Flo
                 points.drop(1).forEach { lineTo(center.x + it.x * r, center.y + it.y * r) }
                 close()
             }, color)
+        }
+        // A dark side face exposes the bank even when the narrow rocket barely changes width.
+        val bankSide=kotlin.math.sin(body.roll).toFloat()
+        if (kotlin.math.abs(bankSide) > .02f) {
+            val x=bankSide*.55f
+            hull(listOf(Offset(x-.22f,-1.12f),Offset(x+.22f,-.72f),Offset(x+.22f,.74f),Offset(x-.22f,.74f)),
+                if (bankSide > 0) Color(0xFF29465D) else Color(0xFF648BA2))
         }
         if (body.hullClass == VehicleHullClass.Heavy && body.kind == BodyKind.Ship) {
             val guardian=body.shipClass == com.xekep.space.sim.ShipClass.Guardian
@@ -348,11 +355,14 @@ fun DrawScope.drawTrail(
     dense: Boolean = false,
     highlighted: Boolean = false,
     maxLengthDp: Float = if (dense) 48f else Float.POSITIVE_INFINITY,
+    vehicleRadius: Float? = null,
+    renderHeading: com.xekep.space.sim.Vec2 = body.heading,
 ) {
     if (body.orbitalDetail != null) return
     val length=(if (body.isDebris) minOf(20f,maxLengthDp) else maxLengthDp)*density
-    val points=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
+    val history=trailScreenPoints(body,viewport,SpaceCamera(cameraCenter,zoom),renderPosition,length,
         (if (dense) 4f else 2f)*density)
+    val points=if (vehicleRadius != null) vehicleTrailPoints(history,body,renderHeading,vehicleRadius) else history
     if (points.size < 2 || points.zipWithNext().sumOf { (a,b) -> (b-a).getDistance().toDouble() } < 1.5) return
     val curves=smoothTrail(points)
     val bands=if (detailed && !dense) 4 else 3
@@ -441,3 +451,8 @@ internal fun pilotScreenRadius(body: CelestialBody,relativeZoom: Float,density: 
     val factor=relativeZoom.coerceIn(if (largeIcons) 1f else .02f,6f)
     return base*factor*body.flightVisualScale()
 }
+
+
+internal fun vehicleRenderRadius(body: CelestialBody,zoom: Float,density: Float,largeIcons: Boolean,pilotVisualZoom: Float?): Float =
+    if (pilotVisualZoom != null) pilotScreenRadius(body,pilotVisualZoom,density,largeIcons)
+    else bodyScreenRadius(body,zoom,density,largeIcons)

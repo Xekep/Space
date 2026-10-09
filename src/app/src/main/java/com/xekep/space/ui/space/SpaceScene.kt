@@ -62,6 +62,7 @@ import com.xekep.space.sim.SimulationEngine
 import com.xekep.space.sim.SatellitePlacement
 import com.xekep.space.sim.satellitePlacement
 import com.xekep.space.sim.enginePowered
+import com.xekep.space.sim.isVehicle
 import com.xekep.space.sim.toOffset
 import com.xekep.space.storage.SandboxStorage
 import com.xekep.space.storage.GameOptions
@@ -311,7 +312,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=bodies.size < 60,
                     cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),dense=bodies.size >= 160,
                     highlighted=it.id == game.selectedBodyId || it.id == controlledId,
-                    maxLengthDp=adaptiveTrailLength(bodies.size,game.simulationLoad,it.id == game.selectedBodyId || it.id == controlledId))
+                    maxLengthDp=adaptiveTrailLength(bodies.size,game.simulationLoad,it.id == game.selectedBodyId || it.id == controlledId),
+                    vehicleRadius=if (it.isVehicle) vehicleRenderRadius(it,renderCamera.zoom,density,largeVehicleIcons,
+                        if (it.id == controlledId) game.pilotVisualZoom else null) else null,
+                    renderHeading=if (it.id == controlledId) it.heading else interpolation.heading(it))
             }
             drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
                 controlledId,largeVehicleIcons,interpolation,bodies.size >= 160,bodies,game.pilotVisualZoom)

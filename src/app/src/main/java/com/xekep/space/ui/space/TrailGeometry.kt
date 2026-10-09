@@ -99,3 +99,36 @@ internal fun adaptiveTrailLength(count: Int,solverLoad: Float = 0f,highlighted: 
     val length=base*pressure
     return if (highlighted) maxOf(96f,length) else length.coerceAtLeast(24f)
 }
+
+
+/** Attach a vehicle wake to its drawn stern, never to the physical centre or a stale pose.
+ * The older flight path stays in world space; only the short hull-side join is rebuilt. */
+internal fun vehicleTrailPoints(points: List<Offset>,body: CelestialBody,heading: Vec2,radius: Float): List<Offset> {
+    if (!body.isVehicle || points.size < 2 || !radius.isFinite() || radius <= 0f) return points
+    val centre=points.last()
+    val stern=when {
+        body.kind == BodyKind.Rocket -> if (body.hullClass == VehicleHullClass.Heavy) .76f else .8f
+        body.hullClass == VehicleHullClass.Heavy -> .98f
+        body.shipClass == ShipClass.Guardian -> .65f
+        else -> .85f
+    }
+    val matrix=vehiclePitchMatrix(body.pitch,radius,body.roll)
+    val angle=atan2(heading.y,heading.x)+PI/2
+    fun project(y: Float): Offset {
+        val p=matrix.map(Offset(0f,y*radius))
+        return centre+Offset((p.x*cos(angle)-p.y*sin(angle)).toFloat(),(p.x*sin(angle)+p.y*cos(angle)).toFloat())
+    }
+    val nozzle=project(stern)
+    val aft=project(stern+.25f)-nozzle
+    val direction=aft/(aft.getDistance().coerceAtLeast(.001f))
+    // Samples through the visible hull look like a wake issuing from a wing or the nose.
+    val outside=points.indexOfLast { (it-centre).getDistance() > radius*1.45f }
+    if (outside < 0) return emptyList()
+    val old=points.subList(0,outside+1)
+    val gap=old.last()-nozzle
+    // A recently reversed craft can have its old path ahead of it. Keep that detached
+    // history rather than drawing a fresh line through the hull or inventing exhaust.
+    if (!body.enginePowered || gap.x*direction.x+gap.y*direction.y <= 0) return old
+    val guide=nozzle+direction*minOf(radius*.4f,gap.getDistance()*.5f)
+    return old+guide+nozzle
+}

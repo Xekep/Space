@@ -141,7 +141,8 @@ class SpaceGameState(
         rollInput=if (valid) value.x.coerceIn(-1.0,1.0) else 0.0
     }
     private fun flightControl(): ManualFlightControl? {
-        val control = controlledVehicleId?.let { ManualFlightControl(it, steeringInput.x, pendingBoost, pitchInput, rollInput, fpvControl) }
+        val control = controlledVehicleId?.let { ManualFlightControl(it, steeringInput.x, pendingBoost, pitchInput, rollInput, fpvControl,
+            if (mode == AppMode.Sandbox) 1.0/(sandbox?.timeScale ?: 1.0) else 1.0) }
         pendingBoost = 0.0
         return control
     }
@@ -151,7 +152,7 @@ class SpaceGameState(
         if (touchPreview != null && !menuOpen) return
         val pilot = if (!menuOpen && !sandboxOverlayOpen && pilotCameraFollowing &&
             (mode != AppMode.Arcade || (arcade?.lives ?: 0) > 0)) bodies.firstOrNull { it.id == controlledVehicleId } else null
-        val target = pilot?.let { -PI/2-atan2(it.heading.y,it.heading.x)-it.roll*.22 } ?: 0.0
+        val target = pilot?.let { -PI/2-atan2(it.heading.y,it.heading.x)-it.roll*.45 } ?: 0.0
         val difference = atan2(sin(target-cameraRotation),cos(target-cameraRotation))
         cameraRotation += difference * (1-exp(-dt.coerceAtMost(.1)/.18))
         cameraRotation = atan2(sin(cameraRotation),cos(cameraRotation))
