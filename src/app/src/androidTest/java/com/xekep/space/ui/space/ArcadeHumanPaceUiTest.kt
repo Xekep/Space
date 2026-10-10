@@ -11,6 +11,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.*
 import kotlin.random.Random
 
@@ -38,9 +39,17 @@ class ArcadeHumanPaceUiTest {
         assumeTrue("Long balance diagnostics require -e balancePlaytest true",args.getString("balancePlaytest") == "true")
         val seed=args.getString("seed")?.toIntOrNull() ?: 17
         val gentle=args.getString("gentleLaunch") == "true"
+        val heavyFleet=args.getString("heavyFleet") == "true"
+        val stableIds=args.getString("stableBodyIds") == "true"
+        // Isolated diagnostic worlds only. Reset tie-breaking IDs before either comparison
+        // policy starts, so previous test methods cannot select a different avoidance side.
+        if (stableIds) {
+            val field=SimulationEngine::class.java.getDeclaredField("idSource").apply { isAccessible=true }
+            (field.get(SimulationEngine) as AtomicLong).set(1L)
+        }
         val game=SpaceGameState(random=Random(seed)) // callbacks deliberately do not write user records
         val hand=Random(seed+991)
-        val key="${difficulty.name}-${skill.name}-$seed"+(if (gentle) "-gentle" else "")
+        val key="${difficulty.name}-${skill.name}-$seed"+(if (gentle) "-gentle" else "")+(if (heavyFleet) "-heavy" else "")+(if (stableIds) "-stable" else "")
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val rows=mutableListOf("seconds,wave,lives,energy,ships,rockets,launches,intercepts,convoy,event")
         var phase=0; var attempts=0; var blocked=0; var heavy=0; var upgrades=0
@@ -101,7 +110,7 @@ class ArcadeHumanPaceUiTest {
                 (if (skill == Skill.Familiar) 2 else 1)
             val kind=when {
                 urgent && r.energy >= 26 && game.spawnCountFor(BodyKind.Rocket) < game.spawnLimitFor(BodyKind.Rocket) -> BodyKind.Rocket
-                game.spawnCountFor(BodyKind.Ship) < game.spawnLimitFor(BodyKind.Ship) && r.energy >= if (guardian) 54 else 44 -> BodyKind.Ship
+                game.spawnCountFor(BodyKind.Ship) < game.spawnLimitFor(BodyKind.Ship) && r.energy >= if (guardian) 54 else if (heavyFleet) 60 else 44 -> BodyKind.Ship
                 game.spawnCountFor(BodyKind.Ambient) < minOf(6,game.spawnLimitFor(BodyKind.Ambient)) && r.energy >= 35 -> BodyKind.Ambient
                 else -> return null
             }
@@ -127,7 +136,11 @@ class ArcadeHumanPaceUiTest {
             } else emptyList()
             val strong=skill == Skill.Familiar && kind != BodyKind.Ambient && r.energy >= 80 &&
                 danger != null && danger.radius > 26 && !urgent
-            val hold=if (strong) 2.2 else when(kind) { BodyKind.Ship -> .6; BodyKind.Rocket -> .12; else -> .35 }
+            // Audit policy: heavy vehicles pay both their actual price and the longer hold time.
+            // Guardians keep their original role; no energy, targets or damage are injected.
+            val hold=if (heavyFleet && guardian && kind == BodyKind.Ship) .6
+                else if (strong || (heavyFleet && (kind == BodyKind.Rocket || (kind == BodyKind.Ship && !guardian)))) 2.2
+                else when(kind) { BodyKind.Ship -> .6; BodyKind.Rocket -> .12; else -> .35 }
             return Plan(kind,guardian,point,aim*flick,hold,route)
         }
 

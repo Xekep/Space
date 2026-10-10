@@ -48,10 +48,12 @@ class SolarPilotUiTest {
                 assertTrue(game.bodies.first { it.id == id }.flightSpeed() > 4000)
                 assertEquals(5000f,compose.onNodeWithTag("pilot-speed").fetchSemanticsNode().config[SemanticsProperties.ProgressBarRangeInfo].range.endInclusive,0f)
                 compose.onNodeWithTag("pilot-speed").performTouchInput {
-                    down(center.copy(y=height*.9f)); moveTo(center.copy(y=height*.92f),120)
+                    down(center.copy(y=height*.1f))
                 }
                 compose.mainClock.advanceTimeByFrame()
-                // Pointer events can finish after the clock frame under emulator load.
+                compose.onNodeWithTag("pilot-speed").performTouchInput { moveTo(center.copy(y=height*.92f),120) }
+                compose.mainClock.advanceTimeByFrame()
+                // Exercise a held drag across the scale, not a tap with a 1.4 dp jitter.
                 compose.runOnIdle { assertEquals(400.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0) }
                 compose.onNodeWithTag("pilot-speed").performTouchInput { up() }
                 // Fixed simulation steps, no wall-clock sleeps: exercise the actual Solar world state.

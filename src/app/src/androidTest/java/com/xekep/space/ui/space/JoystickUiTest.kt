@@ -73,7 +73,7 @@ class JoystickUiTest {
             val right=compose.onNodeWithTag("pitch-joystick").fetchSemanticsNode().boundsInRoot.center-hud.topLeft
             compose.onNodeWithTag("pilot-hud").performTouchInput {
                 down(0,left); down(1,right)
-                moveTo(0,left+Offset(28*game.density,22.8f*game.density),64)
+                moveTo(0,left+Offset(28*game.density,0f),64)
                 moveTo(1,right+Offset(22*game.density,28*game.density),64)
             }
             repeat(30) { compose.mainClock.advanceTimeByFrame() }
@@ -144,7 +144,10 @@ class JoystickUiTest {
             compose.onNodeWithTag("flight-joystick").performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
             // Throttle remains accessible with a cut engine; full thrust restarts it.
-            compose.onNodeWithTag("flight-joystick").performTouchInput { down(center-Offset(0f,38*game.density)); up() }
+            compose.onNodeWithTag("flight-joystick").performTouchInput {
+                down(center+Offset(0f,38*game.density))
+                moveTo(center-Offset(0f,38*game.density),120); up()
+            }
             compose.mainClock.advanceTimeBy(48)
             compose.runOnIdle {
                 val powered=game.bodies.first { it.id == id }

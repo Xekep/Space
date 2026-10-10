@@ -21,7 +21,7 @@ import com.xekep.space.R
 internal fun ArcadeEncounterHud(game: SpaceGameState) {
     val run=game.arcade ?: return
     if (run.practice) return
-    if (!run.resting && run.character != WaveCharacter.Giant) {
+    if (!run.resting && run.character != WaveCharacter.Giant && !(run.character == WaveCharacter.Escort && run.convoy?.status == ConvoyStatus.Approaching)) {
         val label=if (run.planetId != null && run.wave == 11 && run.wavePhase.seconds < 3) R.string.planet_arrived else when (run.character) {
             WaveCharacter.Approach -> R.string.wave_approach
             WaveCharacter.Swarm -> R.string.wave_swarm

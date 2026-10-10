@@ -42,7 +42,15 @@ internal object NumericIntegrator {
         val temporary = workspace.temporary; val thrust = workspace.thrust
         thrust.fill(0.0)
         val depth=if (hasVehicles) bodies.map { depthGravity(it,bodies) } else emptyList()
-        val steps = ceil(seconds / limit - 1e-9).toInt().coerceAtLeast(1)
+        val manualIndex=bodies.indexOfFirst { it.id == controlledId && it.isVehicle && it.routePath == null }
+        val manualClock=if (manualIndex >= 0 && manualDepthScale.isFinite()) manualDepthScale.coerceIn(1.0/6.0,10000.0) else 1.0
+        fun scaleManualDerivative(derivative: DoubleArray) {
+            if (manualIndex >= 0 && manualClock != 1.0) for (component in 0..3) derivative[manualIndex*4+component]*=manualClock
+        }
+        // Retain the world's adaptive precision. Manual movement also has its own bounded
+        // substeps; never multiply tiny planetary timesteps by the inverse time warp.
+        val manualSteps=if (manualIndex >= 0 && manualClock != 1.0) ceil(seconds*manualClock/(1.0/120)-1e-9).toInt() else 1
+        val steps = maxOf(ceil(seconds / limit - 1e-9).toInt(),manualSteps).coerceAtLeast(1)
         val dt = seconds / steps
         repeat(steps) { step ->
             if (hasVehicles) bodies.forEachIndexed { i, body ->
@@ -66,22 +74,29 @@ internal object NumericIntegrator {
                 // Two tree evaluations per step; the symplectic kick-drift-kick scheme avoids
                 // four expensive RK stages while retaining good long-term orbital behaviour.
                 derivative(values,masses,fixed,smoothing,thrust,k1,workspace,true,cacheGravity)
+                scaleManualDerivative(k1)
                 for (i in masses.indices) if (!fixed[i]) {
                     values[i*4+2]+=k1[i*4+2]*dt*.5; values[i*4+3]+=k1[i*4+3]*dt*.5
-                    values[i*4]+=values[i*4+2]*dt; values[i*4+1]+=values[i*4+3]*dt
+                    val moveDt=dt*(if (i == manualIndex) manualClock else 1.0)
+                    values[i*4]+=values[i*4+2]*moveDt; values[i*4+1]+=values[i*4+3]*moveDt
                 }
                 derivative(values,masses,fixed,smoothing,thrust,k2,workspace,true,cacheGravity)
+                scaleManualDerivative(k2)
                 for (i in masses.indices) if (!fixed[i]) {
                     values[i*4+2]+=k2[i*4+2]*dt*.5; values[i*4+3]+=k2[i*4+3]*dt*.5
                 }
             } else {
             derivative(values, masses, fixed, smoothing, thrust, k1,workspace,false)
+            scaleManualDerivative(k1)
             for (i in values.indices) temporary[i] = values[i] + k1[i] * dt * 0.5
             derivative(temporary, masses, fixed, smoothing, thrust, k2,workspace,false)
+            scaleManualDerivative(k2)
             for (i in values.indices) temporary[i] = values[i] + k2[i] * dt * 0.5
             derivative(temporary, masses, fixed, smoothing, thrust, k3,workspace,false)
+            scaleManualDerivative(k3)
             for (i in values.indices) temporary[i] = values[i] + k3[i] * dt
             derivative(temporary, masses, fixed, smoothing, thrust, k4,workspace,false)
+            scaleManualDerivative(k4)
             for (i in values.indices) values[i] += (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) * dt / 6.0
             }
             // The navigator compensates gravity and follows the same spline drawn in the preview.
@@ -99,19 +114,20 @@ internal object NumericIntegrator {
         }
         return bodies.mapIndexed { i, body ->
             val point = Vec2(values[i * 4], values[i * 4 + 1])
-            val powered = minOf(seconds, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
-            val fuel = if (body.isVehicle) (body.fuelRemaining-seconds*fuelRate(body,controlledId)).coerceAtLeast(0.0) else body.fuelRemaining
-            val depthSeconds=if (body.id == controlledId && body.enginePowered && manualDepthScale.isFinite()) seconds*manualDepthScale.coerceIn(1.0/6.0,10000.0) else seconds
+            val bodySeconds=seconds*(if (i == manualIndex) manualClock else 1.0)
+            val powered = minOf(bodySeconds, body.fuelRemaining/fuelRate(body,controlledId).coerceAtLeast(1e-9))
+            val fuel = if (body.isVehicle) (body.fuelRemaining-bodySeconds*fuelRate(body,controlledId)).coerceAtLeast(0.0) else body.fuelRemaining
+            val depthSeconds=bodySeconds
             val heightStep=if (!body.isVehicle) 0.0 else if (body.id == controlledId && body.enginePowered)
                 (body.verticalVelocity+depth[i].vertical*depthSeconds)*depthSeconds
                 else body.verticalVelocity*depthSeconds+depth[i].vertical*depthSeconds*depthSeconds*.5
             body.copy(position = point, velocity = Vec2(values[i * 4 + 2], values[i * 4 + 3]),
                 heading = Vec2(headings[i * 2], headings[i * 2 + 1]),
-                burnRemaining = (body.burnRemaining - seconds).coerceAtLeast(0.0),
+                burnRemaining = (body.burnRemaining - bodySeconds).coerceAtLeast(0.0),
                 fuelRemaining = fuel,
                 flightHeight = if (body.isVehicle) (body.flightHeight+heightStep).coerceIn(-1e6,1e6) else body.flightHeight,
                 verticalVelocity = if (body.isVehicle) (body.verticalVelocity+depth[i].vertical*depthSeconds).coerceIn(-5000.0,5000.0) else body.verticalVelocity,
-                driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(seconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
+                driftRemaining = if (body.kind == BodyKind.Rocket) (body.driftRemaining-(bodySeconds-powered)).coerceAtLeast(0.0) else body.driftRemaining,
                 routeDistance = if (body.routePath != null && fuel > 1e-9) {
                     val direction=body.routePath.sample(body.routeDistance).direction
                     val progress=if (body.routeAvoiding) maxOf(0.0,body.velocity.x*direction.x+body.velocity.y*direction.y) else body.routeSpeed

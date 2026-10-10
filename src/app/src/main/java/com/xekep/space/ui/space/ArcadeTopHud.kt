@@ -10,13 +10,24 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.xekep.space.R
 import kotlin.math.roundToInt
+import java.text.NumberFormat
+import java.util.Locale
+
+internal fun compactScore(score: Double, locale: Locale): String {
+    val divisor=if (score >= 1_000_000) 1_000_000.0 else if (score >= 10_000) 1000.0 else return score.roundToInt().toString()
+    val number=NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits=if (score/divisor < 10) 1 else 0; isGroupingUsed=false }
+    return number.format(score/divisor)+(if (divisor == 1000.0) "k" else "M")
+}
 
 @Composable
 fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
@@ -26,6 +37,9 @@ fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
     val accent=MaterialTheme.colorScheme.secondary
     Surface(Modifier.retroFrame().fillMaxWidth().testTag("arcade-top-hud").blockWorldTouches(),shape=spaceShape(20.dp),
         color=MaterialTheme.colorScheme.surface.copy(alpha=.88f)) {
+        BoxWithConstraints {
+        val tight=maxWidth < 360.dp || (maxWidth < 460.dp && LocalDensity.current.fontScale > 1.2f)
+        val locale=LocalConfiguration.current.locales[0]
         Row(Modifier.padding(horizontal=4.dp,vertical=4.dp),verticalAlignment=Alignment.CenterVertically) {
             IconButton(onClick=game::openMenu,modifier=Modifier.size(48.dp).testTag("open-menu")
                 .semantics { contentDescription=menu }) {
@@ -35,13 +49,17 @@ fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
                 }
             }
             Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically) {
-                val stats=listOf(R.string.score to session.score.roundToInt().toString(), R.string.hull to session.lives.toString(),
-                    R.string.wave to session.wave.toString(), R.string.combo to "x${"%.1f".format(session.combo)}")
-                for ((label,value) in stats) Column(Modifier.weight(1f).padding(horizontal=2.dp),horizontalAlignment=Alignment.CenterHorizontally) {
-                    Text(stringResource(label),style=MaterialTheme.typography.labelSmall,maxLines=1,overflow=TextOverflow.Ellipsis,
+                val stats=listOf(R.string.score to if (tight) compactScore(session.score,locale) else session.score.roundToInt().toString(), R.string.hull to session.lives.toString(),
+                    R.string.wave to session.wave.toString())+if (tight) emptyList() else listOf(R.string.combo to "x${"%.1f".format(session.combo)}")
+                for ((label,value) in stats) {
+                    val name=stringResource(label)
+                    val full=if (label == R.string.score) session.score.roundToInt().toString() else value
+                    Column(Modifier.weight(1f).padding(horizontal=2.dp).semantics(mergeDescendants=true) { contentDescription=name; stateDescription=full },horizontalAlignment=Alignment.CenterHorizontally) {
+                    Text(name,style=MaterialTheme.typography.labelSmall,maxLines=1,overflow=TextOverflow.Ellipsis,
                         color=MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(value,style=MaterialTheme.typography.labelLarge,maxLines=1,overflow=TextOverflow.Ellipsis,
                         color=MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
             if (compactPilot) PilotExitButton(game) else IconButton(onClick=game::fitCamera,modifier=Modifier.size(48.dp).testTag("find-core")
@@ -56,6 +74,7 @@ fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
                     }
                 }
             }
+        }
         }
     }
 }

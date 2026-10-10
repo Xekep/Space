@@ -28,8 +28,7 @@ internal fun coreDirectionMarker(point: Offset, radius: Float, viewport: IntSize
         !radius.isFinite() || radius < 0f || bounds.width <= 0f || bounds.height <= 0f) return null
     val nearest = Offset(point.x.coerceIn(0f, viewport.width.toFloat()), point.y.coerceIn(0f, viewport.height.toFloat()))
     if ((point - nearest).getDistance() <= radius) return null
-    val center = Offset(viewport.width / 2f, viewport.height / 2f)
-    if (!bounds.contains(center)) return null
+    val center = indicatorAnchor(viewport,bounds)
     val delta = point - center
     val x = if (delta.x == 0f) Float.POSITIVE_INFINITY else
         ((if (delta.x > 0f) bounds.right else bounds.left) - center.x) / delta.x
@@ -47,14 +46,15 @@ fun CoreDirectionIndicator(game: SpaceGameState) {
     val insets = WindowInsets.safeDrawing
     val padding = with(density) { 18.dp.toPx() }
     val viewport = game.viewport
-    val bounds = Rect(insets.getLeft(density, direction) + padding, insets.getTop(density) + padding,
-        viewport.width - insets.getRight(density, direction) - padding, viewport.height - insets.getBottom(density) - padding)
+    val bounds = game.indicatorBounds(Rect(insets.getLeft(density, direction) + padding, insets.getTop(density) + padding,
+        viewport.width - insets.getRight(density, direction) - padding, viewport.height - insets.getBottom(density) - padding),padding)
     val marker = coreDirectionMarker(worldToScreen(core.position, viewport, game.camera.center, game.camera.zoom, game.cameraRotation),
         bodyScreenRadius(core, game.camera.zoom, density.density), viewport, bounds) ?: return
     val label = stringResource(R.string.direction_to_core)
     PixelCanvas(Modifier.fillMaxSize().testTag("core-direction").semantics { contentDescription = label }) {
         val color = Color(0xFFFFD166)
-        drawCircle(color.copy(alpha = .2f), 12.dp.toPx(), marker.position)
-        drawArrow(marker.position - marker.direction * 16.dp.toPx(), marker.position, color)
+        val scale=minOf(1f,bounds.height/(32.dp.toPx()))
+        drawCircle(color.copy(alpha = .2f), 12.dp.toPx()*scale, marker.position)
+        drawArrow(marker.position - marker.direction * 16.dp.toPx()*scale, marker.position, color)
     }
 }

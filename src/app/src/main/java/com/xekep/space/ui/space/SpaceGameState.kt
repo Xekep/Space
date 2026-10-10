@@ -40,6 +40,7 @@ data class ArcadeSession(
     internal val wavePhase: ArcadeWavePhase get() = arcadeWavePhase(waveTime)
     val wave: Int get() = wavePhase.wave
     val resting: Boolean get() = wavePhase.resting && !(wave == 10 && challenge?.ids?.isNotEmpty() == true)
+    val threatsCleared: Boolean get() = pending.isEmpty() && bodies.none { it.kind == BodyKind.Meteor }
     val accuracy: Int get() = if (launches == 0) 0 else successfulLaunches.size * 100 / launches
 }
 data class SandboxSession(
@@ -56,6 +57,9 @@ class SpaceGameState(
     var mode by mutableStateOf(AppMode.Arcade); private set
     var menuOpen by mutableStateOf(true); private set
     var viewport by mutableStateOf(IntSize.Zero); private set
+    internal var sceneOrigin by mutableStateOf(Offset.Zero)
+    internal var arcadeHudTop by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
+    internal var arcadeHudBottom by mutableStateOf<androidx.compose.ui.geometry.Rect?>(null)
     var density by mutableFloatStateOf(1f); private set
     var arcade by mutableStateOf<ArcadeSession?>(null); private set
     var sandbox by mutableStateOf<SandboxSession?>(null); private set

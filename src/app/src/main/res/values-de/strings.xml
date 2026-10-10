@@ -24,6 +24,7 @@
     <string name="play">"Fortsetzen"</string>
     <string name="pause">"Pause"</string>
     <string name="rest">"Welle geschafft · Aufladen und vorbereiten"</string>
+    <string name="arrivals_ended">Anflug beendet · Verbleibende Bedrohungen</string>
     <string name="unsaved">" · Ungespeichert"</string>
     <string name="scene_exported">"Szene exportiert"</string>
     <string name="export_failed">"Export fehlgeschlagen. Anderen Speicherort wählen."</string>

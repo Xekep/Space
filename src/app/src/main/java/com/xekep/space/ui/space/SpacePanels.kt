@@ -101,13 +101,16 @@ fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLiv
 }
 
 @Composable
-fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy) {
+fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy, previewCost: Double? = null, compact: Boolean = false) {
     val context = LocalContext.current
     Surface(modifier.retroFrame(), shape = spaceShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = if (compact) 6.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(context.getString(R.string.launch_energy), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                if (!compact) Text(context.getString(R.string.launch_energy),Modifier.weight(1f),maxLines=1,style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                else androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                previewCost?.let { cost -> Text("−${cost.roundToInt()}",Modifier.padding(horizontal=8.dp).testTag("launch-cost"),style=MaterialTheme.typography.labelMedium,
+                    color=if (cost > energy) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary) }
                 Text("${energy.roundToInt()} / ${maximum.toInt()}", style = MaterialTheme.typography.labelMedium)
             }
             if (LocalRetroUi.current) PixelMeter(energyRatio,Color(0xFF80FFDF),Modifier.fillMaxWidth().height(6.dp))

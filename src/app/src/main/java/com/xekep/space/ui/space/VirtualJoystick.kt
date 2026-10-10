@@ -29,12 +29,12 @@ internal fun joystickDirection(offset: Offset, radius: Float): Vec2 {
     return Vec2(axis(unit.x),axis(unit.y))
 }
 
-internal fun joystickThrottle(y: Float,radius: Float): Double =
-    if (!y.isFinite() || !radius.isFinite() || radius <= 0) 0.0
-    else ((1-y/radius)/2).toDouble().coerceIn(0.0,1.0)
+internal fun joystickThrottle(current: Double, previousY: Float, nextY: Float, radius: Float): Double =
+    if (!current.isFinite()) 0.0 else if (!previousY.isFinite() || !nextY.isFinite() || !radius.isFinite() || radius <= 0) current.coerceIn(0.0,1.0)
+    else (current+(previousY-nextY)/(2*radius)).coerceIn(0.0,1.0)
 
 @Composable
-fun VirtualJoystick(game: SpaceGameState, enabled: Boolean, left: Boolean) {
+fun VirtualJoystick(game: SpaceGameState, enabled: Boolean, left: Boolean, diameter: androidx.compose.ui.unit.Dp = 96.dp) {
     var stick by remember(game.controlledVehicleId) { mutableStateOf(Offset.Zero) }
     var pressed by remember(game.controlledVehicleId) { mutableStateOf(false) }
     val label=stringResource(if (left) R.string.virtual_joystick else R.string.pitch_joystick)
@@ -44,23 +44,30 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean, left: Boolean) {
     DisposableEffect(game,enabled,game.controlledVehicleId,left) {
         onDispose { input(Vec2.Zero) }
     }
-    PixelCanvas(Modifier.size(96.dp).testTag(if (left) "flight-joystick" else "pitch-joystick").semantics {
+    PixelCanvas(Modifier.size(diameter).testTag(if (left) "flight-joystick" else "pitch-joystick").semantics {
         contentDescription=label; if (!enabled) disabled()
-    }.pointerInput(game,enabled,game.controlledVehicleId) {
+    }.pointerInput(game,enabled,game.controlledVehicleId,diameter) {
         if (!enabled) return@pointerInput
-        val radius=38.dp.toPx()
+        val radius=(minOf(size.width,size.height)/2f-10.dp.toPx()).coerceAtLeast(1f)
         try {
             awaitEachGesture {
                 val down=awaitFirstDown(requireUnconsumed=false); down.consume()
+                val initialCraft=game.bodies.firstOrNull { it.id == game.controlledVehicleId }
+                val initialThrottle=initialCraft?.let { ((it.pilotTargetSpeed ?: it.flightSpeed())/it.pilotSpeedLimit()).coerceIn(0.0,1.0) } ?: .5
+                var verticalAnchor=down.position.y
+                var latchedThrottle=initialThrottle
                 fun move(point: Offset) {
                     val delta=point-Offset(size.width/2f,size.height/2f)
                     stick=if (left) Offset(delta.x.coerceIn(-radius,radius),delta.y.coerceIn(-radius,radius))
                         else delta*(radius/max(radius,delta.getDistance()))
                     pressed=true
                     if (left) {
-                        // Absolute, latched throttle like a transmitter: top=full, bottom=off.
+                        // Relative throttle: yaw or a fresh touch never overwrites the setpoint.
+                        // Re-anchor at the end stops so reversing the finger responds immediately.
+                        latchedThrottle=joystickThrottle(latchedThrottle,verticalAnchor,point.y,radius)
+                        verticalAnchor=point.y
                         val craft=game.bodies.firstOrNull { it.id == game.controlledVehicleId }
-                        if (craft != null) game.setPilotTargetSpeed(joystickThrottle(stick.y,radius)*craft.pilotSpeedLimit())
+                        if (craft != null) game.setPilotTargetSpeed(latchedThrottle*craft.pilotSpeedLimit())
                         input(joystickDirection(Offset(stick.x,0f),radius))
                     } else input(joystickDirection(stick,radius))
                 }
@@ -76,7 +83,7 @@ fun VirtualJoystick(game: SpaceGameState, enabled: Boolean, left: Boolean) {
         } finally { pressed=false; stick=Offset.Zero; input(Vec2.Zero) }
     }) {
         val color=(if (left) Color(0xFF80FFDF) else Color(0xFF8BD3FF)).copy(alpha=if (enabled) 1f else .3f)
-        val radius=38.dp.toPx()
+        val radius=(size.minDimension/2f-10.dp.toPx()).coerceAtLeast(1f)
         drawCircle(color.copy(alpha=.06f),radius,center)
         drawCircle(color.copy(alpha=.4f),radius,center,style=Stroke(1.5.dp.toPx()))
         drawLine(color.copy(alpha=.18f),center-Offset(radius*.7f,0f),center+Offset(radius*.7f,0f),1.dp.toPx())

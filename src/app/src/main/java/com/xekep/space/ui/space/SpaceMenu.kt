@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.font.FontWeight
@@ -106,10 +107,15 @@ fun SpaceMenu(
                 if (selectedMode == AppMode.Arcade) {
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         ArcadeDifficulty.entries.forEach { level ->
-                            FilterChip(difficulty == level,{ difficulty=level },modifier=Modifier.weight(1f).testTag("difficulty-${level.name}").retroFrame(if (difficulty == level) accent else MaterialTheme.colorScheme.outline),
-                                shape=spaceShape(8.dp),colors=FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor=accent.copy(alpha=.14f),selectedLabelColor=accent),
-                                label={ Text(context.getString(level.labelId()),maxLines=1,overflow=TextOverflow.Ellipsis) })
+                            Surface(onClick={ difficulty=level },modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("difficulty-${level.name}")
+                                .semantics { selected=difficulty == level; role=Role.RadioButton }.retroFrame(if (difficulty == level) accent else MaterialTheme.colorScheme.outline),
+                                shape=spaceShape(8.dp),color=if (difficulty == level) accent.copy(alpha=.14f) else Color.Transparent,
+                                border=androidx.compose.foundation.BorderStroke(1.dp,if (difficulty == level) accent else MaterialTheme.colorScheme.outline)) {
+                                Box(Modifier.padding(horizontal=4.dp,vertical=8.dp),contentAlignment=Alignment.Center) {
+                                    Text(context.getString(level.labelId()),maxLines=1,textAlign=TextAlign.Center,style=MaterialTheme.typography.labelMedium,
+                                        color=if (difficulty == level) accent else MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                     }
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -173,7 +179,7 @@ fun SpaceMenu(
                 LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(if (orbitPhase != null) Color(0x2802040B) else Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
-        val wide=maxHeight < 380.dp && maxWidth >= 500.dp
+        val wide=maxHeight < 380.dp && maxWidth >= 400.dp
         Surface(Modifier.widthIn(max=if (wide) 680.dp else 420.dp).fillMaxWidth().retroFrame(),shape=spaceShape(16.dp),color=Color(0xF20B1425)) {
             if (wide) Row(Modifier.padding(horizontal=20.dp).verticalScroll(rememberScrollState()).testTag("menu-content"),
                 horizontalArrangement=Arrangement.spacedBy(24.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -271,7 +277,7 @@ private fun ModeTab(mode: AppMode,active: Boolean,accent: Color,modifier: Modifi
     Surface(onClick=onClick,modifier=modifier.testTag("mode-${mode.name}").semantics { selected=active; role=Role.Tab },color=Color.Transparent) {
         Column(horizontalAlignment=Alignment.CenterHorizontally) {
             Box(Modifier.fillMaxWidth().heightIn(min=48.dp).padding(horizontal=4.dp),contentAlignment=Alignment.Center) {
-                Text(context.getString(mode.labelId()),style=MaterialTheme.typography.titleSmall,
+                Text(context.getString(mode.labelId()),style=if (LocalDensity.current.fontScale > 1.2f) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color=if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant)
             }
             HorizontalDivider(thickness=2.dp,color=if (active) accent else Color.White.copy(alpha=.06f))

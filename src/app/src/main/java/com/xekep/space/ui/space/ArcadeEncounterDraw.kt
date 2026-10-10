@@ -1,6 +1,7 @@
 package com.xekep.space.ui.space
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -29,17 +30,20 @@ fun DrawScope.drawConvoyIndicator(game: SpaceGameState, camera: SpaceCamera) {
     val point=worldToScreen(body.position,game.viewport,camera.center,camera.zoom,game.cameraRotation)
     val color=Color(0xFF82EAC8)
     val marginX=24.dp.toPx(); val marginY=minOf(160.dp.toPx(),size.height*.28f)
-    if (point.x in marginX..(size.width-marginX) && point.y in marginY..(size.height-marginY)) {
+    val bounds=game.indicatorBounds(Rect(marginX,marginY,size.width-marginX,size.height-marginY),14.dp.toPx())
+    if (bounds.width <= 0f || bounds.height <= 0f) return
+    if (bounds.contains(point)) {
         val radius=bodyScreenRadius(body,camera.zoom,density)+10.dp.toPx()
         repeat(3) { i -> drawCircle(color.copy(alpha=if (i < convoy.hull) .95f else .2f),2.dp.toPx(),
             point+Offset((i-1)*7.dp.toPx(),-radius)) }
     } else {
-        val delta=point-center
+        val anchor=indicatorAnchor(game.viewport,bounds)
+        val delta=point-anchor
         if (delta.getDistance() <= 1f) return
-        val factor=minOf((size.width/2-marginX)/abs(delta.x).coerceAtLeast(.01f),
-            (size.height/2-marginY)/abs(delta.y).coerceAtLeast(.01f)).coerceAtMost(1f)
-        val edge=center+delta*factor
-        drawCircle(color.copy(alpha=.15f),11.dp.toPx(),edge)
-        drawArrow(edge-delta/delta.getDistance()*14.dp.toPx(),edge,color)
+        val factor=minOf(if (delta.x == 0f) Float.POSITIVE_INFINITY else ((if (delta.x > 0) bounds.right else bounds.left)-anchor.x)/delta.x,
+            if (delta.y == 0f) Float.POSITIVE_INFINITY else ((if (delta.y > 0) bounds.bottom else bounds.top)-anchor.y)/delta.y).coerceAtMost(1f)
+        val edge=anchor+delta*factor
+        drawCircle(color.copy(alpha=.15f),minOf(11.dp.toPx(),bounds.height/4),edge)
+        drawArrow(edge-delta/delta.getDistance()*minOf(14.dp.toPx(),bounds.height/2),edge,color)
     }
 }

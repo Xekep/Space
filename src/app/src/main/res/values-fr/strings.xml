@@ -24,6 +24,7 @@
     <string name="play">"Reprendre"</string>
     <string name="pause">"Pause"</string>
     <string name="rest">"Vague terminée · Rechargez et préparez-vous"</string>
+    <string name="arrivals_ended">Arrivées terminées · Menaces restantes</string>
     <string name="unsaved">" · Non enregistré"</string>
     <string name="scene_exported">"Scène exportée"</string>
     <string name="export_failed">"Échec de l'exportation. Essayez un autre emplacement."</string>

@@ -29,6 +29,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
     if (game.mode == AppMode.Sandbox) {
         return
     }
+    if ((game.arcade?.lives ?: 0) <= 0) return
     drawConvoyIndicator(game,camera)
     game.bodies.filter { it.isVehicle && it.fuelFraction <= .15f }.forEach { body ->
         val point=worldToScreen(flightRenderPosition(body,renderedPosition(body),game.viewport,camera.zoom,game.cameraRotation),
@@ -49,7 +50,9 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
         }
     }
     val marginX = 24.dp.toPx(); val marginY = 160.dp.toPx().coerceAtMost(size.height * 0.28f)
-    val bounds = Rect(marginX, marginY, size.width - marginX, size.height - marginY)
+    val bounds = game.indicatorBounds(Rect(marginX, marginY, size.width - marginX, size.height - marginY),14.dp.toPx())
+    if (bounds.width <= 0f || bounds.height <= 0f) return
+    val markerScale=minOf(1f,bounds.height/(40.dp.toPx()))
     (game.bodies.filter { it.kind == BodyKind.Meteor } + game.arcade?.pending.orEmpty().map { it.body }).forEach { body ->
         val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val velocity = rotateVector(body.velocity * camera.zoom.toDouble(), game.cameraRotation)
@@ -69,9 +72,9 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
             }
             return@forEach
         }
-        if (heavy) drawCircle(color,9.dp.toPx(),marker.position,
+        if (heavy) drawCircle(color,9.dp.toPx()*markerScale,marker.position,
             style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
-        drawCircle(color.copy(alpha = if (imminent) .28f else .12f),12.dp.toPx(),marker.position)
-        drawArrow(marker.position - marker.direction * (if (heavy) 20.dp.toPx() else 14.dp.toPx()),marker.position,color)
+        drawCircle(color.copy(alpha = if (imminent) .28f else .12f),12.dp.toPx()*markerScale,marker.position)
+        drawArrow(marker.position - marker.direction * (if (heavy) 20.dp.toPx() else 14.dp.toPx())*markerScale,marker.position,color)
     }
 }

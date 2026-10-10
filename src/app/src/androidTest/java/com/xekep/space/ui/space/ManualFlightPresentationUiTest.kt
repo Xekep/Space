@@ -186,7 +186,7 @@ class ManualFlightPresentationUiTest {
                     val craft=game.bodies.first { it.id == id }
                     assertTrue(craft.roll*axis > .5)
                     val cross=heading.x*craft.heading.y-heading.y*craft.heading.x
-                    if (preset == SandboxPresetKind.Empty) assertTrue(cross*axis > .04) else assertTrue(kotlin.math.abs(cross) < .001)
+                    assertTrue("Bank must turn in real time: $preset $kind axis=$axis cross=$cross",cross*axis > .04)
                     assertTrue(kotlin.math.abs(game.cameraRotation) > .015)
                 }
                 screenshot("fast-manoeuvre-${preset.name}-${kind.name}-${if (axis > 0) "up-right" else "down-left"}.png")

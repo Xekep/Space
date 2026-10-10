@@ -190,7 +190,7 @@ class FlightDepthTest {
             assertTrue(kotlin.math.abs(first.flightHeight) < 1)
             val off=first.copy(pilotTargetSpeed=0.0,velocity=Vec2.Zero)
             val drift=NumericIntegrator.advance(listOf(off),scale/60,scale/60,controlledId=1,manualDepthScale=control.depthTimeScale).single()
-            assertEquals(off.flightHeight+off.verticalVelocity*scale/60,drift.flightHeight,1e-8)
+            assertEquals(off.flightHeight+off.verticalVelocity/60,drift.flightHeight,1e-8)
         }
     }
 }

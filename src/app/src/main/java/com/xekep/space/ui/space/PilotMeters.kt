@@ -33,19 +33,7 @@ internal fun PilotMeters(game: SpaceGameState,speed: Double,target: Double,fuel:
                 progressBarRangeInfo=ProgressBarRangeInfo(target.toFloat(),0f..limit.toFloat())
                 if (!enabled) disabled()
                 setProgress { if (enabled && it.isFinite()) { game.setPilotTargetSpeed(it.coerceIn(0f,limit.toFloat()).toDouble()); true } else false }
-            }.pointerInput(game,enabled,game.controlledVehicleId) {
-                if (!enabled) return@pointerInput
-                awaitEachGesture {
-                    val down=awaitFirstDown(requireUnconsumed=false); down.consume()
-                    fun move(y: Float) { game.setPilotTargetSpeed((1-y/size.height).coerceIn(0f,1f)*limit) }
-                    move(down.position.y)
-                    do {
-                        val change=awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                        change.consume(); if (!change.pressed) break
-                        move(change.position.y)
-                    } while (true)
-                }
-            }) {
+            }.pilotSpeedInput(game,enabled,limit,vertical=true)) {
                 val width=size.width*.48f; val x=size.width*.22f; val count=12
                 for (segment in 0 until count) {
                     val fraction=(segment+.5f)/count

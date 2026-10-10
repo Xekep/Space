@@ -47,6 +47,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -69,6 +72,7 @@ import com.xekep.space.storage.GameOptions
 import kotlin.math.max
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -283,7 +287,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     RetroUiTheme(retroConsole) {
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF02040B), Color(0xFF081125), Color(0xFF0D1834))))) {
         Canvas(Modifier.fillMaxSize().testTag("space-scene").semantics { contentDescription = context.getString(R.string.space_scene) }
-            .onSizeChanged(game::resize).spaceGestures(game, hasSession)) {
+            .onSizeChanged(game::resize).onGloballyPositioned { game.sceneOrigin=it.positionInRoot() }.spaceGestures(game, hasSession)) {
             if (game.menuOpen) return@Canvas
             drawRetroFrame(retroRenderer) {
             if (retroRenderer != null) drawRect(Brush.verticalGradient(listOf(Color(0xFF02040B),Color(0xFF081125),Color(0xFF0D1834))))
@@ -358,13 +362,15 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         }
 
         if (hasSession && !game.menuOpen && game.mode == AppMode.Sandbox) SandboxHud(game, candidate, options, shake.available, tilt.available)
-        if (hasSession && !game.menuOpen && game.mode == AppMode.Arcade) {
+        if (hasSession && !game.menuOpen && game.mode == AppMode.Arcade && (arcade?.lives ?: 0) > 0) {
+            DisposableEffect(game) { onDispose { game.arcadeHudTop=null; game.arcadeHudBottom=null } }
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
                 val compactPilot=options.flightControl == com.xekep.space.input.FlightControlMode.Joystick && game.controlledVehicleId != null
                 val toolsHeight = maxHeight * 0.60f
+                val compactHeight = maxHeight < 400.dp
                 Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.onGloballyPositioned { game.arcadeHudTop=it.boundsInRoot() },verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ArcadeTopHud(game,compactPilot)
                         ArcadeEncounterHud(game)
                         arcade?.challenge?.takeIf { it.ids.isNotEmpty() }?.let { challenge ->
@@ -375,11 +381,11 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                                 style=MaterialTheme.typography.labelMedium,color=Color(0xFFFFA46B))
                         }
                         if (arcade?.resting == true) Text(
-                            context.getString(R.string.rest),
-                            modifier=Modifier.fillMaxWidth(),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
+                            context.getString(if (arcade.threatsCleared) R.string.rest else R.string.arrivals_ended),
+                            modifier=Modifier.fillMaxWidth().testTag("wave-rest-status"),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelMedium, color = accent)
                     }
-                    Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).verticalScroll(rememberScrollState()),
+                    Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).onGloballyPositioned { game.arcadeHudBottom=it.boundsInRoot() }.verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         game.tutorialText?.let { message ->
                             androidx.compose.material3.Surface(shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
@@ -393,11 +399,16 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                             textAlign=androidx.compose.ui.text.style.TextAlign.Center,style = MaterialTheme.typography.bodySmall, color = accent) }
                         PilotHud(game, options.flightControl == com.xekep.space.input.FlightControlMode.Joystick)
                         if (candidate == null) ArcadeSelectionHud(game)
-                        else BodyDetailsText(candidate, Modifier.align(Alignment.CenterHorizontally), showHullClass=true)
+                        else Column(Modifier.align(Alignment.CenterHorizontally),horizontalAlignment=Alignment.CenterHorizontally) {
+                            BodyDetailsText(candidate, showHullClass=true)
+                            if (compactPilot && previewCost != null) Text(context.getString(R.string.launch_energy)+" −${previewCost.roundToInt()}",
+                                Modifier.testTag("launch-cost"),style=MaterialTheme.typography.labelSmall,
+                                color=if (previewCost > arcade!!.energy) MaterialTheme.colorScheme.error else accent)
+                        }
                         if (!compactPilot) ArcadeSpawnControls(game, options, tilt.available)
                         if (game.orbitSource != null) TextButton(onClick = game::clearSelection) { Text(context.getString(R.string.cancel_orbit)) }
                         if (!compactPilot && game.mode == AppMode.Arcade && arcade != null) {
-                            ArcadeEnergyHud(Modifier.fillMaxWidth().testTag("arcade-launch-energy"), (arcade.energy / arcade.maxEnergy).toFloat(), arcade.energy,arcade.maxEnergy)
+                            ArcadeEnergyHud(Modifier.fillMaxWidth().testTag("arcade-launch-energy"), (arcade.energy / arcade.maxEnergy).toFloat(), arcade.energy,arcade.maxEnergy,previewCost, compactHeight)
                         }
 
                     }

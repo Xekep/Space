@@ -23,6 +23,7 @@
     <string name="large_system">"物体较多 · 如运行卡顿，请降低时间倍率"</string>
     <string name="play">"继续"</string>
     <string name="pause">"暂停"</string>
+    <string name="arrivals_ended">来袭结束 · 仍有威胁</string>
     <string name="rest">"本波结束 · 补充能量，准备下一波"</string>
     <string name="unsaved">" · 未保存"</string>
     <string name="scene_exported">"场景已导出"</string>

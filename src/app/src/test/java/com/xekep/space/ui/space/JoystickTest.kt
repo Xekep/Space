@@ -42,11 +42,12 @@ class JoystickTest {
             assertTrue((game.bodies.single().pitch-pitch)*axis < 0)
         }
     }
-    @Test fun fpvThrottleIsAbsoluteAndDoesNotLoseRangeWhenYawing() {
-        assertEquals(1.0,joystickThrottle(-38f,38f),0.0)
-        assertEquals(.5,joystickThrottle(0f,38f),0.0)
-        assertEquals(0.0,joystickThrottle(38f,38f),0.0)
-        assertEquals(0.0,joystickThrottle(Float.NaN,38f),0.0)
+    @Test fun throttleKeepsItsSetpointOnTouchAndYawAndReversesAtEndStops() {
+        for (value in listOf(0.0,.2,.5,.8,1.0)) assertEquals(value,joystickThrottle(value,0f,0f,38f),0.0)
+        assertEquals(1.0,joystickThrottle(0.0,38f,-38f,38f),0.0)
+        assertEquals(0.0,joystickThrottle(1.0,-38f,38f,38f),0.0)
+        assertEquals(.5,joystickThrottle(1.0,-38f,0f,38f),0.0)
+        assertEquals(.2,joystickThrottle(.2,Float.NaN,0f,38f),0.0)
     }
 
 }

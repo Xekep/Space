@@ -103,7 +103,9 @@ class MenuRedesignUiTest {
     @Test fun pilotSpeedHandleDragsContinuouslyInBothModesForShipsAndRockets() {
         val prefs=context.getSharedPreferences("space_options",android.content.Context.MODE_PRIVATE)
         val prior=prefs.getBoolean("motionControl",false)
-        prefs.edit().putBoolean("motionControl",true).commit()
+        val priorMode=prefs.getString("flightControl",null)
+        // This scenario exercises the horizontal tilt-mode slider, regardless of test order.
+        prefs.edit().putBoolean("motionControl",true).putString("flightControl","Tilt").commit()
         compose.mainClock.autoAdvance=false
         try {
             val game=SpaceGameState()
@@ -120,20 +122,27 @@ class MenuRedesignUiTest {
                 compose.mainClock.advanceTimeByFrame()
                 val id=game.controlledVehicleId!!
                 val count=game.bodies.size; val camera=game.camera
+                compose.onNodeWithTag("flight-joystick").assertDoesNotExist()
                 compose.onNodeWithTag("pilot-speed").performSemanticsAction(SemanticsActions.SetProgress) { assertTrue(it(180f)) }
                 compose.mainClock.advanceTimeByFrame()
                 compose.onNodeWithTag("pilot-speed").performTouchInput { down(Offset(width*.2f,center.y)) }
+                compose.mainClock.advanceTimeByFrame()
                 var previous=180.0
                 for (fraction in listOf(.4f,.65f,.9f,.6f,.2f)) {
                     compose.onNodeWithTag("pilot-speed").performTouchInput { moveTo(Offset(width*fraction,center.y),100) }
                     compose.mainClock.advanceTimeByFrame()
                     compose.runOnIdle {
                         val target=game.bodies.first { it.id == id }.pilotTargetSpeed!!
-                        assertTrue("Speed must follow the finger before it lifts: $previous -> $target",kotlin.math.abs(target-previous) > 100)
+                        assertTrue("Speed must follow the finger before it lifts: $mode $kind fraction=$fraction $previous -> $target",kotlin.math.abs(target-previous) > 100)
                         assertEquals(count,game.bodies.size)
                         assertEquals(camera.zoom,game.camera.zoom)
                         if (mode == AppMode.Sandbox) assertEquals(camera,game.camera)
-                        else assertEquals(game.bodies.first { it.id == id }.position,game.camera.center)
+                        else {
+                            val point=worldToScreen(game.bodies.first { it.id == id }.position,game.viewport,
+                                game.camera.center,game.camera.zoom,game.cameraRotation)
+                            val anchor=Offset(game.viewport.width/2f,game.viewport.height/2f)+pilotAnchorOffset(game.viewport).toOffset()
+                            assertTrue("Camera must keep the craft within its manoeuvre leash",(point-anchor).getDistance() <= minOf(game.viewport.width,game.viewport.height)*.18f+.01f)
+                        }
                         previous=target
                     }
                 }
@@ -142,7 +151,9 @@ class MenuRedesignUiTest {
                 compose.onNodeWithTag("pilot-fuel").assertIsDisplayed()
                 shot("pilot-speed-handle.png")
             }
-        } finally { prefs.edit().putBoolean("motionControl",prior).commit() }
+        } finally { prefs.edit().putBoolean("motionControl",prior).apply {
+            if (priorMode == null) remove("flightControl") else putString("flightControl",priorMode)
+        }.commit() }
     }
     @Test fun stellarCollisionAndAStalledFrameKeepTheSandboxVisible() {
         compose.mainClock.autoAdvance=false

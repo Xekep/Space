@@ -44,9 +44,10 @@ class CoreDirectionUiTest {
                 assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
             }
             val padding=(48*compose.density.density).toInt()
+            val hudTop=game.arcadeHudBottom!!.top.toInt()
             fun yellowPixels(image: android.graphics.Bitmap): Int {
                 var count=0
-                for (x in image.width/2-padding..image.width/2+padding) for (y in image.height-padding*2 until image.height) {
+                for (x in image.width/2-padding..image.width/2+padding) for (y in (hudTop-padding).coerceAtLeast(0) until hudTop.coerceAtMost(image.height)) {
                     val color=image.getPixel(x,y)
                     if (android.graphics.Color.red(color)>240 && android.graphics.Color.green(color) in 195..220 &&
                         android.graphics.Color.blue(color) in 85..115) count++
