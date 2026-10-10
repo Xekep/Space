@@ -22,7 +22,7 @@ internal fun ArcadeEncounterHud(game: SpaceGameState) {
     val run=game.arcade ?: return
     if (run.practice) return
     if (!run.resting && run.character != WaveCharacter.Giant) {
-        val label=if (run.planetId != null && run.wave == 11 && run.waveTime%28 < 3) R.string.planet_arrived else when (run.character) {
+        val label=if (run.planetId != null && run.wave == 11 && run.wavePhase.seconds < 3) R.string.planet_arrived else when (run.character) {
             WaveCharacter.Approach -> R.string.wave_approach
             WaveCharacter.Swarm -> R.string.wave_swarm
             WaveCharacter.Siege -> R.string.wave_siege

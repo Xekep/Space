@@ -37,7 +37,7 @@ class ArcadeProgressionUiTest {
             assertTrue(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it))
         }
     }
-    @Test fun guardianHasFastSelectionSharedCounterAndResetsForANewRun() {
+    @Test fun guardianHasRoleCountsSharedFleetLimitAndResetsForANewRun() {
         compose.mainClock.autoAdvance=false
         val game=game()
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
@@ -54,8 +54,8 @@ class ArcadeProgressionUiTest {
             assertEquals(ShipClass.Guardian,game.bodies.last().shipClass)
         }
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithTag("arcade-count-Ship",useUnmergedTree=true).assertTextEquals("1/3")
-        compose.onNodeWithTag("arcade-count-Guardian",useUnmergedTree=true).assertTextEquals("1/3")
+        compose.onNodeWithTag("arcade-count-Ship",useUnmergedTree=true).assertTextEquals("0")
+        compose.onNodeWithTag("arcade-count-Guardian",useUnmergedTree=true).assertTextEquals("1")
         compose.onNodeWithTag("arcade-spawn-Ship").performClick()
         compose.runOnIdle {
             val point=game.bodies.first { it.kind == BodyKind.Core }.position+Vec2(-240.0,0.0)
@@ -63,7 +63,9 @@ class ArcadeProgressionUiTest {
             assertEquals(ShipClass.Interceptor,game.bodies.last().shipClass)
         }
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithTag("arcade-count-Guardian",useUnmergedTree=true).assertTextEquals("2/3")
+        compose.onNodeWithTag("arcade-count-Guardian",useUnmergedTree=true).assertTextEquals("1")
+        compose.onNodeWithTag("arcade-count-Ship",useUnmergedTree=true).assertTextEquals("1")
+        compose.onNodeWithTag("arcade-fleet-count",useUnmergedTree=true).assertIsDisplayed()
         compose.onNodeWithTag("arcade-spawn-Guardian").performClick()
         compose.mainClock.advanceTimeByFrame(); shot("arcade-guardian-controls.png")
         compose.runOnIdle { game.startArcade() }

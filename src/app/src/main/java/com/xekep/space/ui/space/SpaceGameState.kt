@@ -37,8 +37,9 @@ data class ArcadeSession(
     val planetId: Long? = null, val convoy: ArcadeConvoy? = null,
 ) {
     val waveTime: Double get() = (elapsed-waveDelay).coerceAtLeast(0.0)
-    val wave: Int get() = 1 + (waveTime / 28.0 + 1e-9).toInt()
-    val resting: Boolean get() = waveTime % 28.0 >= 24.0 && !(wave == 10 && challenge?.ids?.isNotEmpty() == true)
+    internal val wavePhase: ArcadeWavePhase get() = arcadeWavePhase(waveTime)
+    val wave: Int get() = wavePhase.wave
+    val resting: Boolean get() = wavePhase.resting && !(wave == 10 && challenge?.ids?.isNotEmpty() == true)
     val accuracy: Int get() = if (launches == 0) 0 else successfulLaunches.size * 100 / launches
 }
 data class SandboxSession(

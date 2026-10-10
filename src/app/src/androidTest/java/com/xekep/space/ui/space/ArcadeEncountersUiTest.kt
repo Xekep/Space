@@ -62,7 +62,11 @@ class ArcadeEncountersUiTest {
         val id=game.arcade!!.convoy!!.bodyId
         compose.onNodeWithTag("find-convoy").assertIsDisplayed().performClick()
         compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithTag("arcade-count-Ship",useUnmergedTree=true).assertTextEquals("0/6")
+        compose.onNodeWithTag("arcade-count-Ship",useUnmergedTree=true).assertTextEquals("0")
+        compose.runOnIdle {
+            assertEquals(0,game.spawnCountFor(BodyKind.Ship))
+            assertEquals(6,game.spawnLimitFor(BodyKind.Ship))
+        }
         val count=game.bodies.size
         compose.onNodeWithTag("space-scene").performTouchInput {
             val a=center+Offset(-150f,-220f); val b=center+Offset(150f,-220f)

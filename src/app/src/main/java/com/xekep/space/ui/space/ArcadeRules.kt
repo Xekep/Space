@@ -13,12 +13,13 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId,current.gunIntervalScale)
     val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId,control?.depthTimeScale ?: 1.0)
     val combatStep = advanceProjectiles(com.xekep.space.sim.advanceWaypoints(prepared.bodies,step.bodies), prepared.combat, dt)
-    val events = prepared.events + step.collisions + combatStep.events
+    val blast=heavyRocketBlasts(prepared.bodies,combatStep.bodies,step.collisions)
+    val events = prepared.events + step.collisions + combatStep.events + blast.second
     // Arena cleanup applies to spent threats. Player bodies belong to world space,
     // so a launch after camera travel must survive outside the initial arena.
     val corePosition=combatStep.bodies.firstOrNull { it.kind == BodyKind.Core }?.position ?: Vec2(450.0,700.0)
     val convoyPosition=combatStep.bodies.firstOrNull { it.id == current.convoy?.bodyId }?.position
-    var bodies = combatStep.bodies.filter {
+    var bodies = blast.first.filter {
         val offset=it.position-corePosition
         val escort=convoyPosition?.minus(it.position)
         it.kind != BodyKind.Meteor || offset.x*it.velocity.x+offset.y*it.velocity.y < 0 ||
@@ -65,10 +66,10 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     var waveDelay=current.waveDelay
     if (current.wave == 10 && challenge?.ids?.isNotEmpty() == true && elapsed-waveDelay >= 9*28.0+24.0)
         waveDelay=elapsed-(9*28.0+24.0)
-    val waveTime=elapsed-waveDelay; val cycle=waveTime % 28.0
-    if (current.waveTime % 28.0 < 24.0 && cycle >= 24.0 && challenge?.ids?.isNotEmpty() != true)
+    val phase=arcadeWavePhase(elapsed-waveDelay); val cycle=phase.seconds
+    if (!current.wavePhase.resting && phase.resting && current.wave == phase.wave && challenge?.ids?.isNotEmpty() != true)
         score += (150 + lives * 20) * current.difficulty.scoreFactor
-    val wave = 1 + (waveTime / 28.0 + 1e-9).toInt()
+    val wave = phase.wave
     val pending = current.pending.map { it.copy(seconds = it.seconds - dt) }.toMutableList()
     if (lives > 0) bodies = bodies + pending.filter { it.seconds <= 0 }.map { it.body }
     pending.removeAll { it.seconds <= 0 }

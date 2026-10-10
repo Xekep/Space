@@ -131,7 +131,7 @@
     <string name="load_slot_question">"Load slot %1$d?"</string>
     <string name="body_details">"Mass %1$d · Speed %2$d"</string>
     <string name="game_over_intercepts">"Intercepts: %1$d · Best: %2$d"</string>
-    <string name="game_over_details">"Time: %1$ds · Wave: %2$d · Accuracy: %3$d%%"</string>
+    <string name="game_over_details">"Time: %1$ds · Wave: %2$d · Useful launches: %3$d%%"</string>
     <string name="arcade">"Arcade"</string>
     <string name="sandbox">"Sandbox"</string>
     <string name="easy">"Easy"</string>
@@ -251,4 +251,11 @@
     <string name="ring_grain">Ring particle</string>
     <string name="pitch_joystick">Pitch and roll joystick</string>
     <string name="leave_pilot">Leave piloting</string>
+    <string name="craft_manual">Manual</string>
+    <string name="craft_route">Route</string>
+    <string name="craft_patrol">Patrol</string>
+    <string name="craft_intercept">Intercept</string>
+    <string name="craft_reserve">Reserve</string>
+    <string name="fleet_count">Fleet %1$d/%2$d</string>
+    <string name="craft_coast">Coasting</string>
 </resources>

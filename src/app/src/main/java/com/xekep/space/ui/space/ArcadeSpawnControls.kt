@@ -39,33 +39,41 @@ fun ArcadeSpawnControls(game: SpaceGameState, options: GameOptions, tiltAvailabl
                         maxLines=2,overflow=TextOverflow.Ellipsis)
                     FlightLoopButton(game)
                 }
-            Surface(modifier=Modifier.retroFrame(MaterialTheme.colorScheme.secondary),shape=spaceShape(18.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.65f)) {
-                Row {
-                    for ((kind,shipClass) in entries) {
-                        val count by remember(game,kind) { derivedStateOf { game.spawnCountFor(kind) } }
-                        val maximum=game.spawnLimitFor(kind)
-                        val isGuardian=shipClass == ShipClass.Guardian
-                        val tag=if (isGuardian) "Guardian" else kind.name
-                        val active=game.spawnKind == kind && (kind != BodyKind.Ship || game.arcadeShipClass == shipClass)
-                        val name=stringResource(if (isGuardian) R.string.spawn_guardian else
-                            if (kind == BodyKind.Ambient) R.string.spawn_body_short else kind.labelId())
-                        val countLabel=stringResource(R.string.object_count,count,maximum)
-                        Surface(onClick={ if (kind == BodyKind.Ship) game.chooseArcadeShipClass(shipClass) else game.chooseSpawnKind(kind) },
-                            modifier=Modifier.width(48.dp).height(64.dp).testTag("arcade-spawn-$tag").retroFrame(if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
-                                .semantics { role=Role.RadioButton; selected=active; contentDescription="$name. $countLabel" },
-                            shape=spaceShape(14.dp),
-                            color=if (active) MaterialTheme.colorScheme.secondary.copy(alpha=.16f) else Color.Transparent) {
-                            Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
-                                SpawnKindIcon(kind,Modifier.size(26.dp),shipClass)
-                                Spacer(Modifier.height(2.dp))
-                                Text("$count/$maximum",Modifier.testTag("arcade-count-$tag"),style=MaterialTheme.typography.labelSmall,
-                                    color=if (count >= maximum) MaterialTheme.colorScheme.error else
-                                        if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
+                Surface(modifier=Modifier.retroFrame(MaterialTheme.colorScheme.secondary),shape=spaceShape(18.dp),color=MaterialTheme.colorScheme.surface.copy(alpha=.65f)) {
+                    Column {
+                        Row {
+                            for ((kind,shipClass) in entries) {
+                                val count by remember(game,kind) { derivedStateOf { game.spawnCountFor(kind) } }
+                                val maximum=game.spawnLimitFor(kind)
+                                val isGuardian=shipClass == ShipClass.Guardian
+                                val tag=if (isGuardian) "Guardian" else kind.name
+                                val active=game.spawnKind == kind && (kind != BodyKind.Ship || game.arcadeShipClass == shipClass)
+                                val name=stringResource(if (isGuardian) R.string.spawn_guardian else
+                                    if (kind == BodyKind.Ambient) R.string.spawn_body_short else kind.labelId())
+                                val roleCount=if (kind == BodyKind.Ship && guardian) game.bodies.count { it.kind == kind && it.shipClass == shipClass } else count
+                                val countLabel=if (kind == BodyKind.Ship && guardian) "$roleCount. "+stringResource(R.string.fleet_count,count,maximum)
+                                    else stringResource(R.string.object_count,count,maximum)
+                                Surface(onClick={ if (kind == BodyKind.Ship) game.chooseArcadeShipClass(shipClass) else game.chooseSpawnKind(kind) },
+                                    modifier=Modifier.width(48.dp).height(64.dp).testTag("arcade-spawn-$tag").retroFrame(if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline)
+                                    .semantics { role=Role.RadioButton; selected=active; contentDescription="$name. $countLabel" },
+                                    shape=spaceShape(14.dp),
+                                    color=if (active) MaterialTheme.colorScheme.secondary.copy(alpha=.16f) else Color.Transparent) {
+                                    Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
+                                        SpawnKindIcon(kind,Modifier.size(26.dp),shipClass)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(if (kind == BodyKind.Ship && guardian) "$roleCount" else "$count/$maximum",Modifier.testTag("arcade-count-$tag"),style=MaterialTheme.typography.labelSmall,
+                                            color=if (count >= maximum) MaterialTheme.colorScheme.error else
+                                            if (active) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
                             }
                         }
+                        if (guardian) Text(stringResource(R.string.fleet_count,game.spawnCountFor(BodyKind.Ship),game.spawnLimitFor(BodyKind.Ship)),
+                            Modifier.align(Alignment.End).width(96.dp).testTag("arcade-fleet-count"),
+                            textAlign=androidx.compose.ui.text.style.TextAlign.Center,style=MaterialTheme.typography.labelSmall,
+                            color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
             Spacer(Modifier.weight(1f))
             MotionControlButton(game, options,tiltAvailable,"arcade-motion-control")
             }

@@ -150,10 +150,12 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
             val threats=enemies.filter { (it.position-body.position).magnitude() <= 650.0 }
                 .sortedWith(compareBy<CelestialBody> { if (it.id == target?.id) 0 else 1 }
                     .thenBy { (it.position-body.position).magnitude() })
-            val solution=threats.firstNotNullOfOrNull { targeting.solution(body,it,velocity,650.0) }
-            if (solution != null) {
-                shots+=SpaceProjectile(solution.origin,solution.velocity,body.id,damage=120.0*body.vehicleDamageScale,height=solution.height,verticalVelocity=solution.verticalVelocity)
-                cooldown=.9*gunIntervalScale
+            val hit=threats.firstNotNullOfOrNull { enemy -> targeting.solution(body,enemy,velocity,650.0)?.let { enemy to it } }
+            if (hit != null) {
+                val (enemy,solution)=hit
+                val (damage,interval)=interceptorWeapon(body,enemy)
+                shots+=SpaceProjectile(solution.origin,solution.velocity,body.id,damage=damage,height=solution.height,verticalVelocity=solution.verticalVelocity)
+                cooldown=interval*gunIntervalScale
             } else if (threats.isNotEmpty()) cooldown=.10
         }
         statuses[body.id] = CraftStatus(age, cooldown, target?.id)

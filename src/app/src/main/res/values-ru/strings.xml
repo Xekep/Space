@@ -131,7 +131,7 @@
     <string name="load_slot_question">"Загрузить слот %1$d?"</string>
     <string name="body_details">"Масса %1$d · Скорость %2$d"</string>
     <string name="game_over_intercepts">"Перехвачено: %1$d · Рекорд: %2$d"</string>
-    <string name="game_over_details">"Время: %1$d с · Волна: %2$d · Точность: %3$d%%"</string>
+    <string name="game_over_details">"Время: %1$d с · Волна: %2$d · Полезные запуски: %3$d%%"</string>
     <string name="arcade">"Аркада"</string>
     <string name="sandbox">"Песочница"</string>
     <string name="easy">"Легко"</string>
@@ -251,4 +251,11 @@
     <string name="ring_grain">Частица кольца</string>
     <string name="pitch_joystick">Стик тангажа и крена</string>
     <string name="leave_pilot">Выйти из пилотирования</string>
+    <string name="craft_manual">Пилот</string>
+    <string name="craft_route">Маршрут</string>
+    <string name="craft_patrol">Патруль</string>
+    <string name="craft_intercept">Перехват</string>
+    <string name="craft_reserve">Резерв</string>
+    <string name="fleet_count">Флот %1$d/%2$d</string>
+    <string name="craft_coast">Дрейф</string>
 </resources>

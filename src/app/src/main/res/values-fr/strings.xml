@@ -117,7 +117,7 @@
     <string name="load_slot_question">"Charger l'emplacement %1$d ?"</string>
     <string name="body_details">"Masse %1$d · Vitesse %2$d"</string>
     <string name="game_over_intercepts">"Interceptions : %1$d · Record : %2$d"</string>
-    <string name="game_over_details">"Durée : %1$d s · Vague : %2$d · Précision : %3$d%%"</string>
+    <string name="game_over_details">"Durée : %1$d s · Vague : %2$d · Lancements utiles : %3$d%%"</string>
     <string name="arcade">"Arcade"</string>
     <string name="sandbox">"Bac à sable"</string>
     <string name="easy">"Facile"</string>
@@ -229,4 +229,11 @@
     <string name="ring_grain">Particule des anneaux</string>
     <string name="pitch_joystick">Joystick de tangage et de roulis</string>
     <string name="leave_pilot">Quitter le pilotage</string>
+    <string name="craft_manual">Pilotage</string>
+    <string name="craft_route">Trajet</string>
+    <string name="craft_patrol">Patrouille</string>
+    <string name="craft_intercept">Interception</string>
+    <string name="craft_reserve">Réserve</string>
+    <string name="fleet_count">Flotte %1$d/%2$d</string>
+    <string name="craft_coast">Dérive</string>
 </resources>

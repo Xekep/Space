@@ -117,7 +117,7 @@
     <string name="load_slot_question">"加载存档位 %1$d？"</string>
     <string name="body_details">"质量 %1$d · 速度 %2$d"</string>
     <string name="game_over_intercepts">"拦截：%1$d · 最高纪录：%2$d"</string>
-    <string name="game_over_details">"时间：%1$d 秒 · 波次：%2$d · 命中率：%3$d%%"</string>
+    <string name="game_over_details">"时间：%1$d 秒 · 波次：%2$d · 有效发射：%3$d%%"</string>
     <string name="arcade">"街机"</string>
     <string name="sandbox">"沙盒"</string>
     <string name="easy">"简单"</string>
@@ -229,4 +229,11 @@
     <string name="ring_grain">环粒子</string>
     <string name="pitch_joystick">俯仰与横滚摇杆</string>
     <string name="leave_pilot">退出驾驶</string>
+    <string name="craft_manual">手动</string>
+    <string name="craft_route">航线</string>
+    <string name="craft_patrol">巡逻</string>
+    <string name="craft_intercept">拦截</string>
+    <string name="craft_reserve">待命</string>
+    <string name="fleet_count">舰队 %1$d/%2$d</string>
+    <string name="craft_coast">漂移</string>
 </resources>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,6 +33,9 @@ import kotlin.math.roundToInt
 import com.xekep.space.sim.hullClass
 import com.xekep.space.sim.VehicleHullClass
 import com.xekep.space.sim.CelestialBody
+import com.xekep.space.sim.isVehicle
+import com.xekep.space.sim.fuelFraction
+import com.xekep.space.sim.ShipClass
 
 @Composable
 fun BodyDetailsText(body: CelestialBody, modifier: Modifier = Modifier, showHullClass: Boolean = false) {
@@ -50,6 +54,24 @@ fun ArcadeSelectionHud(game: SpaceGameState) {
             Text(context.getString(body.labelId()), Modifier.testTag("arcade-object-details"),
                 style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)
             BodyDetailsText(body)
+            if (body.isVehicle) {
+                val task=when {
+                    body.fuelRemaining <= 1e-9 -> R.string.craft_coast
+                    body.id == game.controlledVehicleId -> R.string.craft_manual
+                    body.waypoints.isNotEmpty() -> R.string.craft_route
+                    body.shipClass == ShipClass.Guardian -> R.string.craft_patrol
+                    game.arcade?.combat?.craft?.get(body.id)?.targetId != null -> R.string.craft_intercept
+                    else -> R.string.craft_reserve
+                }
+                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(context.getString(task),Modifier.testTag("arcade-craft-task"),style=MaterialTheme.typography.labelSmall,
+                        color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    PixelMeter(body.fuelFraction,if (body.fuelFraction <= .15f) Color(0xFFFFB76B) else Color(0xFF80FFDF),
+                        Modifier.width(48.dp).height(5.dp).testTag("arcade-craft-fuel").semantics {
+                            contentDescription=context.getString(R.string.pilot_fuel,(body.fuelFraction*100).roundToInt())
+                        })
+                }
+            }
         }
         TextButton(onClick=game::clearSelection,modifier=Modifier.testTag("clear-arcade-selection").semantics {
             contentDescription=context.getString(R.string.close)

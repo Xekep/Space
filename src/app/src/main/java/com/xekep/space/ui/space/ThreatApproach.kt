@@ -25,15 +25,14 @@ internal fun threatDirectionMarker(point: Offset, velocity: Vec2, radius: Float,
     return ThreatDirectionMarker(position, delta / delta.getDistance())
 }
 
-/** Move the incoming trajectory back beyond both the arena and the currently visible world. */
+/** World-space approaches are independent of zoom, panning, viewport and pilot rotation.
+ * A wide camera can see distant arrivals; moving the camera cannot delay an attack.
+ */
+@Suppress("UNUSED_PARAMETER")
 internal fun distantThreat(body: CelestialBody, session: ArcadeSession, view: ThreatView?, target: Vec2? = null): CelestialBody {
-    val center=target ?: Vec2(session.arena.width/2.0,session.arena.height/2.0)
-    val corners=mutableListOf(Vec2.Zero,Vec2(session.arena.width.toDouble(),session.arena.height.toDouble()))
-    corners+=center
-    if (view != null && view.viewport != IntSize.Zero) {
-        for (x in listOf(0f,view.viewport.width.toFloat())) for (y in listOf(0f,view.viewport.height.toFloat()))
-            corners += screenToWorld(Offset(x,y),view.viewport,session.camera.center,session.camera.zoom,view.rotation)
-    }
+    val center=target ?: session.bodies.firstOrNull { it.kind == com.xekep.space.sim.BodyKind.Core }?.position
+        ?: Vec2(session.arena.width/2.0,session.arena.height/2.0)
+    val corners=listOf(Vec2.Zero,Vec2(session.arena.width.toDouble(),session.arena.height.toDouble()),center)
     val minX=corners.minOf { it.x }; val maxX=corners.maxOf { it.x }
     val minY=corners.minOf { it.y }; val maxY=corners.maxOf { it.y }
     val inward=body.velocity.normalized()

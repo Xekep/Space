@@ -19,6 +19,7 @@ import com.xekep.space.sim.*
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import kotlin.math.abs
 
 class ThreatDirectionUiTest {
     @get:Rule val compose = createComposeRule()
@@ -63,12 +64,16 @@ class ThreatDirectionUiTest {
             var minX = image.width; var maxX = 0; var minY = image.height; var maxY = 0
             for (y in 0 until image.height) for (x in 0 until image.width) {
                 val color = image.getPixel(x, y)
-                if (android.graphics.Color.red(color) > 250 && android.graphics.Color.green(color) in 134..142 &&
-                    android.graphics.Color.blue(color) in 87..95) {
+                val red=android.graphics.Color.red(color)
+                val green=android.graphics.Color.green(color)
+                val blue=android.graphics.Color.blue(color)
+                // Preserve the orange hue check at both calm (.7) and urgent (1) opacity.
+                // The faint halo is excluded, so bounds still measure the arrow itself.
+                if (red >= 170 && abs(green*255-red*138) <= red*8 && abs(blue*255-red*91) <= red*8) {
                     count++; minX = minOf(minX, x); maxX = maxOf(maxX, x); minY = minOf(minY, y); maxY = maxOf(maxY, y)
                 }
             }
-            assertTrue("Missing threat indicator", count > 20)
+            assertTrue("Missing indicator: rotation=$rotation side=$side pending=$pending incoming=$incoming", count > 20)
             val mx = 24 * compose.density.density
             val my = minOf(160 * compose.density.density, h * .28f)
             val label = "rotation=$rotation, side=$side, pending=$pending, incoming=$incoming"
@@ -81,4 +86,30 @@ class ThreatDirectionUiTest {
             }
         }
     }
+    @Test fun wideViewShowsPendingArrivalUntilTheBodyIsReleased() {
+        val game=SpaceGameState().apply { resize(IntSize(825,1100)); startArcade() }
+        val core=game.bodies.first { it.kind == BodyKind.Core }
+        val threat=core.copy(id=999,kind=BodyKind.Meteor,mass=90.0,radius=10f,
+            position=core.position+Vec2(1000.0,0.0),velocity=Vec2(-100.0,0.0))
+        replace(game,game.arcade!!.copy(camera=SpaceCamera(core.position,.15f),bodies=listOf(core),
+            pending=listOf(PendingThreat(threat,.9))))
+        compose.setContent {
+            Canvas(Modifier.size(300.dp,400.dp).onSizeChanged(game::resize).testTag("indicators")) {
+                drawRect(Color.Black); drawSpaceIndicators(game)
+            }
+        }
+        fun warningPixels(): Int {
+            val image=compose.onNodeWithTag("indicators").captureToImage().asAndroidBitmap()
+            var count=0
+            for (y in 0 until image.height) for (x in 0 until image.width) {
+                val pixel=image.getPixel(x,y)
+                if (android.graphics.Color.red(pixel) >= 170) count++
+            }
+            return count
+        }
+        assertTrue("Visible pending threat has no warning",warningPixels() > 20)
+        compose.runOnIdle { replace(game,game.arcade!!.copy(bodies=listOf(core,threat),pending=emptyList())) }
+        assertEquals("Warning stayed after release",0,warningPixels())
+    }
+
 }
