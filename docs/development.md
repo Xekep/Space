@@ -1,6 +1,6 @@
 # Разработка и проверка
 
-Все команды запускаются из корня проекта. Модуль `:app` расположен в `src/app`. Нужны JDK 17, Android SDK Platform 35 и Python 3 для проверки переводов. На Windows команды ниже выполняются в PowerShell; на Linux/macOS заменяй `.\gradlew.bat` на `bash ./gradlew`.
+Все команды запускаются из корня проекта. Модуль `:app` расположен в `src/app`. Нужны JDK 17, Android SDK Platform 36 и Python 3 для проверки переводов. На Windows команды ниже выполняются в PowerShell; на Linux/macOS заменяй `.\gradlew.bat` на `bash ./gradlew`.
 
 ## Сборка
 
@@ -27,10 +27,10 @@ Release можно подписать переменными `SPACE_KEYSTORE_PAT
 
 ```powershell
 .\scripts\setup-emulator.ps1 -SdkPath $env:ANDROID_HOME
-.\scripts\debug-android.ps1 -SdkPath $env:ANDROID_HOME -AvdName Space_API_35 -Port 5556 -Headless
+.\scripts\debug-android.ps1 -SdkPath $env:ANDROID_HOME -AvdName Space_API_36 -Port 5556 -Headless
 ```
 
-`setup-emulator.ps1` устанавливает компоненты SDK и создаёт AVD API 35. Для существующего AVD достаточно команды debug. Флаг `-Headless` удобен для тестов; без него открывается окно эмулятора. Скрипт debug собирает APK, устанавливает обновление и запускает приложение. Проверяй serial через `adb devices`; для порта 5556 это `emulator-5556`. Не закрывай чужие устройства или экземпляры эмулятора.
+`setup-emulator.ps1` устанавливает компоненты SDK и создаёт AVD API 36. Для существующего AVD достаточно команды debug. Флаг `-Headless` удобен для тестов; без него открывается окно эмулятора. Скрипт debug собирает APK, устанавливает обновление и запускает приложение. Проверяй serial через `adb devices`; для порта 5556 это `emulator-5556`. Не закрывай чужие устройства или экземпляры эмулятора.
 
 ## Android-тесты с сохранением данных
 
@@ -118,3 +118,36 @@ allprojects {
 
 
 `ManualClockTest` сравнивает управляемые ракету и корабль при нескольких масштабах времени, проверяет часы естественных тел и дрейф ракеты без топлива. `HudSafetyTest` проверяет измеренные границы указателей, их начало вне центра экрана, статус остаточных угроз и локализованный компактный счёт. `HudFlowUiTest` проверяет цену до запуска и реальное списание энергии, статусы отдыха и скрытие боевого HUD после поражения. В `MenuRedesignUiTest` режим наклона задан явно; перетаскивание скорости проверяется также на паузе песочницы, независимо от настроек предыдущего теста. Общий `PilotSpeedInput` обслуживает вертикальные шкалы FPV и горизонтальную шкалу наклона.
+
+
+## Коммерческий кандидат и восстановление
+
+API 36 собирается AGP 8.10.1 / Gradle 8.11.1 / JDK 17. SDK Platform 36 и образ `system-images;android-36;google_apis;x86_64` установлены локально; новый AVD `Space_API_36` не заменяет прежний с данными. [Комплект магазинов](store-kit/README.md) содержит локальную упаковку и условия подписи для Play/RuStore. [Полевой протокол](commercial-validation.md) отделяет реальные телефоны и людей от эмулятора.
+
+На **собственном тестовом AVD** проверить два настоящих процесса (подготовка заменяет текущий забег этого AVD, не использовать на устройстве с нужной текущей игрой):
+
+```powershell
+& $spaceAdb -s $spaceSerial shell am instrument -w -r -e recoveryProcess prepare -e class com.xekep.space.ui.space.ProcessRecoveryTest#prepareDurableRun com.xekep.space.test/androidx.test.runner.AndroidJUnitRunner
+& $spaceAdb -s $spaceSerial shell am force-stop com.xekep.space
+& $spaceAdb -s $spaceSerial shell am instrument -w -r -e recoveryProcess verify -e class com.xekep.space.ui.space.ProcessRecoveryTest#verifyAfterForceStopInAnotherProcess com.xekep.space.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`SessionRecoveryTest` проверяет codec/AtomicFile/награды/галактику и отдельные ручные слоты; `CommercialUiTest` — первый сеанс, полёт, итог/бесконечность, испытания, privacy/качество. `StoreCaptureUiTest` запускается только с `-e storeCapture true`, сохраняет реальные подготовленные сцены интерфейса в externalCacheDir/store-capture. Это демонстрационные состояния, не прохождения человека. В обычном запуске process/capture тесты пропускаются.
+
+Для сравнения качества в `WorldStartBenchmarkTest` передать `-e graphicsQuality Full` или `Economy`, `-e worldStartPreset Fleet` и уникальный `-e probeLabel`. Каждый вариант запускать отдельным instrumentation-процессом после завершения сборок; сохраняются интервалы первого/первых пяти/поздних пяти секунд и отдельные кадры. Настройка качества после теста возвращается. Метрики software-эмулятора не переносить на слабый телефон.
+
+
+Для 16 KB создать отдельный AVD с `system-images;android-36;google_apis_ps16k;x86_64`, убедиться в `adb shell getconf PAGE_SIZE = 16384`. На нём `PageSizeCompatibilityTest` с `-e pageSizeCheck true` проверяет загрузку нативной библиотеки из APK и платформенную итерацию пути. Нужен APK из release AAB (локально допустима явно обозначенная debug-подпись для теста) и совместимый test APK. На обычном образе 4096 тест должен не запускаться с этим флагом. Переустановка с другой подписью и очистка данных для обхода ошибок не используются.
+
+
+## Проверка финала кампании
+
+`ArcadeCampaignTest` проверяет удержание волны, четырёхсекундную передышку, захват/пропуск трофея, броню и тяжёлый взрыв, однократные награды, дедлайн и победу. `ArcadeCampaignUiTest` выполняет настоящий двухпальцевый маршрут и проверяет фокус событий, поражение/повтор, результат/бесконечность и 10 состояний HUD на пяти языках при 320 dp и шрифте 150%. `SessionRecoveryTest` включает сохранение повреждённого носителя и полученной награды.
+
+Для сенсорного диагностического прохождения через `ArcadeHumanPaceUiTest` добавьте `-e activeSorties true` к существующим `-e balancePlaytest true -e seed 17 -e stableBodyIds true`. Например:
+
+```powershell
+& $spaceAdb -s $spaceSerial shell am instrument -w -r -e balancePlaytest true -e seed 17 -e stableBodyIds true -e activeSorties true -e class com.xekep.space.ui.space.ArcadeHumanPaceUiTest#normalFamiliar com.xekep.space.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+Вариант отправляет аппарат за видимым трофеем через реальные жесты, а в финале переводит камеру к носителю и атакует видимые узлы. Он использует обычные цены, энергию, лимиты, задержки реакции и неточное наведение; флот и урон не подменяются. Без `activeSorties` остаётся оборона у ядра. Сопоставляйте одинаковые seed/ID и сборку, сохраняйте обе версии файлов из external cache до следующего запуска. Это тестовая политика, не процент побед людей и не оценка интереса. Фиксированные IDs применяются только в изолированном тестовом мире.

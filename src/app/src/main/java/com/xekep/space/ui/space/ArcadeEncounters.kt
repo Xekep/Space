@@ -5,7 +5,7 @@ import com.xekep.space.sim.*
 import kotlin.math.*
 import kotlin.random.Random
 
-enum class WaveCharacter { Approach, Swarm, Siege, Pincer, Recovery, Giant, Escort }
+enum class WaveCharacter { Approach, Swarm, Siege, Pincer, Recovery, Giant, Escort, Carrier }
 enum class ConvoyStatus { Approaching, Delivered, Lost }
 data class ArcadeConvoy(val bodyId: Long, val hull: Int = 3, val elapsed: Double = 0.0,
     val status: ConvoyStatus = ConvoyStatus.Approaching, val bonusAwarded: Boolean = false)
@@ -14,6 +14,7 @@ internal fun waveCharacter(wave: Int, practice: Boolean = false): WaveCharacter 
     practice || wave == 1 -> WaveCharacter.Approach
     wave == 10 -> WaveCharacter.Giant
     wave == 15 -> WaveCharacter.Escort
+    wave == 20 -> WaveCharacter.Carrier
     wave == 11 || wave == 16 -> WaveCharacter.Recovery
     wave == 2 || wave == 6 -> WaveCharacter.Swarm
     wave == 3 || wave == 9 -> WaveCharacter.Siege
@@ -28,6 +29,7 @@ internal fun waveGroupSize(wave: Int, character: WaveCharacter): Int = when (cha
     WaveCharacter.Swarm -> if (wave < 10) (2+wave/3).coerceAtMost(4) else (4+(wave-12)/4).coerceIn(4,6)
     WaveCharacter.Pincer -> if (wave < 8) 2 else 4
     WaveCharacter.Escort -> 3
+    WaveCharacter.Carrier -> 2
     WaveCharacter.Siege -> (1+wave/3).coerceIn(2,4)
 }
 internal fun waveSpawnDelay(wave: Int, character: WaveCharacter, difficulty: ArcadeDifficulty = ArcadeDifficulty.Normal): Double {
@@ -40,6 +42,7 @@ internal fun waveSpawnDelay(wave: Int, character: WaveCharacter, difficulty: Arc
     }
     // The first late siege leaves time to react to its much heavier lead target.
     val paced=when {
+        character == WaveCharacter.Carrier -> 6.0
         character == WaveCharacter.Siege && wave >= 13 -> maxOf(base,2.5-(wave-13)*.10)
         character == WaveCharacter.Escort -> maxOf(base,5.0)
         else -> base
@@ -56,7 +59,7 @@ internal fun waveSpawnDelay(wave: Int, character: WaveCharacter, difficulty: Arc
 // Quiet end to wave 9 lets its distant threats approach before the giant arrives.
 internal fun waveMaySpawn(wave: Int, cycle: Double, challenge: ArcadeChallenge?, practice: Boolean): Boolean =
     cycle < 24.0 && (practice || when (wave) {
-        9 -> cycle < 18.0
+        9,19 -> cycle < 18.0
         10 -> cycle >= 6.0 && challenge == null
         else -> true
     })
@@ -80,7 +83,7 @@ internal fun shapeWaveMeteor(body: CelestialBody, wave: Int, index: Int, charact
         character == WaveCharacter.Swarm -> random.nextDouble(55.0,105.0)
         character == WaveCharacter.Siege && index == 0 -> 500.0+wave*40.0
         character == WaveCharacter.Recovery -> random.nextDouble(70.0,140.0)
-        character == WaveCharacter.Escort -> random.nextDouble(90.0,180.0)
+        character == WaveCharacter.Escort || character == WaveCharacter.Carrier -> random.nextDouble(90.0,180.0)
         else -> body.mass
     }
     val speed=if (character == WaveCharacter.Siege && index == 0) .65 else if (character == WaveCharacter.Swarm) 1.08 else 1.0
@@ -160,7 +163,7 @@ internal fun prepareArcadeEncounters(run: ArcadeSession, dt: Double, random: Ran
 /** Optional escort: three hits, a finite arrival window and no core-life penalty on failure. */
 internal fun finishArcadeConvoy(before: ArcadeSession, after: ArcadeSession, events: List<CollisionEvent>, dt: Double): ArcadeSession {
     val convoy=after.convoy ?: return after
-    if (convoy.status != ConvoyStatus.Approaching) return after.copy(convoy=convoy.copy(elapsed=convoy.elapsed+dt))
+    if (convoy.status != ConvoyStatus.Approaching) return after.copy(convoy=convoy.copy(elapsed=minOf(4.0,convoy.elapsed+dt)))
     val transport=after.bodies.firstOrNull { it.id == convoy.bodyId }
     val core=after.bodies.firstOrNull { it.kind == BodyKind.Core }
     val hull=(convoy.hull-events.count { it.meteorId != null && it.secondKind == BodyKind.Convoy && it.defenderId == convoy.bodyId }).coerceAtLeast(0)

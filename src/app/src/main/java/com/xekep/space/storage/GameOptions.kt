@@ -9,6 +9,8 @@ import com.xekep.space.sim.ShakeMode
 
 class GameOptions(context: Context) {
     private val preferences = context.getSharedPreferences("space_options", Context.MODE_PRIVATE)
+    var learningOffered by mutableStateOf(preferences.getBoolean("learningOffered",false))
+    var graphicsQuality by mutableStateOf(runCatching { GraphicsQuality.valueOf(preferences.getString("graphicsQuality",null) ?: "Auto") }.getOrDefault(GraphicsQuality.Auto))
     var sound by mutableStateOf(preferences.getBoolean("sound", true))
     var music by mutableStateOf(preferences.getBoolean("music", true))
     var vibration by mutableStateOf(preferences.getBoolean("vibration", true))
@@ -26,7 +28,7 @@ class GameOptions(context: Context) {
         set(value) { shakeMode = if (value) ShakeMode.Inertial else ShakeMode.Off }
     var retroConsole by mutableStateOf(preferences.getBoolean("retroConsole", false))
     var reducedFlashes by mutableStateOf(preferences.getBoolean("reducedFlashes", false))
-    fun save() { preferences.edit().putBoolean("sound", sound).putBoolean("music", music).putBoolean("vibration", vibration)
+    fun save() { preferences.edit().putBoolean("learningOffered",learningOffered).putString("graphicsQuality",graphicsQuality.name).putBoolean("sound", sound).putBoolean("music", music).putBoolean("vibration", vibration)
         .putBoolean("retroConsole",retroConsole).remove("motionControl").putBoolean("reducedFlashes", reducedFlashes).putBoolean("shake", shake)
         .putString("flightControl",flightControl.name)
         .putFloat("tiltSensitivity",tiltSensitivity.takeIf { it.isFinite() }?.coerceIn(.5f,1.75f) ?: 1f)

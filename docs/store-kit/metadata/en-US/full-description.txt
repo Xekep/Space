@@ -1,0 +1,9 @@
+Build a world, watch its orbits, then take the controls. Space combines a gravity sandbox with an arcade defence game.
+
+In the sandbox, create stars, planets, black holes, rockets and ships. Explore the Solar System, two-star worlds and generated galaxies, or run a small collision experiment. Add satellites, draw flight routes and save or export your own worlds. Large galaxies are demanding: an economy graphics option helps you choose the detail level for your device.
+
+In arcade mode, defend a core across twenty waves. Choose rockets, interceptors and Guardians, pick upgrades and try to escort the convoy. Finish the run or continue in endless mode. Three difficulties let you choose the pressure. Optional practice introduces launching and manual flight.
+
+Use touch gestures to pan and zoom. Pilot with phone tilt or two virtual sticks. Retro visuals and sound are optional. Play offline without an account, ads or in-app purchases. Progress stays on your device, and the latest saved session can be resumed after a restart.
+
+Languages: English, Russian, French, German and Simplified Chinese. The physics is an interactive game model, not a precise astronomical simulator.

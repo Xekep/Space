@@ -15,12 +15,12 @@ require(signingValues.all { it.isNullOrBlank() } || hasReleaseSigning) {
 
 android {
     namespace = "com.xekep.space"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.xekep.space"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         resourceConfigurations += listOf("en", "ru", "fr", "de", "b+zh+Hans")
         versionCode = providers.gradleProperty("versionCode").orElse("1000000").get().toInt()
         versionName = providers.gradleProperty("versionName").orElse("1.0.0").get()

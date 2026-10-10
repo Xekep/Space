@@ -1,0 +1,14 @@
+Space — Datenschutzerklärung
+Stand: 10. Oktober 2026. Entwickler: Xekep (Projekt Space).
+
+Space funktioniert offline. Es enthält keine Kontoregistrierung, Werbung oder Analyse-SDKs. Welten, Punktestände und Sensordaten werden nicht an den Entwickler übertragen.
+
+Auf dem Gerät werden Sprache, Ton- und Steuerungseinstellungen, Rekorde, abgeschlossene Herausforderungen, drei manuelle Weltspeicher und eine separate Datei zur Sitzungswiederherstellung gespeichert. Sie wird regelmäßig und bei Pausen geschrieben; nach einer Unterbrechung wird der letzte vollständig gespeicherte Stand wiederhergestellt. Daten bleiben bis zum Überschreiben, Löschen der App-Daten oder Deinstallieren bestehen. Das Löschen entfernt Welten und Fortschritt. Android kann Daten entsprechend deinen Systemeinstellungen und deinem Backup-Anbieter sichern; der Entwickler betreibt diesen Dienst nicht.
+
+Aktivierte Bewegungssensoren dienen der Neigungssteuerung und dem Schütteln. Werte werden im Speicher verarbeitet, ohne Sensorverlauf zu speichern; die Verarbeitung stoppt bei einer App-Pause. Vibration ist lokale Rückmeldung.
+
+Import und Export verwenden die Android-Dokumentauswahl. Datei und Ziel werden von dir gewählt. JSON enthält Weltname, Positionen, Geschwindigkeiten, Massen, Routen und Kamera. Teilen erfolgt auf deine Entscheidung nach den Regeln des gewählten Dienstes. Vermeide private Angaben in Namen geteilter Welten.
+
+Support öffnet GitHub im Browser. Dort übermittelte Konten und Angaben unterliegen dessen Datenschutzregeln. Veröffentliche keine privaten Daten oder Zugangsdaten in öffentlichen Issues. Freiwillige Supportangaben dienen der Antwort; Löschung kannst du über den Support und den Veröffentlichungsdienst anfragen. Käufe, Zahlungen und Diagnosedaten von Google Play oder RuStore unterliegen den Regeln des jeweiligen Stores; Space erhält keine Kartenangaben.
+
+Kontakt für Support und Datenschutz: https://github.com/Xekep/Space/issues

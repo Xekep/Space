@@ -117,6 +117,7 @@ class SandboxStorage(context: Context) {
                     .put("fuelRemaining", body.fuelRemaining)
                     .put("driftRemaining", body.driftRemaining)
                     .put("routeDistance", body.routeDistance)
+                    .put("routeAvoiding",body.routeAvoiding)
                     .put("routeLoopStart", body.routePath?.loopStartIndex ?: -1)
                     .put("routeKnots", body.routePath?.let { path -> JSONArray().also { array ->
                         path.knots.forEach { point -> array.put(JSONObject().put("x",point.x).put("y",point.y)) }
@@ -224,7 +225,7 @@ class SandboxStorage(context: Context) {
                         galaxySystemId=systemId,orbitParentId=parentId,
                         solarOrbitScale=orbitScale,orbitalDetail=detail,
                         fuelRemaining = fuel,
-                        driftRemaining = drift, routePath = path, routeDistance = routeDistance,
+                        driftRemaining = drift, routePath = path, routeDistance = routeDistance,routeAvoiding=body.optBoolean("routeAvoiding",false),
                         physicalScale = body.optBoolean("physicalScale", body.optString("solar", "").isNotEmpty()),
                         solar = body.optString("solar", "").takeIf { it.isNotEmpty() }?.let(SolarBody::valueOf),
                     ),

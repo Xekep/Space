@@ -1,7 +1,7 @@
 param(
     [string]$SdkPath,
     [string]$AvdHome,
-    [string]$AvdName = 'Space_API_35',
+    [string]$AvdName = 'Space_API_36',
     [switch]$Headless,
     [switch]$NoAcceleration,
     [int]$TimeoutSeconds = 600,

@@ -16,7 +16,7 @@ class ArcadePlaythroughTest {
             val game=SpaceGameState(random=Random(seed)).apply { resize(IntSize(1080,2340)); startArcade(difficulty) }
             var action=0.0; var phase=0; var upgrades=0; var ticks=0
             var planet=false; var convoy=false; var challenge=false; var maxShots=0
-            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && ticks < 21000) {
+            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && ticks < 36000) {
                 val run=game.arcade!!
                 run.upgradeOffer?.let { offer ->
                     val order=if (run.lives <= 2) listOf(ArcadeUpgrade.Repair,ArcadeUpgrade.Guns,ArcadeUpgrade.Reactor,ArcadeUpgrade.Fleet,ArcadeUpgrade.Engines)
@@ -27,12 +27,14 @@ class ArcadePlaythroughTest {
                 if (action <= 0) {
                     val current=game.arcade!!; val core=current.bodies.first { it.kind == BodyKind.Core }
                     val threats=current.bodies.filter { it.kind == BodyKind.Meteor }
-                    val danger=threats.minByOrNull { (it.position-core.position).magnitude() }
+                    val finale=current.carrier?.defeated == false
+                    val danger=(if (finale) threats.filter { it.id in current.carrier!!.nodeIds } else threats).minByOrNull { (it.position-core.position).magnitude() }
                     val ships=current.bodies.filter { it.kind == BodyKind.Ship }
                     val guard=current.guardianUnlocked && ships.count { it.shipClass == ShipClass.Guardian } < 2
                     var kind=if (ships.size < current.launchLimit(BodyKind.Ship)) BodyKind.Ship else BodyKind.Ambient
                     if (danger != null && (danger.position-core.position).magnitude() < 260 && current.energy >= 24 &&
                         current.bodies.count { it.kind == BodyKind.Rocket } < current.launchLimit(BodyKind.Rocket)) kind=BodyKind.Rocket
+                    if (finale && danger != null && current.energy >= 24) kind=BodyKind.Rocket
                     if (kind == BodyKind.Ambient && current.bodies.count { it.kind == BodyKind.Player } >= 6) { action=.4; continue }
                     val angle=phase*PI*(3-sqrt(5.0)); val radial=Vec2(cos(angle),sin(angle))
                     var point=core.position+radial*(if (kind == BodyKind.Ambient) 160.0 else if (guard) 235.0 else 300.0)
@@ -40,7 +42,7 @@ class ArcadePlaythroughTest {
                     var route=emptyList<Vec2>()
                     if (kind == BodyKind.Rocket && danger != null) {
                         val inward=(core.position-danger.position).normalized()
-                        point=danger.position+inward*75.0; velocity=inward*-420.0
+                        point=danger.position+inward*(if (finale) 220.0 else 75.0); velocity=inward*-420.0
                     } else if (kind == BodyKind.Ship && !guard) {
                         route=(1..4).map { i -> core.position+Vec2(cos(angle+i*PI/2),sin(angle+i*PI/2))*300.0 }
                     }
@@ -67,7 +69,7 @@ class ArcadePlaythroughTest {
                 assertTrue(next.bodies.all { it.position.x.isFinite() && it.position.y.isFinite() })
             }
             val result=game.arcade!!
-            println("FULL_ARCADE,difficulty=$difficulty,seed=$seed,seconds=${result.elapsed},wave=${result.wave},lives=${result.lives},score=${result.score},intercepts=${result.destroyed},launches=${result.launches},upgrades=$upgrades,giant=$challenge,planet=$planet,convoy=${result.convoy?.status},maxShots=$maxShots")
+            println("FULL_ARCADE,difficulty=$difficulty,seed=$seed,seconds=${result.elapsed},wave=${result.wave},lives=${result.lives},score=${result.score},intercepts=${result.destroyed},launches=${result.launches},upgrades=$upgrades,giant=$challenge,planet=$planet,convoy=${result.convoy?.status},carrier=${result.carrier?.defeated},salvage=${result.salvageCollected},maxShots=$maxShots")
             assertTrue(maxShots <= 64)
             if (difficulty == ArcadeDifficulty.Normal && result.wave >= 20) normalReached20=true
         }

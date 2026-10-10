@@ -126,17 +126,17 @@ fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: D
 
 @Composable
 fun GameOverOverlay(modifier: Modifier = Modifier, score: Double, bestScore: Double, destroyed: Int,
-    elapsed: Double = 0.0, wave: Int = 1, accuracy: Int = 0, onRetry: () -> Unit, onMenu: () -> Unit) {
+    elapsed: Double = 0.0, wave: Int = 1, accuracy: Int = 0, carrierOverrun: Boolean = false, onRetry: () -> Unit, onMenu: () -> Unit) {
     val context = LocalContext.current
     Surface(modifier.widthIn(max = 340.dp).padding(20.dp).retroFrame(), shape = spaceShape(28.dp), color = Color(0xFF0B1425),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(context.getString(R.string.core_breached), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            Text(context.getString(if (carrierOverrun) R.string.carrier_overrun else R.string.core_breached), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
             Text(score.roundToInt().toString(), style = MaterialTheme.typography.displayMedium, color = MaterialTheme.colorScheme.secondary)
             Text(context.getString(R.string.game_over_intercepts, destroyed, bestScore.roundToInt()), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(context.getString(R.string.game_over_details, elapsed.toInt(), wave, accuracy), style = MaterialTheme.typography.bodySmall)
-            Text(context.getString(R.string.cause_meteor), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(context.getString(if (carrierOverrun) R.string.carrier_overrun_help else R.string.cause_meteor), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text(context.getString(R.string.try_again)) }
             TextButton(onClick = onMenu) { Text(context.getString(R.string.choose_mode)) }
         }

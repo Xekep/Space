@@ -20,7 +20,23 @@ function Get-SpaceAndroidSdk {
 }
 
 function Invoke-SpaceNative {
-    param([string]$Executable, [string[]]$Arguments)
-    & $Executable @Arguments
-    if ($LASTEXITCODE -ne 0) { throw "$Executable exited with code $LASTEXITCODE" }
+    param([string]$Executable, [string[]]$Arguments, [Parameter(ValueFromPipeline=$true)][string]$InputText)
+    $previousNativePreference=$ErrorActionPreference
+    try {
+        $ErrorActionPreference='Continue'
+        if ([IO.Path]::GetExtension($Executable) -in '.bat','.cmd') {
+            # Legacy Windows PowerShell strips unnecessary quotes from native arguments.
+            # Keep semicolon SDK package IDs inside explicit cmd quotes.
+            $allArguments=@($Executable)+$Arguments
+            foreach ($argument in $allArguments) {
+                if ($argument -match '["%\r\n]') { throw 'Unsupported character in SDK command argument' }
+            }
+            $quoted=$allArguments | ForEach-Object { '"'+$_+'"' }
+            $command='"'+($quoted -join ' ')+'"'
+            if ($PSBoundParameters.ContainsKey('InputText')) { $InputText | & $env:ComSpec /d /s /c $command }
+            else { & $env:ComSpec /d /s /c $command }
+        } else { & $Executable @Arguments }
+        $nativeExitCode=$LASTEXITCODE
+    } finally { $ErrorActionPreference=$previousNativePreference }
+    if ($nativeExitCode -ne 0) { throw "$Executable exited with code $nativeExitCode" }
 }

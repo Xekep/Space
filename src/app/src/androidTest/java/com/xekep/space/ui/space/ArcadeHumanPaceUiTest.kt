@@ -25,7 +25,7 @@ class ArcadeHumanPaceUiTest {
     @get:Rule val compose=createComposeRule()
     private enum class Skill { Basic, Familiar }
     private data class Plan(val kind: BodyKind, val guardian: Boolean, val point: Vec2,
-        val drag: Vec2, val hold: Double, val route: List<Vec2>)
+        val drag: Vec2, val hold: Double, val route: List<Vec2>, val objectiveWave: Int? = null)
 
     @Test fun easyBasic()=play(ArcadeDifficulty.Easy,Skill.Basic)
     @Test fun easyFamiliar()=play(ArcadeDifficulty.Easy,Skill.Familiar)
@@ -38,6 +38,8 @@ class ArcadeHumanPaceUiTest {
         val args=InstrumentationRegistry.getArguments()
         assumeTrue("Long balance diagnostics require -e balancePlaytest true",args.getString("balancePlaytest") == "true")
         val seed=args.getString("seed")?.toIntOrNull() ?: 17
+        val sorties=args.getString("activeSorties") == "true"
+        val attemptedSalvage=mutableSetOf<Int>()
         val gentle=args.getString("gentleLaunch") == "true"
         val heavyFleet=args.getString("heavyFleet") == "true"
         val stableIds=args.getString("stableBodyIds") == "true"
@@ -49,7 +51,7 @@ class ArcadeHumanPaceUiTest {
         }
         val game=SpaceGameState(random=Random(seed)) // callbacks deliberately do not write user records
         val hand=Random(seed+991)
-        val key="${difficulty.name}-${skill.name}-$seed"+(if (gentle) "-gentle" else "")+(if (heavyFleet) "-heavy" else "")+(if (stableIds) "-stable" else "")
+        val key="${difficulty.name}-${skill.name}-$seed"+(if (gentle) "-gentle" else "")+(if (heavyFleet) "-heavy" else "")+(if (stableIds) "-stable" else "")+(if (sorties) "-sorties" else "")
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val rows=mutableListOf("seconds,wave,lives,energy,ships,rockets,launches,intercepts,convoy,event")
         var phase=0; var attempts=0; var blocked=0; var heavy=0; var upgrades=0
@@ -61,6 +63,9 @@ class ArcadeHumanPaceUiTest {
         compose.onNodeWithTag("difficulty-${difficulty.name}").performClick()
         compose.onNodeWithTag("menu-primary").performClick()
         compose.mainClock.advanceTimeByFrame()
+        if (compose.onAllNodesWithTag("welcome-skip").fetchSemanticsNodes().isNotEmpty()) {
+            compose.onNodeWithTag("welcome-skip").performClick();compose.mainClock.advanceTimeByFrame()
+        }
         compose.onNodeWithTag("arcade-motion-control").assertIsOff()
 
         fun record(event: String) {
@@ -103,6 +108,19 @@ class ArcadeHumanPaceUiTest {
         fun plan(): Plan? {
             val r=game.arcade!!
             val seen=r.bodies.filter(::visible)
+            if (sorties && r.energy >= 26 && game.spawnCountFor(BodyKind.Rocket) < game.spawnLimitFor(BodyKind.Rocket)) {
+                // Read only the visible marker/node and its HUD timer, without ballistic prediction.
+                val salvage=r.salvage?.takeIf { it.status == SalvageStatus.Available && it.wave !in attemptedSalvage }
+                if (salvage != null) {
+                    val point=salvage.position+Vec2(-180.0,0.0)
+                    return Plan(BodyKind.Rocket,false,point,Vec2(hand.nextDouble(70.0,85.0),0.0),.35,listOf(salvage.position),salvage.wave)
+                }
+                if (r.wave == 20) {
+                    val node=seen.filter { it.kind == BodyKind.Meteor && it.id in r.carrier?.nodeIds.orEmpty() }.minByOrNull { (it.position-game.camera.center).magnitude() }
+                    if (node != null) return Plan(BodyKind.Rocket,false,node.position+Vec2(-220.0,0.0),
+                        rotateVector(Vec2(hand.nextDouble(112.0,140.0),0.0),hand.nextDouble(-.1,.1)),.12,emptyList())
+                }
+            }
             val core=seen.firstOrNull { it.kind == BodyKind.Core } ?: return null
             val danger=seen.filter { it.kind == BodyKind.Meteor }.minByOrNull { (it.position-core.position).magnitude() }
             val urgent=danger != null && (danger.position-core.position).magnitude() < 330
@@ -145,7 +163,7 @@ class ArcadeHumanPaceUiTest {
         }
 
         var cycles=0
-        while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && game.arcade!!.elapsed < 700 && cycles++ < 1800) {
+        while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && game.arcade!!.elapsed < 1200 && cycles++ < 2600) {
             val r=game.arcade!!
             if (r.wave != lastWave) {
                 record("wave-start"); lastWave=r.wave
@@ -159,6 +177,17 @@ class ArcadeHumanPaceUiTest {
                 compose.mainClock.advanceTimeByFrame()
                 compose.onNodeWithTag("arcade-upgrade-${choice.name}").performClick()
                 compose.mainClock.advanceTimeByFrame(); upgrades++; record("upgrade-${choice.name}")
+            }
+            if (sorties) {
+                val focus=if (game.arcade!!.wave == 20 && game.arcade!!.carrier?.defeated == false) "find-carrier"
+                    else if (game.arcade!!.salvage?.let { it.status == SalvageStatus.Available && it.wave !in attemptedSalvage } == true) "find-salvage" else null
+                if (focus != null) {
+                    compose.mainClock.advanceTimeByFrame();compose.onNodeWithTag(focus).performClick()
+                    simulate(.4);compose.mainClock.advanceTimeByFrame()
+                } else if (game.arcade!!.wave < 20 && game.arcade!!.salvage != null &&
+                    !visible(game.bodies.first { it.kind == BodyKind.Core })) {
+                    compose.onNodeWithTag("find-core").performClick();simulate(.4);compose.mainClock.advanceTimeByFrame()
+                }
             }
             val action=plan()
             if (action == null) { simulate(.8); waits+=.8; compose.mainClock.advanceTimeByFrame(); continue }
@@ -202,17 +231,18 @@ class ArcadeHumanPaceUiTest {
                 val created=game.bodies.firstOrNull { it.id !in ids && it.kind != BodyKind.Meteor }
                 if (created?.hullClass == VehicleHullClass.Heavy) heavy++
                 when (action.kind) { BodyKind.Ship -> { ships++; if (action.guardian) guardians++ }; BodyKind.Rocket -> rockets++; else -> bodies++ }
+                action.objectiveWave?.let(attemptedSalvage::add)
                 record("launch-$tag")
             } else { blocked++; record("launch-blocked") }
             simulate(if (skill == Skill.Basic) .35 else .2)
             compose.mainClock.advanceTimeByFrame()
         }
         val result=game.arcade!!
-        val summary="HUMAN_PACE_RESULT,$key,wave=${result.wave},lives=${result.lives},seconds=${result.elapsed},score=${result.score},intercepts=${result.destroyed},launches=${result.launches},attempts=$attempts,blocked=$blocked,ships=$ships,guardians=$guardians,rockets=$rockets,bodies=$bodies,heavy=$heavy,upgrades=$upgrades,lowEnergy=$lowestEnergy,waitingSeconds=$waits,lostCraft=$lostCraft,coreHits=$lostByWave,giantFailed=${result.challenge?.failed},convoy=${result.convoy?.status}"
+        val summary="HUMAN_PACE_RESULT,$key,wave=${result.wave},lives=${result.lives},seconds=${result.elapsed},score=${result.score},intercepts=${result.destroyed},launches=${result.launches},attempts=$attempts,blocked=$blocked,ships=$ships,guardians=$guardians,rockets=$rockets,bodies=$bodies,heavy=$heavy,upgrades=$upgrades,lowEnergy=$lowestEnergy,waitingSeconds=$waits,lostCraft=$lostCraft,coreHits=$lostByWave,carrier=${result.carrier?.defeated},salvage=${result.salvageCollected},giantFailed=${result.challenge?.failed},convoy=${result.convoy?.status}"
         println(summary); record("end")
         File(context.externalCacheDir,"balance-$key.csv").writeText(rows.joinToString("\n")+"\n")
         File(context.externalCacheDir,"balance-$key-result.txt").writeText(summary+"\n")
         screenshot("final")
-        assertTrue("Diagnostic hit its safety bound",result.wave >= 21 || result.lives == 0 || result.elapsed >= 700)
+        assertTrue("Diagnostic hit its safety bound",result.wave >= 21 || result.lives == 0 || result.elapsed >= 1200)
     }
 }

@@ -51,10 +51,18 @@ fun SpaceMenu(
     val configuration = LocalConfiguration.current
     val compactPresets = configuration.screenWidthDp < 360 || configuration.fontScale > 1.15f
     var selectedMode by rememberSaveable(game.mode) { mutableStateOf(game.mode) }
-    var difficulty by rememberSaveable { mutableStateOf(game.arcade?.difficulty ?: ArcadeDifficulty.Normal) }
+    var difficulty by rememberSaveable(game.arcade?.difficulty) {
+        mutableStateOf(game.arcade?.difficulty ?: if (options?.learningOffered == false && game.records.values.none { it > 0 }) ArcadeDifficulty.Easy else ArcadeDifficulty.Normal)
+    }
     var preset by rememberSaveable { mutableStateOf(game.sandbox?.preset?.takeUnless { it == SandboxPresetKind.Empty } ?: SandboxPresetKind.SolarSystem) }
     var panel by rememberSaveable { mutableStateOf<MenuPanel?>(null) }
     var info by remember { mutableStateOf(false) }
+    var welcome by remember { mutableStateOf(false) }
+    var goals by remember { mutableStateOf(false) }
+    var roles by remember { mutableStateOf(false) }
+    var privacy by remember { mutableStateOf(false) }
+    var experiments by remember { mutableStateOf(false) }
+    val uriHandler=androidx.compose.ui.platform.LocalUriHandler.current
     var confirmation by remember { mutableStateOf<MenuConfirmation?>(null) }
     var naming by remember { mutableStateOf(false) }
     var sceneName by remember { mutableStateOf(game.sandbox?.name.orEmpty()) }
@@ -167,7 +175,11 @@ fun SpaceMenu(
                 if (wide && selectedMode == AppMode.Sandbox) worldsActions()
                 if (notice != null) Text(notice,Modifier.fillMaxWidth(),textAlign=TextAlign.Center,
                     style=MaterialTheme.typography.bodySmall,color=accent)
-                Button(onClick={ if (hasSelectedSession) game.enterMode(selectedMode) else startNew() },
+                Button(onClick={
+                    if (hasSelectedSession) game.enterMode(selectedMode)
+                    else if (options != null && !options.learningOffered && game.records.values.none { it > 0 } && saveSummaries.none { it != null }) welcome=true
+                    else startNew()
+                },enabled=!game.recoveryLoading,
                     modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("menu-primary").retroFrame(accent),shape=spaceShape(10.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF041018))) {
                     Text(context.getString(if (hasSelectedSession) R.string.resume_game else if (selectedMode == AppMode.Arcade)
@@ -176,6 +188,7 @@ fun SpaceMenu(
                 if (hasSelectedSession) TextButton(onClick=newSession,modifier=Modifier.fillMaxWidth().testTag("new-session")) {
                     Text(context.getString(if (selectedMode == AppMode.Arcade) R.string.new_game else R.string.new_world))
                 }
+                if (selectedMode == AppMode.Arcade) TextButton(onClick={ goals=true },modifier=Modifier.fillMaxWidth().testTag("open-goals")) { Text(context.getString(R.string.arcade_goals)) }
                 LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(if (orbitPhase != null) Color(0x2802040B) else Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
@@ -205,6 +218,7 @@ fun SpaceMenu(
                 if (openPanel == MenuPanel.Settings) {
                     options?.let { settings ->
                         FlightControlSettings(settings)
+                        GraphicsQualitySetting(settings)
                         OptionSwitch(context.getString(R.string.music),settings.music,"ambient-music-switch") { settings.music=it; settings.save() }
                         OptionSwitch(context.getString(R.string.sound),settings.sound,"sound-switch") { settings.sound=it; settings.save() }
                         OptionSwitch(context.getString(R.string.vibration),settings.vibration,"vibration-switch") { settings.vibration=it; settings.save() }
@@ -219,6 +233,13 @@ fun SpaceMenu(
                     TextButton(onClick=practice,modifier=Modifier.fillMaxWidth().testTag("practice-controls")) {
                         Text(context.getString(R.string.how_to_play))
                     }
+                    TextButton(onClick={
+                        val action={ game.beginFlightPractice(options?.flightControl == com.xekep.space.input.FlightControlMode.Joystick,context.getString(R.string.practice_flight)); panel=null }
+                        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action) else action()
+                    },modifier=Modifier.fillMaxWidth().testTag("flight-practice")) { Text(context.getString(R.string.practice_flight)) }
+                    TextButton(onClick={ roles=true },modifier=Modifier.fillMaxWidth()) { Text(context.getString(R.string.fleet_roles)) }
+                    TextButton(onClick={ privacy=true },modifier=Modifier.fillMaxWidth().testTag("open-privacy")) { Text(context.getString(R.string.privacy_policy)) }
+                    TextButton(onClick={ uriHandler.openUri("https://github.com/Xekep/Space/issues") },modifier=Modifier.fillMaxWidth()) { Text(context.getString(R.string.support)) }
                 } else {
                     game.sandbox?.let { scene ->
                         Text(scene.name + if (game.dirty) context.getString(R.string.unsaved_changes) else "",
@@ -228,6 +249,7 @@ fun SpaceMenu(
                             TextButton(onClick={ panel=null; onExport() },modifier=Modifier.testTag("export-world")) { Text(context.getString(R.string.export_scene)) }
                         }
                     }
+                    TextButton(onClick={ experiments=true },modifier=Modifier.fillMaxWidth().testTag("open-experiments")) { Text(context.getString(R.string.experiments)) }
                     TextButton(onClick={
                         if (game.sandbox == null) { panel=null; onImport() }
                         else confirmation=MenuConfirmation(context.getString(R.string.import_question),context.getString(R.string.import_confirmation)) { panel=null; onImport() }
@@ -248,6 +270,17 @@ fun SpaceMenu(
             }
         }
     }
+    if (welcome) AlertDialog(onDismissRequest={ welcome=false },modifier=Modifier.testTag("welcome-practice"),
+        title={ Text(context.getString(R.string.welcome_practice)) },text={ Text(context.getString(R.string.welcome_practice_help)) },
+        confirmButton={ TextButton(onClick={ options?.let { it.learningOffered=true; it.save() }; welcome=false; game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) },modifier=Modifier.testTag("welcome-learn")) { Text(context.getString(R.string.practice_basic)) } },
+        dismissButton={ TextButton(onClick={ options?.let { it.learningOffered=true; it.save() }; welcome=false; startNew() },modifier=Modifier.testTag("welcome-skip")) { Text(context.getString(R.string.skip)) } })
+    if (goals) ArcadeGoalsDialog(game) { goals=false }
+    if (roles) FleetRolesDialog { roles=false }
+    if (privacy) PrivacyDialog { privacy=false }
+    if (experiments) ExperimentDialog(onDismiss={ experiments=false },onStart={ kind ->
+        val action={ panel=null; experiments=false; game.beginExperiment(kind,context.getString(kind.title)) }
+        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.new_universe_question),context.getString(R.string.new_universe_confirmation),action) else action()
+    })
     if (info) AlertDialog(onDismissRequest={ info=false },
         title={ Text(context.getString(if (selectedMode == AppMode.Arcade) difficulty.labelId() else preset.labelId())) },
         text={ Text(if (selectedMode == AppMode.Arcade) context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())

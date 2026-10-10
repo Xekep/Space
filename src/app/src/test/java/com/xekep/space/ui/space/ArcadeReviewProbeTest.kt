@@ -74,7 +74,7 @@ class ArcadeReviewProbeTest {
             val origins=mutableMapOf<Long,Int>()
             data class Stats(var active: Int=0,var enemy: Int=0,var rest: Int=0,var restEnemy: Int=0,var peak: Int=0,var hits: Int=0,var older: Int=0)
             val stats=linkedMapOf<Int,Stats>()
-            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && ticks++ < 21000) {
+            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && ticks++ < 36000) {
                 val run=game.arcade!!
                 run.upgradeOffer?.let { offer ->
                     val order=if (run.lives <= 2) listOf(ArcadeUpgrade.Repair,ArcadeUpgrade.Guns,ArcadeUpgrade.Reactor,ArcadeUpgrade.Fleet,ArcadeUpgrade.Engines)

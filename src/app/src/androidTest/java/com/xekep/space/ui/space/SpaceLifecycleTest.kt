@@ -24,6 +24,7 @@ class SpaceLifecycleTest {
             compose.onNodeWithTag("language-en").performClick()
             compose.waitUntil(5000) { compose.onAllNodesWithTag("mode-Sandbox").fetchSemanticsNodes().isNotEmpty() }
         }
+        compose.waitUntil(5000) { !ViewModelProvider(compose.activity)[SpaceViewModel::class.java].game.recoveryLoading }
     }
 
     @Test fun menuChoicesSurviveActivityRecreation() {
@@ -32,7 +33,16 @@ class SpaceLifecycleTest {
         compose.activityRule.scenario.recreate()
         compose.onNodeWithTag("mode-Sandbox").assertIsSelected()
         compose.onNodeWithTag("preset-BinaryStars").performScrollTo().assertIsSelected()
-        compose.onNodeWithTag("menu-primary").performClick()
+        if (compose.onAllNodesWithTag("new-session").fetchSemanticsNodes().isNotEmpty()) {
+            // A recovered world makes the primary action Continue; explicitly replace it.
+            compose.onNodeWithTag("new-session").performScrollTo().performClick()
+            compose.onNodeWithTag("confirm-action").performClick()
+        } else {
+            compose.onNodeWithTag("menu-primary").performClick()
+            if (compose.onAllNodesWithTag("welcome-skip").fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNodeWithTag("welcome-skip").performClick()
+            }
+        }
         compose.runOnIdle {
             val game = ViewModelProvider(compose.activity)[SpaceViewModel::class.java].game
             assertEquals(AppMode.Sandbox, game.mode)

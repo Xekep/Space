@@ -69,6 +69,7 @@ import com.xekep.space.sim.isVehicle
 import com.xekep.space.sim.toOffset
 import com.xekep.space.storage.SandboxStorage
 import com.xekep.space.storage.GameOptions
+import com.xekep.space.storage.economy
 import kotlin.math.max
 import kotlin.math.PI
 import kotlin.math.abs
@@ -81,7 +82,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val context = LocalContext.current
-    val game = state ?: viewModel<SpaceViewModel>().game
+    val model = if (state == null) viewModel<SpaceViewModel>() else null
+    val game = state ?: requireNotNull(model).game
     val hasSession by remember(game) { derivedStateOf { game.hasSession } }
     val sandboxPaused by remember(game) { derivedStateOf { game.sandbox?.paused } }
     val view = LocalView.current
@@ -98,6 +100,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     val options = remember(context) { GameOptions(context) }
     val retroConsole=options.retroConsole
     val retroRenderer=remember(retroConsole) { if (retroConsole) RetroRenderer() else null }
+    val economy=remember(options.graphicsQuality,context) { options.graphicsQuality.economy(context) }
     val largeVehicleIcons = options.largeVehicleIcons
     SideEffect { game.largeVehicleIcons = largeVehicleIcons }
     val sounds = remember(context) { GameSounds() }
@@ -117,7 +120,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             game.setSteeringInput(com.xekep.space.sim.Vec2(input.x*options.tiltSensitivity,input.y))
     }
     val tilt = remember(context, game) { SpaceTilt(context) { tiltCallback(it) } }
-    val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && !game.arcadeUpgradePending && hasSession &&
+    val controlsActive = !game.menuOpen && !game.sandboxOverlayOpen && !game.arcadeUpgradePending && !game.arcadeCompletionPending && hasSession &&
         (if (game.mode == AppMode.Sandbox) sandboxPaused == false && game.orbitSourceId == null else (game.arcade?.lives ?: 0) > 0)
     val engineCraft=controlledId?.let { id -> game.bodies.firstOrNull { it.id == id } }
     SideEffect {
@@ -193,10 +196,16 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
 
     DisposableEffect(lifecycleOwner, game) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) game.openMenu()
+            if (event == Lifecycle.Event.ON_PAUSE) { game.openMenu(); model?.saveRecovery() }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(model,game.recoveryLoading) {
+        if (model != null && !game.recoveryLoading) while (true) { delay(5000); model.saveRecovery() }
+    }
+    LaunchedEffect(model,game.menuOpen,game.sceneGeneration,game.arcadeUpgradePending,game.arcadeCompletionPending) {
+        model?.saveRecovery()
     }
     BackHandler(enabled = hasSession) {
         if (game.menuOpen) game.closeMenu() else game.openMenu()
@@ -285,13 +294,16 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
     }
 
     RetroUiTheme(retroConsole) {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF02040B), Color(0xFF081125), Color(0xFF0D1834))))) {
+    val background=remember { Brush.verticalGradient(listOf(Color(0xFF02040B),Color(0xFF081125),Color(0xFF0D1834))) }
+    val nebula=remember(viewport) { Brush.radialGradient(listOf(Color(0x221E3A8A),Color.Transparent),
+        Offset(viewport.width/2f,viewport.height/2f),max(viewport.width,viewport.height).coerceAtLeast(1)*.75f) }
+    Box(Modifier.fillMaxSize().background(background)) {
         Canvas(Modifier.fillMaxSize().testTag("space-scene").semantics { contentDescription = context.getString(R.string.space_scene) }
             .onSizeChanged(game::resize).onGloballyPositioned { game.sceneOrigin=it.positionInRoot() }.spaceGestures(game, hasSession)) {
             if (game.menuOpen) return@Canvas
             drawRetroFrame(retroRenderer) {
-            if (retroRenderer != null) drawRect(Brush.verticalGradient(listOf(Color(0xFF02040B),Color(0xFF081125),Color(0xFF0D1834))))
-            drawRect(Brush.radialGradient(listOf(Color(0x221E3A8A), Color.Transparent), center, max(size.width, size.height) * 0.75f))
+            if (retroRenderer != null) drawRect(background)
+            if (!economy) drawRect(nebula)
             val bodies = game.bodies
             interpolation.begin(bodies,game.sandboxEditRevision,drawNanos,
                 game.mode == AppMode.Sandbox && bodies.size >= 160 && !game.menuOpen && !game.sandboxOverlayOpen &&
@@ -299,7 +311,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             val tracked=game.cameraTarget
             val renderCamera=if (tracked != null) camera.copy(center=if (tracked.id == controlledId && !game.following) camera.center+interpolation.position(tracked)-tracked.position else interpolation.position(tracked)) else camera
             rotate((game.cameraRotation*180/PI).toFloat()) {
-            stars.forEach {
+            stars.forEachIndexed { starIndex,it ->
+                if (economy && starIndex%4 != 0) return@forEachIndexed
                 // A little parallax makes camera travel visible even far from a planet.
                 val x = ((it.position.x - renderCamera.center.x * renderCamera.zoom * 0.06) % size.width + size.width) % size.width
                 val y = ((it.position.y - renderCamera.center.y * renderCamera.zoom * 0.06) % size.height + size.height) % size.height
@@ -309,12 +322,12 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 }
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, renderCamera.center, renderCamera.zoom, game.hiddenSolarOrbits)
-            else drawArcadeEncounterRoutes(game,renderCamera)
+            else { drawArcadeEncounterRoutes(game,renderCamera); drawCampaignObjects(game,renderCamera) }
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
             val trailBodies=visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId)
             fun renderTrail(it: com.xekep.space.sim.CelestialBody) {
-                drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=bodies.size < 60,
+                drawTrail(it,viewport,renderCamera.center,renderCamera.zoom,detailed=!economy && bodies.size < 60,
                     cameraRotation=game.cameraRotation,renderPosition=interpolation.position(it),dense=bodies.size >= 160,
                     highlighted=it.id == game.selectedBodyId || it.id == controlledId,
                     maxLengthDp=adaptiveTrailLength(bodies.size,game.simulationLoad,it.id == game.selectedBodyId || it.id == controlledId),
@@ -324,8 +337,8 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             }
             trailBodies.filter { !it.isVehicle || it.flightHeight == 0.0 }.forEach(::renderTrail)
             val flightTrailIds=trailBodies.filter { it.isVehicle && it.flightHeight != 0.0 }.map { it.id }.toSet()
-            drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density),viewport,renderCamera,game.cameraRotation,
-                controlledId,largeVehicleIcons,interpolation,bodies.size >= 160,bodies,game.pilotVisualZoom,
+            drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density).filterNot { it.id in arcade?.carrier?.nodeIds.orEmpty() },viewport,renderCamera,game.cameraRotation,
+                controlledId,largeVehicleIcons,interpolation,economy || bodies.size >= 160,bodies,game.pilotVisualZoom,
                 vehicleTrail={ if (it.id in flightTrailIds) renderTrail(it) })
             arcade?.challenge?.let { challenge ->
                 bodies.filter { it.id in challenge.ids }.forEach { body ->
@@ -355,6 +368,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             }
             drawSolarLabels(bodies, viewport, renderCamera.center, renderCamera.zoom, context, solarLabels, game.presentationAge, game.cameraRotation)
             drawSpaceIndicators(game,renderCamera) { interpolation.position(it) }
+            drawSalvageIndicator(game,renderCamera)
             if (!options.reducedFlashes && game.mode == AppMode.Arcade && (arcade?.hitFlash ?: 0.0) > 0.0) {
                 drawRect(Color(0xFFFF6B6B).copy(alpha = (arcade!!.hitFlash * 0.16).toFloat()))
             }
@@ -380,7 +394,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                                 textAlign=androidx.compose.ui.text.style.TextAlign.Center,
                                 style=MaterialTheme.typography.labelMedium,color=Color(0xFFFFA46B))
                         }
-                        if (arcade?.resting == true) Text(
+                        if (arcade?.wavePhase?.resting == true && !(arcade.wave == 20 && arcade.carrier?.defeated == false)) Text(
                             context.getString(if (arcade.threatsCleared) R.string.rest else R.string.arrivals_ended),
                             modifier=Modifier.fillMaxWidth().testTag("wave-rest-status"),textAlign=androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelMedium, color = accent)
@@ -421,13 +435,15 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
         if (!game.menuOpen && game.mode == AppMode.Arcade && arcade != null && arcade.lives <= 0) {
             GameOverOverlay(Modifier.align(Alignment.Center), arcade.score, game.bestScore, arcade.destroyed,
                 elapsed = arcade.elapsed, wave = arcade.wave, accuracy = arcade.accuracy,
+                carrierOverrun=arcade.carrier?.let { !it.defeated && it.elapsed >= arcade.carrierDeadline } == true,
                 onRetry = { game.startArcade(arcade.difficulty) }, onMenu = game::openMenu)
         }
-        if (!game.menuOpen && game.arcadeUpgradePending) ArcadeUpgradeDialog(game)
+        if (!game.menuOpen && game.arcadeCompletionPending) ArcadeCompletionDialog(game)
+        else if (!game.menuOpen && game.arcadeUpgradePending) ArcadeUpgradeDialog(game)
         if (game.menuOpen) {
             val menuPhase=rememberMenuPhase()
-            MenuCosmos(Modifier.fillMaxSize(),menuPhase,retroConsole)
-            SpaceMenu(game, summaries, notice, options = options, orbitPhase=menuPhase,
+            MenuCosmos(Modifier.fillMaxSize(),menuPhase,retroConsole,economy)
+            SpaceMenu(game, summaries, notice ?: if (game.recoveryFailed || game.recoverySaveFailed) context.getString(R.string.recovery_unavailable) else null, options = options, orbitPhase=menuPhase,
                 onExport = { game.pendingExport = game.snapshot(System.currentTimeMillis()); exportScene.launch("${game.sandbox?.name?.replace(Regex("[^A-Za-z0-9_-]"), "_") ?: context.getString(R.string.space)}.space.json") },
                 onImport = { importScene.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) },
                 onSaveSlot = { slot ->

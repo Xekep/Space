@@ -36,11 +36,11 @@ internal fun affordableVehicleMass(kind: BodyKind, requested: Double, energy: Do
 }
 
 /** Ship pilots/guns are arcade-only. Projectiles never enter the N-body solver. */
-internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, dt: Double, controlledId: Long? = null, gunIntervalScale: Double = 1.0): CombatResult {
+internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, dt: Double, controlledId: Long? = null, gunIntervalScale: Double = 1.0, formationTargets: Set<Long> = emptySet()): CombatResult {
     val shots = current.projectiles.toMutableList()
     val statuses = mutableMapOf<Long, CraftStatus>()
     val events = mutableListOf<CollisionEvent>()
-    val targeting by lazy { ArcadeTargeting(bodies) }
+    val targeting by lazy { ArcadeTargeting(bodies,formationTargets) }
     val navigation by lazy { ArcadeNavigation(bodies) }
     val enemies=bodies.filter { it.kind == BodyKind.Meteor }
     val assignments=assignArcadeTargets(bodies,current,controlledId)

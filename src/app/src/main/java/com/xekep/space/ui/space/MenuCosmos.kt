@@ -22,7 +22,7 @@ internal fun rememberMenuPhase(): State<Float> {
 }
 
 @Composable
-internal fun MenuCosmos(modifier: Modifier,phase: State<Float>,retroConsole: Boolean = false) {
+internal fun MenuCosmos(modifier: Modifier,phase: State<Float>,retroConsole: Boolean = false,economy: Boolean = false) {
     val renderer=remember(retroConsole) { if (retroConsole) RetroRenderer() else null }
     val points=remember { val random=Random(79); List(100) { Triple(random.nextFloat(),random.nextFloat(),random.nextFloat()) } }
     Canvas(modifier.testTag("menu-cosmos")) {
@@ -34,6 +34,7 @@ internal fun MenuCosmos(modifier: Modifier,phase: State<Float>,retroConsole: Boo
         drawCircle(Brush.radialGradient(listOf(Color(0x303167AA),Color.Transparent),anchor,size.minDimension*.65f),size.minDimension*.65f,anchor)
         drawCircle(Brush.radialGradient(listOf(Color(0x25215B8B),Color.Transparent),companion,size.minDimension*.55f),size.minDimension*.55f,companion)
         points.forEachIndexed { i,(x,y,brightness) ->
+            if (economy && i%2 != 0) return@forEachIndexed
             val point=Offset(x*size.width+sin(t+i)*7.dp.toPx(),y*size.height+cos(t+i)*9.dp.toPx())
             drawCircle(Color.White.copy(alpha=.16f+brightness*.5f),(.35f+brightness*.7f).dp.toPx(),point)
         }

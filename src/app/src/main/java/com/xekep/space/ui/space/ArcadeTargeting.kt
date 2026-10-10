@@ -8,7 +8,7 @@ internal data class GunSolution(val direction: Vec2, val velocity: Vec2, val ori
 /** A short, shared forecast, built only when a gun is ready and a target is in range.
  * Projectiles are ballistic; enemy paths use the game's softened gravitational field.
  */
-internal class ArcadeTargeting(scene: List<CelestialBody>) {
+internal class ArcadeTargeting(scene: List<CelestialBody>, private val formationTargets: Set<Long> = emptySet()) {
     private val duration = 1.3
     private val step = 1.0 / 30.0
     private val sources = scene.filter { !it.isVehicle && it.kind != BodyKind.Convoy }
@@ -36,6 +36,11 @@ internal class ArcadeTargeting(scene: List<CelestialBody>) {
     }
 
     private fun track(target: CelestialBody): List<Vec2> = tracks.getOrPut(target.id) {
+        // Carrier nodes are held by engines, not freely falling bodies. A short linear
+        // lead matches their slow orbital formation within their collision radius.
+        if (target.id in formationTargets) return@getOrPut List(ceil(duration/step).toInt()+1) {
+            target.position+target.velocity*(it*step)
+        }
         var point = target.position; var velocity = target.velocity
         val points = mutableListOf(point)
         repeat(ceil(duration / step).toInt()) { index ->

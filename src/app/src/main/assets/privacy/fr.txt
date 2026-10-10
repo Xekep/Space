@@ -1,0 +1,14 @@
+Space — Politique de confidentialité
+Mise à jour : 10 octobre 2026. Développeur : Xekep (projet Space).
+
+Space fonctionne hors ligne. Aucun compte, publicité ou SDK analytique n’est intégré. Le jeu ne transmet au développeur ni mondes, ni scores, ni mesures des capteurs.
+
+L’appareil conserve langue, paramètres audio et commandes, records, défis terminés, trois emplacements manuels et un fichier de récupération de session distinct. Ce fichier est enregistré périodiquement et lors des pauses ; le dernier instantané terminé permet la restauration. Les données restent jusqu’à remplacement, effacement des données ou désinstallation. L’effacement supprime mondes et progression. Android peut sauvegarder et restaurer les données selon vos réglages et votre fournisseur système ; le développeur ne gère pas ce service.
+
+Les capteurs de mouvement, lorsque activés, servent à l’inclinaison et aux secousses. Ils sont traités en mémoire sans historique enregistré ; le traitement cesse lorsque l’application est en pause. Les vibrations sont locales.
+
+Importation et exportation utilisent le sélecteur de documents Android. Vous choisissez fichier et destination. Le JSON contient nom du monde, positions, vitesses, masses, trajets et caméra. Partager ce fichier relève de votre choix et du service utilisé. Évitez les informations privées dans les noms des mondes partagés.
+
+L’assistance ouvre GitHub dans votre navigateur. Les comptes et informations soumis à GitHub relèvent de sa politique. Ne publiez ni données privées ni identifiants dans les tickets publics. Les informations fournies volontairement servent à répondre ; demandez leur suppression via l’assistance et le service où elles ont été publiées. Paiements, achats et diagnostics de Google Play ou RuStore relèvent du magasin concerné ; Space ne reçoit pas vos coordonnées de carte.
+
+Contact et questions de confidentialité : https://github.com/Xekep/Space/issues

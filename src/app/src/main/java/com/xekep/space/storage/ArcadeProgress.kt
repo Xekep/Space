@@ -16,9 +16,16 @@ class ArcadeProgress(context: Context) {
     }
 
     val records: Map<ArcadeDifficulty, Double>
-        get() = ArcadeDifficulty.entries.associateWith { preferences.getString("v3_${it.name}", "0")?.toDoubleOrNull() ?: 0.0 }
+        get() = ArcadeDifficulty.entries.associateWith { preferences.getString("v4_${it.name}", "0")?.toDoubleOrNull() ?: 0.0 }
 
     fun saveBestScore(difficulty: ArcadeDifficulty, score: Double) {
-        if (score > (records[difficulty] ?: 0.0)) preferences.edit().putString("v3_${difficulty.name}", score.toString()).apply()
+        if (score > (records[difficulty] ?: 0.0)) preferences.edit().putString("v4_${difficulty.name}", score.toString()).apply()
+    }
+    val completedGoals: Set<com.xekep.space.ui.space.ArcadeGoal>
+        get() = preferences.getStringSet("goals_v1",emptySet()).orEmpty().mapNotNull { name ->
+            runCatching { com.xekep.space.ui.space.ArcadeGoal.valueOf(name) }.getOrNull()
+        }.toSet()
+    fun saveGoals(goals: Set<com.xekep.space.ui.space.ArcadeGoal>) {
+        preferences.edit().putStringSet("goals_v1",goals.map { it.name }.toSet()).apply()
     }
 }

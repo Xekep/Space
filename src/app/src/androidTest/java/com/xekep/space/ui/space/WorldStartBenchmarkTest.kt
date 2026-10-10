@@ -25,6 +25,10 @@ class WorldStartBenchmarkTest {
         val context=instrumentation.targetContext
         val preset=InstrumentationRegistry.getArguments().getString("worldStartPreset") ?: "Arcade"
         val label=InstrumentationRegistry.getArguments().getString("probeLabel") ?: "current"
+        val quality=InstrumentationRegistry.getArguments().getString("graphicsQuality")
+        val options=context.getSharedPreferences("space_options",0)
+        val previousQuality=options.getString("graphicsQuality",null)
+        if (quality != null) { require(quality in listOf("Auto","Full","Economy")); options.edit().putString("graphicsQuality",quality).commit() }
         val trace=InstrumentationRegistry.getArguments().getString("traceStart") == "true"
         val language=context.getSharedPreferences("space_language",0)
         val hadChosen=language.contains("chosen"); val chosen=language.getBoolean("chosen",false)
@@ -97,6 +101,7 @@ class WorldStartBenchmarkTest {
             File(context.externalCacheDir,"world-start-$label-$preset.csv").writeText(report.toString())
         } finally {
             instrumentation.runOnMainSync { activity?.finish() }
+            options.edit().apply { if (previousQuality == null) remove("graphicsQuality") else putString("graphicsQuality",previousQuality) }.commit()
             language.edit().apply { if (hadChosen) putBoolean("chosen",chosen) else remove("chosen") }.commit()
         }
     }

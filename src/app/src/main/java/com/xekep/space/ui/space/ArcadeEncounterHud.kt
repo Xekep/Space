@@ -21,6 +21,21 @@ import com.xekep.space.R
 internal fun ArcadeEncounterHud(game: SpaceGameState) {
     val run=game.arcade ?: return
     if (run.practice) return
+    if (run.wave == 20 && run.carrier?.defeated == false) {
+        TextButton(onClick=game::focusCarrier,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("find-carrier")) {
+            Text(stringResource(R.string.carrier_status,run.carrierNodesRemaining,
+                kotlin.math.ceil((run.carrierDeadline-run.carrier.elapsed).coerceAtLeast(0.0)).toInt()),
+                textAlign=TextAlign.Center,style=MaterialTheme.typography.labelMedium,color=Color(0xFFFF8B70))
+        }
+        return
+    }
+    if (run.salvage?.status == SalvageStatus.Available) {
+        TextButton(onClick=game::focusSalvage,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp).testTag("find-salvage")) {
+            Text(stringResource(R.string.salvage_status,kotlin.math.ceil(run.salvage.remaining).toInt()),
+                textAlign=TextAlign.Center,style=MaterialTheme.typography.labelMedium,color=Color(0xFF9EF8FF))
+        }
+        return
+    }
     if (!run.resting && run.character != WaveCharacter.Giant && !(run.character == WaveCharacter.Escort && run.convoy?.status == ConvoyStatus.Approaching)) {
         val label=if (run.planetId != null && run.wave == 11 && run.wavePhase.seconds < 3) R.string.planet_arrived else when (run.character) {
             WaveCharacter.Approach -> R.string.wave_approach
@@ -30,6 +45,7 @@ internal fun ArcadeEncounterHud(game: SpaceGameState) {
             WaveCharacter.Recovery -> R.string.wave_recovery
             WaveCharacter.Escort -> R.string.wave_escort
             WaveCharacter.Giant -> R.string.challenge_giant
+            WaveCharacter.Carrier -> R.string.carrier_name
         }
         Text(stringResource(label),Modifier.fillMaxWidth().testTag("wave-character"),textAlign=TextAlign.Center,
             style=MaterialTheme.typography.labelMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)

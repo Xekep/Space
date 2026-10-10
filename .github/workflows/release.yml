@@ -48,7 +48,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
           log-accepted-android-sdk-licenses: false
       - name: Build signed release
         env:
@@ -57,6 +57,7 @@ jobs:
           SPACE_KEY_ALIAS: ${{ secrets.SPACE_KEY_ALIAS }}
           SPACE_KEY_PASSWORD: ${{ secrets.SPACE_KEY_PASSWORD }}
           SPACE_KEYSTORE_PATH: ${{ runner.temp }}/space-release.jks
+          SPACE_APP_CERT_SHA256: ${{ vars.SPACE_APP_CERT_SHA256 }}
         run: |
           for key in SPACE_KEYSTORE_BASE64 SPACE_KEYSTORE_PASSWORD SPACE_KEY_ALIAS SPACE_KEY_PASSWORD; do
             if [[ -z "${!key}" ]]; then
@@ -69,7 +70,14 @@ jobs:
           printf '%s' "$SPACE_KEYSTORE_BASE64" | base64 --decode > "$SPACE_KEYSTORE_PATH"
           bash ./gradlew --no-daemon --stacktrace :app:check :app:assembleRelease :app:bundleRelease \
             -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
-          mkdir -p dist
+          if [[ -z "$SPACE_APP_CERT_SHA256" ]]; then
+            echo 'Set repository variable SPACE_APP_CERT_SHA256 to the expected app-signing certificate.' >&2
+            exit 1
+          fi
+          python3 scripts/check-store-package.py src/app/build/outputs/apk/release/app-release.apk \
+            --build-tools "$ANDROID_HOME/build-tools/35.0.0" --expected-cert "$SPACE_APP_CERT_SHA256" \
+            --report dist/package-check.json
+          cp -R docs/store-kit dist/store-kit
           cp src/app/build/outputs/apk/release/app-release.apk "dist/Space-$VERSION_NAME.apk"
           cp src/app/build/outputs/bundle/release/app-release.aab "dist/Space-$VERSION_NAME.aab"
           (cd dist && sha256sum *.apk *.aab > SHA256SUMS.txt)
@@ -85,9 +93,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$RELEASE_TAG" dist/*.apk dist/*.aab dist/SHA256SUMS.txt dist/package-check.json --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/* --verify-tag --generate-notes \
+            gh release create "$RELEASE_TAG" dist/*.apk dist/*.aab dist/SHA256SUMS.txt dist/package-check.json --verify-tag --generate-notes \
               --title "Space $VERSION_NAME" --repo "$GITHUB_REPOSITORY"
           fi
       - name: Upload reports

@@ -29,6 +29,9 @@ class ArcadePlaythroughUiTest {
             compose.onNodeWithTag("difficulty-Normal").performClick()
             compose.onNodeWithTag("menu-primary").performClick()
             compose.mainClock.advanceTimeByFrame()
+            if (compose.onAllNodesWithTag("welcome-skip").fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNodeWithTag("welcome-skip").performClick();compose.mainClock.advanceTimeByFrame()
+            }
             var phase=0; var cycles=0; var upgrades=0
             val timings=mutableListOf<Double>()
             val seen=mutableSetOf<Int>()
@@ -36,7 +39,7 @@ class ArcadePlaythroughUiTest {
                 val started=System.nanoTime(); game.update(1.0/60)
                 timings+=(System.nanoTime()-started)/1e6
             } } }
-            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && cycles++ < 660) {
+            while (game.arcade!!.lives > 0 && game.arcade!!.wave <= 20 && cycles++ < 1100) {
                 game.arcade!!.upgradeOffer?.let { offer ->
                     val order=if (game.arcade!!.lives <= 2) listOf(ArcadeUpgrade.Repair,ArcadeUpgrade.Guns,ArcadeUpgrade.Reactor,ArcadeUpgrade.Fleet,ArcadeUpgrade.Engines)
                         else listOf(ArcadeUpgrade.Guns,ArcadeUpgrade.Reactor,ArcadeUpgrade.Fleet,ArcadeUpgrade.Engines,ArcadeUpgrade.Repair)
@@ -44,19 +47,24 @@ class ArcadePlaythroughUiTest {
                     compose.onNodeWithTag("arcade-upgrade-${choice.name}").performClick(); upgrades++
                     compose.mainClock.advanceTimeByFrame()
                 }
+                if (game.arcade!!.carrier?.defeated == false) {
+                    compose.onNodeWithTag("find-carrier").performClick();compose.mainClock.advanceTimeByFrame()
+                }
                 val run=game.arcade!!; val core=run.bodies.first { it.kind == BodyKind.Core }
-                val danger=run.bodies.filter { it.kind == BodyKind.Meteor }.minByOrNull { (it.position-core.position).magnitude() }
+                val finale=run.carrier?.defeated == false
+                val danger=run.bodies.filter { it.kind == BodyKind.Meteor && (!finale || it.id in run.carrier!!.nodeIds) }.minByOrNull { (it.position-core.position).magnitude() }
                 val ships=run.bodies.filter { it.kind == BodyKind.Ship }
                 val guardian=run.guardianUnlocked && ships.count { it.shipClass == ShipClass.Guardian } < 2
                 var kind=if (ships.size < game.spawnLimitFor(BodyKind.Ship)) BodyKind.Ship else BodyKind.Ambient
                 if (danger != null && (danger.position-core.position).magnitude() < 260 && run.energy >= 24 &&
                     game.spawnCountFor(BodyKind.Rocket) < game.spawnLimitFor(BodyKind.Rocket)) kind=BodyKind.Rocket
+                if (finale && danger != null && run.energy >= 24) kind=BodyKind.Rocket
                 val angle=phase*PI*(3-sqrt(5.0)); val radial=Vec2(cos(angle),sin(angle))
                 var point=core.position+radial*(if (kind == BodyKind.Ambient) 160.0 else if (guardian) 235.0 else 300.0)
                 var velocity=SimulationEngine.orbitVelocity(core,point)
                 var route=emptyList<Vec2>()
                 if (kind == BodyKind.Rocket && danger != null) {
-                    val inward=(core.position-danger.position).normalized(); point=danger.position+inward*75.0; velocity=inward*-420.0
+                    val inward=(core.position-danger.position).normalized(); point=danger.position+inward*(if (finale) 220.0 else 75.0); velocity=inward*-420.0
                 } else if (kind == BodyKind.Ship && !guardian)
                     route=(1..4).map { i -> core.position+Vec2(cos(angle+i*PI/2),sin(angle+i*PI/2))*300.0 }
                 val hold=if (kind == BodyKind.Ambient) .35 else if (kind == BodyKind.Ship) 1.0 else 0.0
@@ -109,6 +117,7 @@ class ArcadePlaythroughUiTest {
             assertTrue("Run ended at wave ${result.wave}",result.wave >= 21)
             assertTrue(result.challenge?.rewarded == true && result.challenge?.failed == false)
             assertNotNull(result.planetId)
+            assertTrue("Carrier must be destroyed, not merely outlasted",result.carrier?.defeated == true)
             // This policy keeps its fleet at the core. The optional transport is no longer
             // guaranteed by passive patrol; active delivery is covered by ConvoyEscortUiTest.
             assertTrue(result.convoy!!.status in listOf(ConvoyStatus.Delivered,ConvoyStatus.Lost))

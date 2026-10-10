@@ -1,0 +1,11 @@
+round,participant_code,version,device,mode,first_action_seconds,switch_by_3min,decision_explained,practice_used,blocker,stopped_because,save_or_crash,next_day_return,price_response
+1,R1-P1,,,,,,,,,,,,
+1,R1-P2,,,,,,,,,,,,
+1,R1-P3,,,,,,,,,,,,
+1,R1-P4,,,,,,,,,,,,
+1,R1-P5,,,,,,,,,,,,
+2,R2-P1,,,,,,,,,,,,
+2,R2-P2,,,,,,,,,,,,
+2,R2-P3,,,,,,,,,,,,
+2,R2-P4,,,,,,,,,,,,
+2,R2-P5,,,,,,,,,,,,

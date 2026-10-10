@@ -26,7 +26,7 @@ internal fun heavyRocketBlasts(before: List<CelestialBody>, after: List<Celestia
         val rocket=rockets[impact.defenderId] ?: continue
         if (!used.add(rocket.id)) continue
         val center=impact.position
-        val candidates=targets.filter { it.kind == BodyKind.Meteor }.map { body ->
+        val candidates=targets.filter { it.kind == BodyKind.Meteor && it.id != impact.meteorId }.map { body ->
             val dz=body.flightHeight-rocket.flightHeight
             body to sqrt((body.position-center).let { it.x*it.x+it.y*it.y }+dz*dz)
         }.filter { it.second <= 90.0 }.sortedWith(compareBy<Pair<CelestialBody,Double>> { it.second }.thenBy { it.first.id })

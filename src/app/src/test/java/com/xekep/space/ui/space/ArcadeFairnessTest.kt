@@ -47,8 +47,9 @@ class ArcadeFairnessTest {
             assertEquals(3,beginning.wave); assertFalse(beginning.resting)
             assertNull(offerUpgrade(beginning,Random(17)).upgradeOffer)
         }
-        var state=run().copy(bodies=emptyList(),spawnTimer=1000.0)
-        repeat(4801) { state=advanceArcade(state,1.0/60,Random(17)) }
+        // Isolate the wave clock from combat: normal play now waits for the final threat.
+        var state=run().copy(spawnTimer=1000.0)
+        repeat(4801) { state=advanceArcade(state.copy(spawnTimer=1000.0),1.0/60,Random(17)) }
         assertEquals(3,state.upgradeOffer!!.wave)
         assertEquals(80.0,state.elapsed,1e-7)
     }

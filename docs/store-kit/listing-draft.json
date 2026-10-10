@@ -1,0 +1,17 @@
+{
+  "applicationId": "com.xekep.space",
+  "category": "Game / Simulation",
+  "pricingModel": "Paid up front — draft; price and merchant eligibility unresolved",
+  "advertising": false,
+  "inAppPurchases": false,
+  "supportUrl": "https://github.com/Xekep/Space/issues",
+  "privacyHosting": "Prepared in docs/site; NOT deployed",
+  "audience": "Space sandbox and fleet defence enthusiasts; age rating requires store questionnaire",
+  "languages": [
+    "en-US",
+    "ru-RU",
+    "fr-FR",
+    "de-DE",
+    "zh-CN"
+  ]
+}
