@@ -27,6 +27,7 @@ fun BodyKind.spawnDescriptionId(): Int = when (this) {
 @StringRes
 fun AppMode.labelId(): Int = when (this) {
     AppMode.Arcade -> R.string.arcade
+    AppMode.Strategy -> R.string.strategy
     AppMode.Sandbox -> R.string.sandbox
 }
 
@@ -90,7 +91,7 @@ fun com.xekep.space.sim.CelestialBody.labelId(): Int = when (solar) {
 
 
 @StringRes
-fun SpaceGameState.spawnLabelId(): Int = if (mode == AppMode.Arcade && spawnKind == BodyKind.Ship &&
+fun SpaceGameState.spawnLabelId(): Int = if (mode != AppMode.Sandbox && spawnKind == BodyKind.Ship &&
     arcadeShipClass == com.xekep.space.sim.ShipClass.Guardian) R.string.spawn_guardian else
     if (spawnKind == BodyKind.Ambient) R.string.spawn_body_short else spawnKind.labelId()
 

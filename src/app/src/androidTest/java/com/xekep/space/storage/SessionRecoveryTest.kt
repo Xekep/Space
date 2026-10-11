@@ -96,4 +96,32 @@ class SessionRecoveryTest {
         assertFalse(game.arcadeCompletionPending);assertTrue(game.arcade!!.endless)
         assertEquals(random.state,game.recoverySnapshot(0)!!.randomState)
     }
+    @Test fun strategyOrdersStationsEnemyShotsAndRandomEventsSurviveRecovery() {
+        val game=SpaceGameState().apply { resize(IntSize(1080,2340));startArcade();startStrategy() }
+        var run=game.arcade!!
+        run=run.copy(strategy=run.strategy!!.copy(stations=run.strategy!!.stations.map { it.copy(remaining=0.0) },bases=run.strategy!!.bases.map { it.copy(remaining=0.0) }))
+        run=advanceStrategy(run,.02,kotlin.random.Random(17))
+        val ship=run.bodies.first { it.isVehicle }
+        run=issueFleetOrder(run,setOf(ship.id),FleetCommand.Guard,Vec2(700.0,800.0),run.strategy!!.stations.first().id)
+        run=run.copy(sideEvent=ArcadeSideEvent(SideEventKind.Rescue,Vec2(1000.0,700.0),remaining=31.0),nextEventWave=9,
+            combat=run.combat.copy(projectiles=run.combat.projectiles+SpaceProjectile(Vec2(1200.0,700.0),Vec2(-300.0,0.0),run.strategy!!.enemies.keys.first(),hostile=true)))
+        run=run.copy(bodies=run.bodies.map { it.copy(trail=listOf(it.position)) })
+        val saved=game.recoverySnapshot(100)!!.copy(strategy=run)
+        storage.save(saved);val restored=storage.load()!!;assertEquals(saved,restored)
+        val next=SpaceGameState();next.restoreRecovery(restored);assertTrue(next.tacticalMode);assertFalse(next.motionSteeringEnabled)
+        assertEquals(run,next.arcade);assertTrue(SimulationEngine.newBodyId()>run.strategy!!.stations.maxOf { it.id })
+        next.enterMode(AppMode.Arcade);assertEquals(saved.arcade,next.arcade)
+    }
+
+    @Test fun restoringAnotherModeReservesDeadStrategyShotOwnersAndStations() {
+        val game=SpaceGameState().apply { resize(IntSize(1080,2340));startStrategy();startArcade() }
+        val saved=game.recoverySnapshot(0)!!;val run=saved.strategy!!
+        val owner=SimulationEngine.newBodyId()+1000
+        val shot=SpaceProjectile(Vec2(2000.0,2000.0),Vec2(-100.0,0.0),owner,hostile=true)
+        val archive=saved.copy(strategy=run.copy(combat=ArcadeCombat(listOf(shot))))
+        val restored=storage.decode(storage.encode(archive));val next=SpaceGameState();next.restoreRecovery(restored)
+        assertEquals(AppMode.Arcade,next.mode);assertTrue(SimulationEngine.newBodyId()>owner)
+        next.enterMode(AppMode.Strategy);assertEquals(owner,next.arcade!!.combat.projectiles.first().ownerId)
+    }
+
 }

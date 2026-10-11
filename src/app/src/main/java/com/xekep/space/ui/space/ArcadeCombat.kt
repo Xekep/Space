@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.xekep.space.sim.*
 import kotlin.math.*
 
-data class SpaceProjectile(val position: Vec2, val velocity: Vec2, val ownerId: Long, val remaining: Double = 1.3, val damage: Double = 120.0, val height: Double = 0.0, val verticalVelocity: Double = 0.0)
+data class SpaceProjectile(val position: Vec2, val velocity: Vec2, val ownerId: Long, val remaining: Double = 1.3, val damage: Double = 120.0, val height: Double = 0.0, val verticalVelocity: Double = 0.0, val hostile: Boolean = false)
 data class CraftStatus(val age: Double = 0.0, val cooldown: Double = .15, val targetId: Long? = null)
 data class ArcadeCombat(val projectiles: List<SpaceProjectile> = emptyList(), val craft: Map<Long, CraftStatus> = emptyMap())
 internal data class CombatResult(val bodies: List<CelestialBody>, val combat: ArcadeCombat, val events: List<CollisionEvent>)
@@ -36,14 +36,14 @@ internal fun affordableVehicleMass(kind: BodyKind, requested: Double, energy: Do
 }
 
 /** Ship pilots/guns are arcade-only. Projectiles never enter the N-body solver. */
-internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, dt: Double, controlledId: Long? = null, gunIntervalScale: Double = 1.0, formationTargets: Set<Long> = emptySet()): CombatResult {
+internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, dt: Double, controlledId: Long? = null, gunIntervalScale: Double = 1.0, formationTargets: Set<Long> = emptySet(), orders: Map<Long,FleetOrder> = emptyMap(), stations: List<OrbitalStation> = emptyList(), eventPosition: Vec2? = null): CombatResult {
     val shots = current.projectiles.toMutableList()
     val statuses = mutableMapOf<Long, CraftStatus>()
     val events = mutableListOf<CollisionEvent>()
     val targeting by lazy { ArcadeTargeting(bodies,formationTargets) }
     val navigation by lazy { ArcadeNavigation(bodies) }
     val enemies=bodies.filter { it.kind == BodyKind.Meteor }
-    val assignments=assignArcadeTargets(bodies,current,controlledId)
+    val assignments=assignArcadeTargets(bodies.filterNot { orders[it.id]?.command?.let { c -> c != FleetCommand.Attack } == true },current,controlledId)
     val next = bodies.mapNotNull { body ->
         if (!body.isVehicle) return@mapNotNull body
         if (body.fuelRemaining <= 1e-9) return@mapNotNull body
@@ -51,7 +51,8 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
         val navigating=body.waypoints.isNotEmpty()
         val autopilot=body.id != controlledId && !navigating && body.enginePowered
         val age = if (navigating) 0.0 else status.age + dt
-        val target = assignments[body.id]
+        val order=orders[body.id]
+        val target = order?.takeIf { it.command == FleetCommand.Attack }?.targetId?.let { id -> enemies.firstOrNull { it.id == id } } ?: assignments[body.id]
         var velocity = body.velocity
         var heading = body.heading
         var cooldown = (status.cooldown - dt).coerceAtLeast(0.0)
@@ -72,9 +73,19 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                 heading=turnHeading(heading,detour ?: desired,dt,3.6*body.vehicleTurnScale)
             }
         }
+        val tactical=if (autopilot && order != null) fleetVelocity(body,order,bodies,stations,eventPosition) else null
+        if (tactical != null) {
+            val steering=(if (body.kind == BodyKind.Rocket) 240.0 else 140.0)*body.vehicleAccelerationScale
+            val desired=navigation.avoid(body,tactical,steering) ?: tactical
+            val correction=desired-velocity
+            velocity+=correction.normalized()*minOf(correction.magnitude(),steering*dt)
+            heading=turnHeading(heading,desired,dt,3.6*body.vehicleTurnScale)
+            // Counter the rocket's continuous engine force during station keeping.
+            if (body.kind == BodyKind.Rocket) velocity-=heading*(80.0*body.vehicleAccelerationScale*dt)
+        }
         if (body.kind == BodyKind.Ship && body.shipClass == ShipClass.Guardian) {
             val core=bodies.firstOrNull { it.kind == BodyKind.Core }
-            if (core != null && autopilot) {
+            if (core != null && autopilot && tactical == null && order?.command != FleetCommand.Attack) {
                 val radial=(body.position-core.position).normalized().takeIf { it.magnitude() > .5 } ?: Vec2(1.0,0.0)
                 val distance=(body.position-core.position).magnitude()
                 val tangent=radial.perpendicular()
@@ -100,7 +111,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                 if (fired > 0) cooldown=.65*gunIntervalScale
                 else if (threats.isNotEmpty()) cooldown=.10 // Retry blocked/unreachable targets at a bounded rate.
             }
-        } else if (target != null) {
+        } else if (target != null && tactical == null) {
             val offset = target.position - body.position
             val intercept = offset + target.velocity * (offset.magnitude() / 650.0).coerceAtMost(.7)
             val aim = intercept.normalized().takeIf { it.magnitude() > .5 } ?: heading
@@ -120,7 +131,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
                 val correction = (detour ?: heading * 310.0) - velocity
                 velocity += correction.normalized() * minOf(correction.magnitude(), 240.0 * body.vehicleAccelerationScale * dt)
             }
-        } else if (autopilot && enemies.isNotEmpty() && bodies.any { it.kind == BodyKind.Core }) {
+        } else if (autopilot && tactical == null && enemies.isNotEmpty() && bodies.any { it.kind == BodyKind.Core }) {
             // Spare craft stay in reserve instead of converging on an already covered enemy.
             val core=bodies.first { it.kind == BodyKind.Core }
             val offset=body.position-core.position
@@ -134,7 +145,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
             val correction=desired-velocity
             velocity+=correction.normalized()*minOf(correction.magnitude(),steering*dt)
             heading=turnHeading(heading,desired,dt,3.6*body.vehicleTurnScale)
-        } else if (autopilot && velocity.magnitude() > 2.0) {
+        } else if (autopilot && tactical == null && velocity.magnitude() > 2.0) {
             val steering=(if (body.kind == BodyKind.Rocket) 240.0 else 140.0)*body.vehicleAccelerationScale
             val detour=navigation.avoid(body,velocity,steering)
             if (detour != null) {
@@ -174,7 +185,9 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
         var hitIndex=-1; var hitTime=Double.POSITIVE_INFINITY
         for (index in targets.indices) {
             val body=targets[index]
-            if (body.kind != BodyKind.Meteor && body.kind != BodyKind.ArcadePlanet) continue
+            if (shot.hostile) {
+                if (!body.isVehicle && body.kind != BodyKind.Core && body.kind != BodyKind.Player) continue
+            } else if (body.kind != BodyKind.Meteor && body.kind != BodyKind.ArcadePlanet) continue
             val before=body.position-body.velocity*dt
             val contact=firstSphereContact(shot.position-before,shot.position+travel-body.position,
                 shot.height,shot.height+shot.verticalVelocity*dt,body.radius+3.0) ?: continue
@@ -182,6 +195,14 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
         }
         if (hitIndex >= 0) {
             val meteor = targets[hitIndex]
+            if (shot.hostile) {
+                if (meteor.kind == BodyKind.Core) events+=CollisionEvent(BodyKind.Meteor,BodyKind.Core,meteor.position)
+                else if (meteor.mass-shot.damage < 10.0) {
+                    targets.removeAt(hitIndex)
+                    events+=CollisionEvent(BodyKind.Meteor,meteor.kind,meteor.position,vehicleExplosion=true)
+                } else targets[hitIndex]=meteor.copy(mass=meteor.mass-shot.damage,radius=SimulationEngine.radiusForMass(meteor.mass-shot.damage))
+                continue
+            }
             if (meteor.kind == BodyKind.ArcadePlanet) continue
             val mass = meteor.mass - shot.damage
             if (mass < 45.0) {

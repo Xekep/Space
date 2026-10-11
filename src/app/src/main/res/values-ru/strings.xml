@@ -313,4 +313,37 @@
     <string name="carrier_overrun_help">"Узлы уцелели до конца таймера. Отправь перехватчики или ракеты в атаку, оставив Стражей защищать ядро."</string>
     <string name="salvage_focus_hint">"Пройди через ромб вручную или по маршруту."</string>
     <string name="carrier_focus_hint">"Атакуй светящиеся узлы, сохрани защиту ядра."</string>
+
+    <string name="strategy">"Стратегия"</string>
+    <string name="strategy_help">"Построй флот и уничтожь три вражеские базы."</string>
+    <string name="strategy_status">"Флот %1$d · базы %2$d/3"</string>
+    <string name="enemy_bases">"Вражеские базы"</string>
+    <string name="strategy_victory">"Сектор освобождён"</string>
+    <string name="strategy_victory_help">"Все вражеские базы уничтожены. Ядро уцелело."</string>
+    <string name="strategy_replay">"Новая схватка"</string>
+    <string name="station_factory">"Завод"</string>
+    <string name="station_service">"Сервис"</string>
+    <string name="production_off">"Производство выкл."</string>
+    <string name="strategy_build_failed">"Нужны энергия, свободный слот и место вдали от тел."</string>
+    <string name="tactical_mode">"Командование / пуски"</string>
+    <string name="select_fleet">"Выбрать весь флот"</string>
+    <string name="fleet_selected">"Выбрано: %1$d"</string>
+    <string name="fleet_select_help">"Выбор: касание или рамка · Камера: два пальца"</string>
+    <string name="order_move">"Двигаться строем"</string>
+    <string name="order_guard">"Охранять или сопровождать"</string>
+    <string name="order_attack">"Атаковать цель"</string>
+    <string name="order_auto">"Вернуть автоматический ИИ"</string>
+    <string name="order_target">"Нажми на место или цель для приказа."</string>
+    <string name="build_place">"Нажми на свободное место · до 4 баз."</string>
+    <string name="event_supply">"Дрейфующий груз"</string>
+    <string name="event_wreck">"Повреждённый аппарат"</string>
+    <string name="event_rescue">"Спасательная капсула"</string>
+    <string name="event_collect_help">"Отправь аппарат вручную или по маршруту. Награда — энергия; повреждённый корабль может пополнить флот."</string>
+    <string name="event_rescue_help">"Держи аппарат рядом с капсулой до ядра. Награда — энергия и одна прочность ядра."</string>
+    <string name="station_bastion">Бастион</string>
+
+    <string name="strategy_bases_short">"Базы"</string>
+    <string name="strategy_energy">"Энергия"</string>
+    <string name="strategy_defeat">"Ядро потеряно"</string>
+    <string name="strategy_defeat_help">"Осталось вражеских баз: %1$d. Сочетай производство с обороной."</string>
 </resources>

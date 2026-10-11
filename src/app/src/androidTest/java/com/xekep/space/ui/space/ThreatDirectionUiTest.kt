@@ -26,7 +26,7 @@ class ThreatDirectionUiTest {
 
     @Suppress("UNCHECKED_CAST")
     private fun replace(game: SpaceGameState, session: ArcadeSession) {
-        val field = SpaceGameState::class.java.getDeclaredField("arcade\$delegate")
+        val field = SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate")
         field.isAccessible = true
         (field.get(game) as MutableState<ArcadeSession?>).value = session
     }

@@ -20,7 +20,7 @@ class ArcadeFleetUiTest {
     fun launchedMixedFleetSharesTargetsAndReassignsAfterTheirRemoval() {
         compose.mainClock.autoAdvance=false
         val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         val state=field.get(game) as MutableState<ArcadeSession?>
         state.value=game.arcade!!.copy(spawnTimer=1000.0)
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
@@ -60,7 +60,7 @@ class ArcadeFleetUiTest {
     fun aCloserRocketLaunchedByTouchTakesTheTargetAndRedirectsTheOldPursuer() {
         compose.mainClock.autoAdvance=false
         val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade() }
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         val state=field.get(game) as MutableState<ArcadeSession?>
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.mainClock.advanceTimeByFrame()
@@ -112,7 +112,7 @@ class ArcadeFleetUiTest {
         compose.mainClock.advanceTimeBy(48)
         compose.runOnIdle {
             val run=game.arcade!!
-            val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+            val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
             (field.get(game) as MutableState<ArcadeSession?>).value=
                 run.copy(bodies=run.bodies.filter { it.kind == BodyKind.Core },spawnTimer=1000.0)
         }

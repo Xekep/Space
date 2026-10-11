@@ -39,7 +39,7 @@ internal fun coreDirectionMarker(point: Offset, radius: Float, viewport: IntSize
 
 @Composable
 fun CoreDirectionIndicator(game: SpaceGameState) {
-    if (game.mode != AppMode.Arcade || game.menuOpen || (game.arcade?.lives ?: 0) <= 0) return
+    if (game.mode == AppMode.Sandbox || game.menuOpen || (game.arcade?.lives ?: 0) <= 0) return
     val core = game.bodies.firstOrNull { it.kind == BodyKind.Core } ?: return
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current

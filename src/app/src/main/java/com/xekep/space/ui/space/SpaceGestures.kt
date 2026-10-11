@@ -14,7 +14,7 @@ import com.xekep.space.sim.*
 
 private data class WaypointTap(val id: PointerId, val start: Offset, val primary: Offset)
 
-fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier = pointerInput(game, game.menuOpen, hasSession, game.sandboxOverlayOpen, game.arcadeUpgradePending) {
+fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier = pointerInput(game, game.menuOpen, hasSession, game.sandboxOverlayOpen, game.arcadeUpgradePending, game.tacticalMode) {
     if (game.menuOpen || !hasSession || game.sandboxOverlayOpen || game.arcadeUpgradePending) return@pointerInput
     awaitEachGesture {
         val down = awaitFirstDown()
@@ -24,7 +24,7 @@ fun Modifier.spaceGestures(game: SpaceGameState, hasSession: Boolean): Modifier 
         game.touchPreview = initial.copy(tapBodyId=tapped)
         var cameraGesture = false
         var launched = false
-        val vehicle = game.spawnKind == BodyKind.Ship || game.spawnKind == BodyKind.Rocket
+        val vehicle = !game.tacticalMode && (game.spawnKind == BodyKind.Ship || game.spawnKind == BodyKind.Rocket)
         val points = mutableListOf<Vec2>()
         var waypointTap: WaypointTap? = null
         fun addPoint(position: Offset) {

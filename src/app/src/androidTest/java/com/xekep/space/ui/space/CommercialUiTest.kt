@@ -9,7 +9,6 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.IntSize
 import androidx.test.platform.app.InstrumentationRegistry
-import com.xekep.space.storage.GameOptions
 import com.xekep.space.input.FlightControlMode
 import com.xekep.space.ui.theme.SpaceTheme
 import org.junit.Assert.*
@@ -23,22 +22,19 @@ class CommercialUiTest {
     private val target=InstrumentationRegistry.getInstrumentation().targetContext
     private val name="commercial_ui_"+UUID.randomUUID()
     @After fun cleanup() { target.deleteSharedPreferences(name) }
-    private fun scene(game: SpaceGameState): GameOptions {
-        lateinit var options: GameOptions
+    private fun scene(game: SpaceGameState) {
         compose.mainClock.autoAdvance=false
         compose.setContent {
             val host=LocalContext.current
             val context=androidx.compose.runtime.remember { object: ContextWrapper(host) {
                 override fun getSharedPreferences(key: String,mode: Int): SharedPreferences=target.getSharedPreferences(name,mode)
             } }
-            options=androidx.compose.runtime.remember { GameOptions(context) }
             CompositionLocalProvider(LocalContext provides context) { SpaceTheme { SpaceSceneRoot(game) } }
         }
         compose.mainClock.advanceTimeBy(64)
-        return options
     }
     @Test fun firstStartOffersPracticeAndSkipIsRemembered() {
-        val game=SpaceGameState();val options=scene(game)
+        val game=SpaceGameState();scene(game)
         compose.onNodeWithTag("menu-primary").performClick();compose.mainClock.advanceTimeBy(48)
         compose.onNodeWithTag("welcome-practice").assertIsDisplayed()
         compose.onNodeWithTag("welcome-skip").performClick();compose.mainClock.advanceTimeBy(48)
@@ -55,7 +51,7 @@ class CommercialUiTest {
         compose.runOnIdle { game.skipTutorial() };assertFalse(game.arcade!!.practice)
     }
     @Test fun privacyAndQualityAreReachableInSettings() {
-        val game=SpaceGameState();val options=scene(game)
+        val game=SpaceGameState();scene(game)
         compose.onNodeWithTag("open-settings").performClick();compose.mainClock.advanceTimeBy(500)
         compose.mainClock.autoAdvance=true
         compose.onNodeWithTag("graphics-quality").performScrollTo().performClick()

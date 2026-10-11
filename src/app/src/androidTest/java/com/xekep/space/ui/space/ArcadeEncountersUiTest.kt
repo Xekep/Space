@@ -19,7 +19,7 @@ class ArcadeEncountersUiTest {
     @get:Rule val compose=createComposeRule()
     @Suppress("UNCHECKED_CAST")
     private fun replace(game: SpaceGameState, run: ArcadeSession) {
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         (field.get(game) as MutableState<ArcadeSession?>).value=run
         SimulationEngine.reserveBodyIds(run.bodies+run.pending.map { it.body })
     }

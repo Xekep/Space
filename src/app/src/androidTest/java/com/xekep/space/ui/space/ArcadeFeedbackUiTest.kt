@@ -26,7 +26,7 @@ class ArcadeFeedbackUiTest {
         game.launch(TouchPreview(point,point,0),0.0)
         val ship=game.bodies.single { it.kind == BodyKind.Ship }
         val threat=ship.copy(id=900001,position=ship.position+Vec2(350.0,0.0),mass=900.0,radius=24f,kind=BodyKind.Meteor)
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         val state=field.get(game) as MutableState<ArcadeSession?>
         state.value=game.arcade!!.copy(elapsed=84.0,spawnTimer=1000.0,
             bodies=game.bodies.map { if (it.id == ship.id) it.copy(fuelRemaining=18.0) else it }+threat,

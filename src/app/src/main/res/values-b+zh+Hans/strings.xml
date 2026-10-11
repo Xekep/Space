@@ -291,4 +291,37 @@
     <string name="carrier_overrun_help">"倒计时结束时节点仍未被摧毁。派出拦截舰或火箭攻击节点，并让守卫舰保护核心。"</string>
     <string name="salvage_focus_hint">"手动驾驶或沿设定路线穿过菱形。"</string>
     <string name="carrier_focus_hint">"攻击发光节点，同时留守舰队保护核心。"</string>
+
+    <string name="strategy">"战略"</string>
+    <string name="strategy_help">"建立舰队并摧毁三座敌方基地。"</string>
+    <string name="strategy_status">"舰队 %1$d · 基地 %2$d/3"</string>
+    <string name="enemy_bases">"敌方基地"</string>
+    <string name="strategy_victory">"星区已解放"</string>
+    <string name="strategy_victory_help">"所有敌方基地已被摧毁。你的核心幸存了。"</string>
+    <string name="strategy_replay">"新战斗"</string>
+    <string name="station_factory">"工厂"</string>
+    <string name="station_service">"补给站"</string>
+    <string name="production_off">"生产关闭"</string>
+    <string name="strategy_build_failed">"需要能量、空闲建造位和远离天体的空间。"</string>
+    <string name="tactical_mode">"指挥 / 发射"</string>
+    <string name="select_fleet">"选择整个舰队"</string>
+    <string name="fleet_selected">"已选择：%1$d"</string>
+    <string name="fleet_select_help">"选择：点击或框选 · 视角：双指"</string>
+    <string name="order_move">"编队移动"</string>
+    <string name="order_guard">"守卫或护航"</string>
+    <string name="order_attack">"攻击目标"</string>
+    <string name="order_auto">"恢复自动 AI"</string>
+    <string name="order_target">"点击位置或目标下达命令。"</string>
+    <string name="build_place">"点击空旷位置 · 最多 4 座基地。"</string>
+    <string name="event_supply">"漂流补给"</string>
+    <string name="event_wreck">"失灵飞行器"</string>
+    <string name="event_rescue">"救生舱"</string>
+    <string name="event_collect_help">"派遣手动操控或沿航线飞行的飞行器。奖励为能量；残骸可加入舰队。"</string>
+    <string name="event_rescue_help">"在救生舱附近护航至核心。奖励为能量和一点核心耐久。"</string>
+    <string name="station_bastion">堡垒</string>
+
+    <string name="strategy_bases_short">"基地"</string>
+    <string name="strategy_energy">"能量"</string>
+    <string name="strategy_defeat">"核心已失守"</string>
+    <string name="strategy_defeat_help">"剩余敌方基地：%1$d。兼顾生产与防御。"</string>
 </resources>

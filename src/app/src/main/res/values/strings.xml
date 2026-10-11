@@ -313,4 +313,37 @@
     <string name="carrier_overrun_help">"Its nodes survived the countdown. Send interceptors or rockets out to attack them while your Guardians defend the core."</string>
     <string name="salvage_focus_hint">"Pass through the diamond manually or along a flight route."</string>
     <string name="carrier_focus_hint">"Attack the glowing nodes; keep defenders at the core."</string>
+
+    <string name="strategy">"Strategy"</string>
+    <string name="strategy_help">"Build a fleet and destroy three enemy bases."</string>
+    <string name="strategy_status">"Fleet %1$d · bases %2$d/3"</string>
+    <string name="enemy_bases">"Enemy bases"</string>
+    <string name="strategy_victory">"Sector secured"</string>
+    <string name="strategy_victory_help">"All enemy bases are destroyed. Your core survived."</string>
+    <string name="strategy_replay">"New battle"</string>
+    <string name="station_factory">"Factory"</string>
+    <string name="station_service">"Service"</string>
+    <string name="production_off">"Production off"</string>
+    <string name="strategy_build_failed">"Need energy, a free slot and space away from bodies."</string>
+    <string name="tactical_mode">"Tactical command / launch"</string>
+    <string name="select_fleet">"Select entire fleet"</string>
+    <string name="fleet_selected">"Selected: %1$d"</string>
+    <string name="fleet_select_help">"Select: tap or box · Camera: two fingers"</string>
+    <string name="order_move">"Move in formation"</string>
+    <string name="order_guard">"Guard or escort"</string>
+    <string name="order_attack">"Attack target"</string>
+    <string name="order_auto">"Return to automatic AI"</string>
+    <string name="order_target">"Tap a position or target to give the order."</string>
+    <string name="build_place">"Tap a clear location · up to 4 bases."</string>
+    <string name="event_supply">"Drifting supplies"</string>
+    <string name="event_wreck">"Disabled craft"</string>
+    <string name="event_rescue">"Rescue capsule"</string>
+    <string name="event_collect_help">"Send a piloted or routed craft to collect it. Reward: energy; wrecks can join the fleet."</string>
+    <string name="event_rescue_help">"Stay near the capsule to escort it to the core. Reward: energy and one core hull point."</string>
+    <string name="station_bastion">Bastion</string>
+
+    <string name="strategy_bases_short">"Bases"</string>
+    <string name="strategy_energy">"Energy"</string>
+    <string name="strategy_defeat">"Core lost"</string>
+    <string name="strategy_defeat_help">"Enemy bases remaining: %1$d. Balance production with defense."</string>
 </resources>

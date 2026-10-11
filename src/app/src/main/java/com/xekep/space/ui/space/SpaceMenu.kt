@@ -66,10 +66,11 @@ fun SpaceMenu(
     var confirmation by remember { mutableStateOf<MenuConfirmation?>(null) }
     var naming by remember { mutableStateOf(false) }
     var sceneName by remember { mutableStateOf(game.sandbox?.name.orEmpty()) }
-    val hasSelectedSession = if (selectedMode == AppMode.Arcade) game.arcade?.let { it.lives > 0 } == true else game.sandbox != null
-    val accent = if (selectedMode == AppMode.Arcade) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    val hasSelectedSession = if (selectedMode != AppMode.Sandbox) game.combatRun(selectedMode)?.let { it.lives > 0 } == true else game.sandbox != null
+    val accent = if (selectedMode != AppMode.Sandbox) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     val startNew: () -> Unit = {
-        if (selectedMode == AppMode.Arcade) game.startArcade(difficulty)
+        if (selectedMode == AppMode.Strategy) game.startStrategy(difficulty)
+        else if (selectedMode == AppMode.Arcade) game.startArcade(difficulty)
         else {
             val collisions=game.sandbox?.collisionsEnabled ?: false
             val mode=game.sandbox?.collisionMode ?: com.xekep.space.sim.SandboxCollisionMode.Merge
@@ -78,13 +79,13 @@ fun SpaceMenu(
         }
     }
     val newSession: () -> Unit = {
-        confirmation=if (selectedMode == AppMode.Arcade)
+        confirmation=if (selectedMode != AppMode.Sandbox)
             MenuConfirmation(context.getString(R.string.new_run_question),context.getString(R.string.new_run_confirmation),startNew)
         else MenuConfirmation(context.getString(R.string.new_universe_question),context.getString(R.string.new_universe_confirmation),startNew)
     }
     val practice: () -> Unit = {
         panel=null
-        val action={ game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) }
+        val action={ if (selectedMode == AppMode.Strategy) game.startStrategy(ArcadeDifficulty.Easy) else game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) }
         if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action)
         else action()
     }
@@ -112,7 +113,7 @@ fun SpaceMenu(
                         ModeTab(mode,selectedMode == mode,accent,Modifier.weight(1f)) { selectedMode=mode }
                     }
                 }
-                if (selectedMode == AppMode.Arcade) {
+                if (selectedMode != AppMode.Sandbox) {
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                         ArcadeDifficulty.entries.forEach { level ->
                             Surface(onClick={ difficulty=level },modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("difficulty-${level.name}")
@@ -127,7 +128,7 @@ fun SpaceMenu(
                         }
                     }
                     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                        Text(context.getString(R.string.menu_record,game.recordFor(difficulty).roundToInt()),Modifier.weight(1f),
+                        Text(if (selectedMode == AppMode.Strategy) context.getString(R.string.strategy_help) else context.getString(R.string.menu_record,game.recordFor(difficulty).roundToInt()),Modifier.weight(1f),
                             style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                         InfoButton { info=true }
                     }
@@ -177,16 +178,16 @@ fun SpaceMenu(
                     style=MaterialTheme.typography.bodySmall,color=accent)
                 Button(onClick={
                     if (hasSelectedSession) game.enterMode(selectedMode)
-                    else if (options != null && !options.learningOffered && game.records.values.none { it > 0 } && saveSummaries.none { it != null }) welcome=true
+                    else if (selectedMode != AppMode.Strategy && options != null && !options.learningOffered && game.records.values.none { it > 0 } && saveSummaries.none { it != null }) welcome=true
                     else startNew()
                 },enabled=!game.recoveryLoading,
                     modifier=Modifier.fillMaxWidth().heightIn(min=52.dp).testTag("menu-primary").retroFrame(accent),shape=spaceShape(10.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=accent,contentColor=Color(0xFF041018))) {
-                    Text(context.getString(if (hasSelectedSession) R.string.resume_game else if (selectedMode == AppMode.Arcade)
+                    Text(context.getString(if (hasSelectedSession) R.string.resume_game else if (selectedMode != AppMode.Sandbox)
                         R.string.start_game else R.string.create_universe),fontWeight=FontWeight.SemiBold)
                 }
                 if (hasSelectedSession) TextButton(onClick=newSession,modifier=Modifier.fillMaxWidth().testTag("new-session")) {
-                    Text(context.getString(if (selectedMode == AppMode.Arcade) R.string.new_game else R.string.new_world))
+                    Text(context.getString(if (selectedMode != AppMode.Sandbox) R.string.new_game else R.string.new_world))
                 }
                 if (selectedMode == AppMode.Arcade) TextButton(onClick={ goals=true },modifier=Modifier.fillMaxWidth().testTag("open-goals")) { Text(context.getString(R.string.arcade_goals)) }
                 LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
@@ -282,8 +283,8 @@ fun SpaceMenu(
         if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.new_universe_question),context.getString(R.string.new_universe_confirmation),action) else action()
     })
     if (info) AlertDialog(onDismissRequest={ info=false },
-        title={ Text(context.getString(if (selectedMode == AppMode.Arcade) difficulty.labelId() else preset.labelId())) },
-        text={ Text(if (selectedMode == AppMode.Arcade) context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
+        title={ Text(context.getString(if (selectedMode != AppMode.Sandbox) difficulty.labelId() else preset.labelId())) },
+        text={ Text(if (selectedMode != AppMode.Sandbox) context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
             else context.getString(preset.descriptionId())) },confirmButton={ TextButton(onClick={ info=false }) { Text(context.getString(R.string.close)) } })
     confirmation?.let { pending ->
         AlertDialog(onDismissRequest={ confirmation=null },title={ Text(pending.title) },text={ Text(pending.message) },

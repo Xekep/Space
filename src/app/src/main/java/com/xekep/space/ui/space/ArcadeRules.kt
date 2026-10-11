@@ -8,7 +8,7 @@ import kotlin.random.Random
 
 internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
     if (input.upgradeOffer != null || input.lives <= 0 || dt <= 0.0) return input
-    val current=prepareCampaign(prepareArcadeEncounters(input,dt,random),random)
+    val current=prepareSideEvent(prepareCampaign(prepareArcadeEncounters(input,dt,random),random),random)
     val routed=com.xekep.space.sim.applyFlightControls(current.bodies,control,dt)
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId,current.gunIntervalScale,current.carrier?.nodeIds.orEmpty())
     val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId,control?.depthTimeScale ?: 1.0)
@@ -132,5 +132,5 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
         destroyed = current.destroyed + stopped, combo = combo, lastIntercept = lastIntercept, immunity = immunity,
         combat = combatStep.combat, explosions = com.xekep.space.sim.advanceExplosions(current.explosions, events, dt),
         hitFlash = if (hit) 1.0 else (current.hitFlash - dt * 1.8).coerceAtLeast(0.0), successfulLaunches = successful)
-    return offerUpgrade(finishCampaign(current,finishArcadeConvoy(current,advanced,events,dt),dt,control?.bodyId),random)
+    return offerUpgrade(advanceSideEvent(current,finishCampaign(current,finishArcadeConvoy(current,advanced,events,dt),dt,control?.bodyId),dt,control?.bodyId),random)
 }

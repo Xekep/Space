@@ -21,7 +21,7 @@ class HudFlowUiTest {
     @get:Rule val compose=createComposeRule()
     @Suppress("UNCHECKED_CAST")
     private fun setRun(game: SpaceGameState,run: ArcadeSession) {
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         (field.get(game) as MutableState<ArcadeSession?>).value=run
     }
 

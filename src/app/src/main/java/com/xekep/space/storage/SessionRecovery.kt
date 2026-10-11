@@ -16,7 +16,7 @@ data class RecoverySnapshot(
     val dirty: Boolean, val spawnKind: BodyKind, val shipClass: ShipClass,
     val tutorialStep: Int, val presentationAge: Double, val hiddenOrbits: Set<Long>,
     val randomState: Long?, val flightPractice: Boolean = false, val practiceJoystick: Boolean = false,
-    val practiceHeading: Vec2 = Vec2(0.0,-1.0), val practiceSpeed: Double = 0.0,
+    val practiceHeading: Vec2 = Vec2(0.0,-1.0), val practiceSpeed: Double = 0.0, val strategy: ArcadeSession? = null,
 )
 
 class SessionRecovery(context: Context, file: File = File(context.filesDir,"session-recovery.json")) {
@@ -49,6 +49,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             .put("practiceHeading",vec(snapshot.practiceHeading)).put("practiceSpeed",snapshot.practiceSpeed)
         snapshot.sandbox?.let { payload.put("sandbox",JSONObject(scenes.encode(it))) }
         snapshot.arcade?.let { payload.put("arcade",encodeArcade(it)) }
+        snapshot.strategy?.let { payload.put("strategyRun",encodeArcade(it)) }
         val raw=payload.toString()
         return JSONObject().put("version",1).put("payload",raw).put("sha256",hash(raw)).toString()
     }
@@ -59,8 +60,10 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         val root=JSONObject(content)
         val sandbox=root.optJSONObject("sandbox")?.let { scenes.decode(it.toString()) }
         val arcade=root.optJSONObject("arcade")?.let(::decodeArcade)
+        val strategy=root.optJSONObject("strategyRun")?.let(::decodeArcade)
+        require(strategy == null || strategy.strategy != null)
         val mode=AppMode.valueOf(root.getString("mode"))
-        require(if (mode == AppMode.Arcade) arcade != null else sandbox != null)
+        require(when(mode) { AppMode.Arcade -> arcade != null; AppMode.Strategy -> strategy != null; AppMode.Sandbox -> sandbox != null })
         val step=root.getInt("tutorialStep"); require(step in -1..2)
         val age=root.getDouble("presentationAge"); require(age in 0.0..60.0)
         val hidden=root.getJSONArray("hiddenOrbits").longSet()
@@ -68,7 +71,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         return RecoverySnapshot(mode,arcade,sandbox,root.getBoolean("dirty"),BodyKind.valueOf(root.getString("spawnKind")),
             ShipClass.valueOf(root.getString("shipClass")),step,age,hidden,random,
             root.optBoolean("flightPractice"),root.optBoolean("practiceJoystick"),root.optJSONObject("practiceHeading")?.let(::readVec) ?: Vec2(0.0,-1.0),
-            root.optDouble("practiceSpeed",0.0).also { require(it in 0.0..5000.0) })
+            root.optDouble("practiceSpeed",0.0).also { require(it in 0.0..5000.0) },strategy)
     }
     private fun bodyScene(bodies: List<CelestialBody>, camera: SpaceCamera = SpaceCamera()): JSONObject =
         JSONObject(scenes.encode(SandboxSnapshot(bodies,camera.center,camera.zoom,0.0,0L,preset=SandboxPresetKind.Empty)))
@@ -87,6 +90,10 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         run.upgradeOffer?.let { result.put("offer",JSONObject().put("wave",it.wave).put("choices",JSONArray(it.choices.map { x -> x.name })).put("bonus",it.convoyBonus).put("salvageBonus",it.salvageBonus)) }
         run.challenge?.let { result.put("challenge",JSONObject().put("parentId",it.parentId).put("ids",JSONArray(it.ids.toList())).put("failed",it.failed).put("rewarded",it.rewarded)) }
         run.convoy?.let { result.put("convoy",JSONObject().put("bodyId",it.bodyId).put("hull",it.hull).put("elapsed",it.elapsed).put("status",it.status.name).put("bonusAwarded",it.bonusAwarded)) }
+        run.strategy?.let { result.put("strategyBattle",encodeStrategy(it)) }
+        run.sideEvent?.let { result.put("sideEvent",encodeSideEvent(it)) }
+        result.put("eventRandomState",run.eventRandomState)
+        result.put("nextEventWave",run.nextEventWave).put("eventsCompleted",run.eventsCompleted)
         result.put("salvageCollected",run.salvageCollected)
         run.salvage?.let { result.put("salvage",JSONObject().put("wave",it.wave).put("position",vec(it.position))
             .put("remaining",it.remaining).put("status",it.status.name).put("rewarded",it.rewarded)) }
@@ -94,7 +101,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             .put("angle",it.angle).put("elapsed",it.elapsed).put("defeated",it.defeated)) }
         result.put("shots",JSONArray().also { array -> run.combat.projectiles.forEach { shot -> array.put(JSONObject()
             .put("position",vec(shot.position)).put("velocity",vec(shot.velocity)).put("owner",shot.ownerId).put("remaining",shot.remaining)
-            .put("damage",shot.damage).put("height",shot.height).put("vertical",shot.verticalVelocity)) } })
+            .put("hostile",shot.hostile).put("damage",shot.damage).put("height",shot.height).put("vertical",shot.verticalVelocity)) } })
         result.put("craft",JSONArray().also { array -> run.combat.craft.forEach { (id,status) -> array.put(JSONObject().put("id",id)
             .put("age",status.age).put("cooldown",status.cooldown).put("target",status.targetId)) } })
         return result
@@ -123,7 +130,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         val projectiles=List(shots.length()) { index -> val obj=shots.getJSONObject(index)
             SpaceProjectile(readVec(obj.getJSONObject("position")),readVec(obj.getJSONObject("velocity")),obj.getLong("owner"),
                 obj.getDouble("remaining").also { require(it in 0.0..5.0) },obj.getDouble("damage").also { require(it in 0.0..10000.0) },
-                obj.getDouble("height").also { require(it in -1e6..1e6) },obj.getDouble("vertical").also { require(it in -5000.0..5000.0) }) }
+                obj.getDouble("height").also { require(it in -1e6..1e6) },obj.getDouble("vertical").also { require(it in -5000.0..5000.0) },obj.optBoolean("hostile",false)) }
         val statuses=root.getJSONArray("craft"); require(statuses.length() <= 1000)
         val craft=List(statuses.length()) { index -> val obj=statuses.getJSONObject(index)
             obj.getLong("id") to CraftStatus(obj.getDouble("age").also { require(it in 0.0..1e8) },obj.getDouble("cooldown").also { require(it in -5.0..5.0) },
@@ -138,6 +145,10 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             launches=root.getInt("launches").also { require(it >= 0) },successfulLaunches=root.getJSONArray("successfulLaunches").longSet(),practice=root.getBoolean("practice"),
             combat=ArcadeCombat(projectiles,craft),upgrades=upgrades,offeredUpgradeWaves=root.getJSONArray("offered").intSet(),chosenUpgradeWaves=root.getJSONArray("chosen").intSet(),
             upgradeOffer=offer,challenge=challenge,waveDelay=value("waveDelay",0.0..1e8),planetId=if (root.isNull("planetId")) null else root.getLong("planetId"),convoy=convoy,endless=root.getBoolean("endless"),
+            strategy=root.optJSONObject("strategyBattle")?.let { decodeStrategy(it,scene.bodies) },
+            sideEvent=root.optJSONObject("sideEvent")?.let(::decodeSideEvent),nextEventWave=root.optInt("nextEventWave",4).also { require(it in 1..10000000) },
+            eventRandomState=if (root.isNull("eventRandomState")) null else root.getLong("eventRandomState").also { require(it != 0L) },
+            eventsCompleted=root.optInt("eventsCompleted",0).also { require(it in 0..10000000) },
             carrier=carrier,salvage=salvage,salvageCollected=root.optInt("salvageCollected",0).also { require(it in 0..2) })
         require(run.energy <= run.maxEnergy && run.waveDelay <= run.elapsed)
         carrier?.let { boss ->

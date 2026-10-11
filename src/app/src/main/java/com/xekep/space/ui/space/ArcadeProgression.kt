@@ -14,8 +14,9 @@ internal val ArcadeSession.fuelScale: Double get() = .85.pow(level(ArcadeUpgrade
 internal val ArcadeSession.gunIntervalScale: Double get() = .85.pow(level(ArcadeUpgrade.Guns))
 val ArcadeSession.maxEnergy: Double get() = MaxEnergy + 20 * level(ArcadeUpgrade.Reactor)
 internal val ArcadeSession.energyRegen: Double get() = EnergyRegenPerSecond + 2 * level(ArcadeUpgrade.Reactor)
-val ArcadeSession.guardianUnlocked: Boolean get() = !practice && (wave >= 4 || 3 in chosenUpgradeWaves)
+val ArcadeSession.guardianUnlocked: Boolean get() = strategy != null || (!practice && (wave >= 4 || 3 in chosenUpgradeWaves))
 internal fun ArcadeSession.launchLimit(kind: BodyKind): Int {
+    if (strategy != null) return when (kind) { BodyKind.Ship -> 12; BodyKind.Rocket -> 24; else -> 30 }
     val tier=if (practice) 0 else when { wave >= 15 -> 3; wave >= 10 -> 2; wave >= 5 -> 1; else -> 0 }
     return when (kind) {
         BodyKind.Ship -> 3 + tier + level(ArcadeUpgrade.Fleet)

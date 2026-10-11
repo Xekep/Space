@@ -19,7 +19,7 @@ class ArcadeProgressionUiTest {
     // Fixture injection stays in tests; no debug controls are exposed to players.
     @Suppress("UNCHECKED_CAST")
     private fun replaceSession(game: SpaceGameState, session: ArcadeSession) {
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate")
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate")
         field.isAccessible=true
         (field.get(game) as MutableState<ArcadeSession?>).value=session
         SimulationEngine.reserveBodyIds(session.bodies+session.pending.map { it.body })

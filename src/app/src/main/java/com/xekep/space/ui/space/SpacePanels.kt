@@ -86,7 +86,7 @@ fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLiv
     Surface(modifier.retroFrame(), shape = spaceShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            if (mode == AppMode.Arcade) {
+            if (mode != AppMode.Sandbox) {
                 CompactHudValue(context.getString(R.string.score), score.roundToInt().toString())
                 CompactHudValue(context.getString(R.string.hull), coreLives.toString())
                 CompactHudValue(context.getString(R.string.wave), wave.toString())
@@ -101,13 +101,13 @@ fun ModeHud(modifier: Modifier = Modifier, mode: AppMode, score: Double, coreLiv
 }
 
 @Composable
-fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy, previewCost: Double? = null, compact: Boolean = false) {
+fun ArcadeEnergyHud(modifier: Modifier = Modifier, energyRatio: Float, energy: Double, maximum: Double = MaxEnergy, previewCost: Double? = null, compact: Boolean = false, title: Int = R.string.launch_energy) {
     val context = LocalContext.current
     Surface(modifier.retroFrame(), shape = spaceShape(20.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onSurface) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = if (compact) 6.dp else 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                if (!compact) Text(context.getString(R.string.launch_energy),Modifier.weight(1f),maxLines=1,style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                if (!compact) Text(context.getString(title),Modifier.weight(1f),maxLines=1,style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
                 else androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 previewCost?.let { cost -> Text("−${cost.roundToInt()}",Modifier.padding(horizontal=8.dp).testTag("launch-cost"),style=MaterialTheme.typography.labelMedium,
                     color=if (cost > energy) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary) }

@@ -291,4 +291,37 @@
     <string name="carrier_overrun_help">"Seine Knoten haben den Countdown überstanden. Schicke Abfangjäger oder Raketen zum Angriff und lasse Wächter den Kern verteidigen."</string>
     <string name="salvage_focus_hint">"Fliege manuell oder entlang einer Route durch die Raute."</string>
     <string name="carrier_focus_hint">"Greife die leuchtenden Knoten an und schütze weiter den Kern."</string>
+
+    <string name="strategy">"Strategie"</string>
+    <string name="strategy_help">"Baue eine Flotte und zerstöre drei feindliche Basen."</string>
+    <string name="strategy_status">"Flotte %1$d · Basen %2$d/3"</string>
+    <string name="enemy_bases">"Feindbasen"</string>
+    <string name="strategy_victory">"Sektor gesichert"</string>
+    <string name="strategy_victory_help">"Alle feindlichen Basen sind zerstört. Dein Kern hat überlebt."</string>
+    <string name="strategy_replay">"Neue Schlacht"</string>
+    <string name="station_factory">"Werft"</string>
+    <string name="station_service">"Dock"</string>
+    <string name="production_off">"Produktion aus"</string>
+    <string name="strategy_build_failed">"Energie, ein freier Bauplatz und Abstand zu Himmelskörpern nötig."</string>
+    <string name="tactical_mode">"Befehle / Starts"</string>
+    <string name="select_fleet">"Gesamte Flotte auswählen"</string>
+    <string name="fleet_selected">"Ausgewählt: %1$d"</string>
+    <string name="fleet_select_help">"Auswahl: antippen oder einrahmen · Kamera: zwei Finger"</string>
+    <string name="order_move">"In Formation bewegen"</string>
+    <string name="order_guard">"Bewachen oder eskortieren"</string>
+    <string name="order_attack">"Ziel angreifen"</string>
+    <string name="order_auto">"Automatische KI aktivieren"</string>
+    <string name="order_target">"Position oder Ziel für den Befehl antippen."</string>
+    <string name="build_place">"Freien Platz antippen · bis zu 4 Basen."</string>
+    <string name="event_supply">"Treibende Vorräte"</string>
+    <string name="event_wreck">"Havarierte Einheit"</string>
+    <string name="event_rescue">"Rettungskapsel"</string>
+    <string name="event_collect_help">"Schicke eine gesteuerte Einheit oder nutze eine Route. Belohnung: Energie; Wracks können die Flotte verstärken."</string>
+    <string name="event_rescue_help">"Eskortiere die Kapsel bis zum Kern. Belohnung: Energie und ein Kern-Hüllenpunkt."</string>
+    <string name="station_bastion">Bastion</string>
+
+    <string name="strategy_bases_short">"Basen"</string>
+    <string name="strategy_energy">"Energie"</string>
+    <string name="strategy_defeat">"Kern verloren"</string>
+    <string name="strategy_defeat_help">"Verbleibende Feindbasen: %1$d. Halte Produktion und Verteidigung im Gleichgewicht."</string>
 </resources>

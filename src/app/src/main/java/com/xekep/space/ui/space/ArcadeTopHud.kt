@@ -50,7 +50,7 @@ fun ArcadeTopHud(game: SpaceGameState, compactPilot: Boolean = false) {
             }
             Row(Modifier.weight(1f),verticalAlignment=Alignment.CenterVertically) {
                 val stats=listOf(R.string.score to if (tight) compactScore(session.score,locale) else session.score.roundToInt().toString(), R.string.hull to session.lives.toString(),
-                    R.string.wave to session.wave.toString())+if (tight) emptyList() else listOf(R.string.combo to "x${"%.1f".format(session.combo)}")
+                    (if (session.strategy != null) R.string.strategy_bases_short else R.string.wave) to (session.strategy?.bases?.size ?: session.wave).toString())+if (tight || session.strategy != null) emptyList() else listOf(R.string.combo to "x${"%.1f".format(session.combo)}")
                 for ((label,value) in stats) {
                     val name=stringResource(label)
                     val full=if (label == R.string.score) session.score.roundToInt().toString() else value

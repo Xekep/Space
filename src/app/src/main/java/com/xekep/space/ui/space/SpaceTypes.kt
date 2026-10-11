@@ -18,6 +18,7 @@ const val SandboxMaxZoom = 5000.0f
 
 enum class AppMode {
     Arcade,
+    Strategy,
     Sandbox,
 }
 
@@ -77,13 +78,14 @@ fun distance(first: Offset, second: Offset): Float {
 fun minimumZoom(mode: AppMode): Float {
     return when (mode) {
         AppMode.Arcade -> ArcadeMinZoom
+        AppMode.Strategy -> .08f
         AppMode.Sandbox -> SandboxMinZoom
     }
 }
 
 fun maximumZoom(mode: AppMode): Float {
     return when (mode) {
-        AppMode.Arcade -> ArcadeMaxZoom
+        AppMode.Arcade, AppMode.Strategy -> ArcadeMaxZoom
         AppMode.Sandbox -> SandboxMaxZoom
     }
 }

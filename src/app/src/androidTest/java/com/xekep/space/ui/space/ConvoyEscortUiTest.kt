@@ -27,7 +27,7 @@ class ConvoyEscortUiTest {
     private fun escort(difficulty: ArcadeDifficulty) {
         val game=SpaceGameState(random=Random(17)).apply { resize(IntSize(1080,2340)); startArcade(difficulty) }
         val run=advanceArcade(game.arcade!!.copy(elapsed=14*28.0,spawnTimer=1.5),.01,Random(17))
-        val field=SpaceGameState::class.java.getDeclaredField("arcade\$delegate").apply { isAccessible=true }
+        val field=SpaceGameState::class.java.getDeclaredField("arcadeRun\$delegate").apply { isAccessible=true }
         (field.get(game) as MutableState<ArcadeSession?>).value=run
         SimulationEngine.reserveBodyIds(run.bodies)
         compose.mainClock.autoAdvance=false

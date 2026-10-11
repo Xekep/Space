@@ -291,4 +291,37 @@
     <string name="carrier_overrun_help">"Ses nœuds ont résisté jusqu’à la fin du délai. Envoyez des intercepteurs ou des fusées les attaquer pendant que vos Gardiens protègent le noyau."</string>
     <string name="salvage_focus_hint">"Traversez le losange en pilotage manuel ou par un itinéraire."</string>
     <string name="carrier_focus_hint">"Attaquez les nœuds lumineux et gardez des défenseurs au noyau."</string>
+
+    <string name="strategy">"Stratégie"</string>
+    <string name="strategy_help">"Construisez une flotte et détruisez trois bases ennemies."</string>
+    <string name="strategy_status">"Flotte %1$d · bases %2$d/3"</string>
+    <string name="enemy_bases">"Bases ennemies"</string>
+    <string name="strategy_victory">"Secteur sécurisé"</string>
+    <string name="strategy_victory_help">"Toutes les bases ennemies sont détruites. Votre noyau a survécu."</string>
+    <string name="strategy_replay">"Nouvelle bataille"</string>
+    <string name="station_factory">"Usine"</string>
+    <string name="station_service">"Service"</string>
+    <string name="production_off">"Production arrêtée"</string>
+    <string name="strategy_build_failed">"Il faut de l’énergie, un emplacement libre et de l’espace loin des corps."</string>
+    <string name="tactical_mode">"Commandement / lancement"</string>
+    <string name="select_fleet">"Sélectionner toute la flotte"</string>
+    <string name="fleet_selected">"Sélection : %1$d"</string>
+    <string name="fleet_select_help">"Sélection : toucher ou cadre · Caméra : deux doigts"</string>
+    <string name="order_move">"Déplacement en formation"</string>
+    <string name="order_guard">"Garder ou escorter"</string>
+    <string name="order_attack">"Attaquer une cible"</string>
+    <string name="order_auto">"Revenir à l’IA automatique"</string>
+    <string name="order_target">"Touchez une position ou une cible pour donner l’ordre."</string>
+    <string name="build_place">"Touchez un lieu dégagé · 4 bases maximum."</string>
+    <string name="event_supply">"Ravitaillement à la dérive"</string>
+    <string name="event_wreck">"Appareil en panne"</string>
+    <string name="event_rescue">"Capsule de sauvetage"</string>
+    <string name="event_collect_help">"Envoyez un appareil piloté ou sur une route. Récompense : énergie ; une épave peut rejoindre la flotte."</string>
+    <string name="event_rescue_help">"Restez près de la capsule pour l’escorter au noyau. Récompense : énergie et un point de coque."</string>
+    <string name="station_bastion">Bastion</string>
+
+    <string name="strategy_bases_short">"Bases"</string>
+    <string name="strategy_energy">"Énergie"</string>
+    <string name="strategy_defeat">"Noyau perdu"</string>
+    <string name="strategy_defeat_help">"Bases ennemies restantes : %1$d. Équilibrez production et défense."</string>
 </resources>
