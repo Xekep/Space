@@ -20,8 +20,8 @@ class ArcadeCampaignTest {
         state=advanceArcade(state,.02,Random(17))
         assertEquals(2,state.wave);assertFalse(state.resting);assertEquals(24.0,state.wavePhase.seconds,1e-7)
         assertEquals(0.0,state.score,0.0)
-        // Remove the scripted pending threat to represent the final interception.
-        state=advanceArcade(state.copy(pending=emptyList()),.01,Random(17))
+        // The old saved warning became a live threat; remove it to represent interception.
+        state=advanceArcade(state.copy(bodies=state.bodies.filterNot { it.id == enemy.id },pending=emptyList()),.01,Random(17))
         assertTrue(state.resting);val score=state.score
         repeat(239) { state=advanceArcade(state,1.0/60,Random(17)) }
         assertEquals(2,state.wave);assertEquals(score,state.score,0.0)
@@ -72,7 +72,7 @@ class ArcadeCampaignTest {
         repeat(358) { state=advanceArcade(state,1.0/60,Random(17)) }
         assertTrue(state.pending.isEmpty())
         repeat(3) { state=advanceArcade(state,1.0/60,Random(17)) }
-        assertEquals(2,state.pending.size)
+        assertTrue(state.pending.isEmpty()); assertEquals(2,state.bodies.count { it.kind == BodyKind.Meteor && it.id !in state.carrier!!.nodeIds })
     }
 
     @Test fun waitingCannotWinTheFinaleOnAnyDifficulty() {

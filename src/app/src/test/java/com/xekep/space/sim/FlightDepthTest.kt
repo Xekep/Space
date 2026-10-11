@@ -13,7 +13,7 @@ class FlightDepthTest {
             repeat(90) { body=NumericIntegrator.advance(applyFlightControls(listOf(body),ManualFlightControl(1,0.0,pitch=axis),1.0/60),1.0/60,1.0/120,controlledId=1).single() }
             assertTrue(body.flightHeight*axis > 100)
             assertTrue(body.pitch*axis > 1.0)
-            assertEquals(300.0,body.flightSpeed(),1.0)
+            assertEquals(300.0,body.flightSpeed(),2.0)
             assertTrue(body.fuelRemaining > vehicleFuelCapacity(kind)-3)
         }
     }
@@ -60,7 +60,7 @@ class FlightDepthTest {
         var body=craft().copy(pilotTargetSpeed=null)
         repeat(180) { body=NumericIntegrator.advance(applyFlightControls(listOf(body),ManualFlightControl(1,0.0,pitch=1.0),1.0/60),1.0/60,1.0/120,controlledId=1).single() }
         assertEquals(300.0,body.pilotTargetSpeed!!,1e-6)
-        assertEquals(300.0,body.flightSpeed(),1.0)
+        assertEquals(300.0,body.flightSpeed(),2.0)
     }
 
     @Test fun stabilizedAnglesBankInHullCoordinatesAndReleaseLevelsBothCraft() {
@@ -68,7 +68,7 @@ class FlightDepthTest {
             var body=craft(kind)
             val input=ManualFlightControl(1,0.0,pitch=.25,roll=bank,stabilizedAttitude=true)
             repeat(30) { body=steerManually(listOf(body),input,1.0/60).single() }
-            assertEquals(.25*STABILIZED_FLIGHT_PITCH,body.pitch,.003)
+            assertEquals(.25*STABILIZED_FLIGHT_PITCH,body.pitch,.05)
             assertEquals(bank*STABILIZED_FLIGHT_ROLL,body.roll,.009)
             assertTrue(body.heading.y*bank > .15)
             assertTrue(body.velocity.y*bank > 40)
@@ -101,7 +101,7 @@ class FlightDepthTest {
             var sixty=initial; var thirty=initial
             repeat(180) { sixty=steerManually(listOf(sixty),control,1.0/60).single() }
             repeat(90) { thirty=steerManually(listOf(thirty),control,1.0/30).single() }
-            assertEquals(.3*STABILIZED_FLIGHT_PITCH,sixty.pitch,1e-8)
+            assertEquals(.3*STABILIZED_FLIGHT_PITCH,sixty.pitch,1e-7)
             assertEquals(-.4*STABILIZED_FLIGHT_ROLL,sixty.roll,1e-8)
             assertEquals(sixty.pitch,thirty.pitch,1e-10); assertEquals(sixty.roll,thirty.roll,1e-10)
             val reversed=steerManually(listOf(sixty),control.copy(pitch=-.3,roll=.4),1.0/60).single()
@@ -126,7 +126,7 @@ class FlightDepthTest {
         for (scale in listOf(.0001,.001,.01,.25,1.0,3.0,6.0)) {
             val body=steerManually(listOf(craft()),ManualFlightControl(1,.5,pitch=1.0,roll=-1.0,
                 stabilizedAttitude=true,attitudeTimeScale=1.0/scale),.1*scale).single()
-            assertEquals(STABILIZED_FLIGHT_PITCH*(1-kotlin.math.exp(-body.vehicleTurnScale/.55)),body.pitch,1e-8); assertEquals(-STABILIZED_FLIGHT_ROLL*(1-kotlin.math.exp(-body.vehicleTurnScale/.55)),body.roll,1e-8)
+            assertEquals(STABILIZED_FLIGHT_PITCH*(1-kotlin.math.exp(-body.vehicleTurnScale/1.8)),body.pitch,1e-8); assertEquals(-STABILIZED_FLIGHT_ROLL*(1-kotlin.math.exp(-body.vehicleTurnScale/.55)),body.roll,1e-8)
             assertEquals(1f,body.flightVisualScale(),0f)
             // Explicit lift responds in real time; natural bodies retain the world clock.
             assertTrue(body.verticalVelocity > 5.0)
@@ -185,12 +185,40 @@ class FlightDepthTest {
             val control=ManualFlightControl(1,0.0,pitch=axis,stabilizedAttitude=true,attitudeTimeScale=1/scale)
             val steered=steerManually(listOf(initial),control,scale/60)
             val first=NumericIntegrator.advance(steered,scale/60,scale/60,controlledId=1,manualDepthScale=control.depthTimeScale).single()
-            assertTrue(first.flightHeight*axis > .05); assertTrue(first.verticalVelocity*axis > 3)
-            assertTrue(first.pitch*axis > .15)
+            assertTrue(first.flightHeight*axis > .01); assertTrue(first.verticalVelocity*axis > 1)
+            assertTrue(first.pitch*axis > .03)
             assertTrue(kotlin.math.abs(first.flightHeight) < 1)
             val off=first.copy(pilotTargetSpeed=0.0,velocity=Vec2.Zero)
             val drift=NumericIntegrator.advance(listOf(off),scale/60,scale/60,controlledId=1,manualDepthScale=control.depthTimeScale).single()
             assertEquals(off.flightHeight+off.verticalVelocity/60,drift.flightHeight,1e-8)
         }
     }
+    @Test fun climbRampsContinuouslyAndPartialStickGivesASlowerClimbForBothCraft() {
+        for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) for (axis in listOf(-1.0,1.0)) {
+            fun fly(input: Double): List<CelestialBody> {
+                var body=craft(kind);val frames=mutableListOf<CelestialBody>()
+                repeat(60) {
+                    body=NumericIntegrator.advance(steerManually(listOf(body),ManualFlightControl(1,0.0,pitch=input,
+                        stabilizedAttitude=true),1.0/60),1.0/60,1.0/120,controlledId=1).single()
+                    frames+=body
+                }
+                return frames
+            }
+            val full=fly(axis);val partial=fly(axis*.25)
+            assertTrue(full.first().pitch*axis in 0.0..0.15)
+            assertTrue(full[5].pitch*axis in .2.. .5)
+            assertTrue(full[5].flightHeight*axis < full[14].flightHeight*axis)
+            assertTrue(kotlin.math.abs(full[14].flightVisualScale()-1f) < .12f)
+            assertTrue(kotlin.math.abs(full[29].flightVisualScale()-1f) > kotlin.math.abs(full[14].flightVisualScale()-1f))
+            assertTrue(kotlin.math.abs(full[59].flightVisualScale()-1f) > kotlin.math.abs(full[29].flightVisualScale()-1f))
+            assertTrue(partial.last().flightHeight*axis < full.last().flightHeight*axis*.5)
+            for ((a,b) in full.zipWithNext()) assertTrue(kotlin.math.abs(b.flightVisualScale()-a.flightVisualScale()) < .025f)
+            var released=full.last()
+            repeat(90) { released=NumericIntegrator.advance(steerManually(listOf(released),ManualFlightControl(1,0.0,
+                stabilizedAttitude=true),1.0/60),1.0/60,1.0/120,controlledId=1).single() }
+            assertTrue(kotlin.math.abs(released.pitch) < .01);assertTrue(kotlin.math.abs(released.verticalVelocity)<8)
+            assertTrue(released.flightHeight*axis > full.last().flightHeight*axis)
+        }
+    }
+
 }

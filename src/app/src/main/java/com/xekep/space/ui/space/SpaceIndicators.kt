@@ -53,7 +53,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
     val bounds = game.indicatorBounds(Rect(marginX, marginY, size.width - marginX, size.height - marginY),14.dp.toPx())
     if (bounds.width <= 0f || bounds.height <= 0f) return
     val markerScale=minOf(1f,bounds.height/(40.dp.toPx()))
-    (game.bodies.filter { it.kind == BodyKind.Meteor } + game.arcade?.pending.orEmpty().map { it.body }).forEach { body ->
+    game.bodies.filter { it.kind == BodyKind.Meteor }.forEach { body ->
         val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val velocity = rotateVector(body.velocity * camera.zoom.toDouble(), game.cameraRotation)
         val marker = threatDirectionMarker(point, velocity, bodyScreenRadius(body, camera.zoom, density), game.viewport, bounds)
@@ -61,17 +61,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
         val core=game.bodies.firstOrNull { it.kind == BodyKind.Core }
         val imminent=core?.let { (body.position-it.position).magnitude() <= 500.0 } == true
         val color=(if (heavy) Color(0xFFFFC46B) else Color(0xFFFF8A5B)).copy(alpha=if (imminent) 1f else .7f)
-        if (marker == null) {
-            // A wide view may include a world-space arrival. Keep the warning visible
-            // while the announced body has not yet joined the simulation.
-            game.arcade?.pending?.firstOrNull { it.body.id == body.id }?.let { warning ->
-                val radius=(if (heavy) 15.dp.toPx() else 12.dp.toPx())
-                val ratio=(warning.seconds/(game.arcade?.difficulty?.warningSeconds ?: 1.2)).coerceIn(0.0,1.0)
-                drawArc(color,-90f,(90+270*ratio).toFloat(),false,point-Offset(radius,radius),
-                    androidx.compose.ui.geometry.Size(radius*2,radius*2),style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
-            }
-            return@forEach
-        }
+        if (marker == null) return@forEach
         if (heavy) drawCircle(color,9.dp.toPx()*markerScale,marker.position,
             style=androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
         drawCircle(color.copy(alpha = if (imminent) .28f else .12f),12.dp.toPx()*markerScale,marker.position)

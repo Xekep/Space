@@ -73,14 +73,14 @@ class ArcadeEncountersTest {
         val siege=advanceArcade(run(13,3.0).copy(spawnTimer=0.0),.01,Random(7))
         val calm=advanceArcade(run(11,3.0).copy(spawnTimer=0.0),.01,Random(7))
         val pincer=advanceArcade(run(14,3.0).copy(spawnTimer=0.0),.01,Random(7))
-        assertEquals(WaveCharacter.Swarm,swarm.character); assertEquals(4,swarm.pending.size)
-        assertTrue(swarm.pending.all { it.body.mass in 55.0..105.0 })
-        assertEquals(4,siege.pending.size); assertEquals(1020.0,siege.pending.first().body.mass,0.0)
-        assertTrue(siege.pending.drop(1).all { it.body.mass < 400 })
-        assertEquals(1,calm.pending.size); assertTrue(calm.spawnTimer > siege.spawnTimer)
+        assertEquals(WaveCharacter.Swarm,swarm.character); assertEquals(4,swarm.threats.size)
+        assertTrue(swarm.threats.all { it.mass in 55.0..105.0 })
+        assertEquals(4,siege.threats.size); assertEquals(1020.0,siege.threats.first().mass,0.0)
+        assertTrue(siege.threats.drop(1).all { it.mass < 400 })
+        assertEquals(1,calm.threats.size); assertTrue(calm.spawnTimer > siege.spawnTimer)
         val core=pincer.bodies.first().position
-        val a=(pincer.pending[0].body.position-core).normalized()
-        val b=(pincer.pending[1].body.position-core).normalized()
+        val a=(pincer.threats[0].position-core).normalized()
+        val b=(pincer.threats[1].position-core).normalized()
         assertTrue("Pincer must arrive from opposing sectors",a.x*b.x+a.y*b.y < -.7)
         val rest=advanceArcade(run(12,24.5).copy(spawnTimer=0.0),.01,Random(7))
         assertTrue(rest.pending.isEmpty()); assertTrue(rest.resting)
@@ -90,12 +90,12 @@ class ArcadeEncountersTest {
         val early=advanceArcade(run(6,3.0).copy(spawnTimer=0.0),.01,Random(17))
         val late=advanceArcade(run(12,3.0).copy(spawnTimer=0.0),.01,Random(17))
         val siege=advanceArcade(run(13,3.0).copy(spawnTimer=0.0),.01,Random(17))
-        assertTrue(late.pending.size/late.spawnTimer <= 2*early.pending.size/early.spawnTimer)
+        assertTrue(late.threats.size/late.spawnTimer <= 2*early.threats.size/early.spawnTimer)
         assertTrue(siege.spawnTimer >= 2.45)
         val hard=advanceArcade(run(13,3.0).copy(difficulty=ArcadeDifficulty.Hard,spawnTimer=0.0),.01,Random(17))
         val easy=advanceArcade(run(13,3.0).copy(difficulty=ArcadeDifficulty.Easy,spawnTimer=0.0),.01,Random(17))
         assertTrue(hard.spawnTimer < siege.spawnTimer); assertTrue(easy.spawnTimer > siege.spawnTimer)
-        assertTrue(waveGroupSize(20,WaveCharacter.Swarm) > late.pending.size)
+        assertTrue(waveGroupSize(20,WaveCharacter.Swarm) > late.threats.size)
     }
 
     @Test fun easyLatePincerLeavesLongerGapsWithoutWeakeningHardOrChangingEarlyWaves() {
@@ -103,7 +103,7 @@ class ArcadeEncountersTest {
             run(wave,3.0).copy(difficulty=difficulty,lives=difficulty.lives,spawnTimer=0.0),.01,Random(17))
         val easy=spawn(18,ArcadeDifficulty.Easy); val normal=spawn(18,ArcadeDifficulty.Normal)
         val hard=spawn(18,ArcadeDifficulty.Hard)
-        assertEquals(4,easy.pending.size); assertEquals(normal.pending.size,hard.pending.size)
+        assertEquals(4,easy.threats.size); assertEquals(normal.threats.size,hard.threats.size)
         assertTrue(easy.spawnTimer > 2.95)
         assertEquals(1.39,normal.spawnTimer,1e-6); assertEquals(1.04,hard.spawnTimer,1e-6)
         val early=spawn(8,ArcadeDifficulty.Easy)
@@ -114,8 +114,8 @@ class ArcadeEncountersTest {
         val random=Random(17)
         val started=advanceArcade(run(15).copy(spawnTimer=0.0),.01,random)
         val transport=started.bodies.single { it.kind == BodyKind.Convoy }
-        assertEquals(3,started.pending.size)
-        assertTrue(started.pending.take(2).all { (it.body.position-transport.position).magnitude() > 800.0 })
+        assertEquals(3,started.threats.size)
+        assertTrue(started.threats.take(2).all { (it.position-transport.position).magnitude() > 800.0 })
         var waiting=started
         repeat(150) { waiting=advanceArcade(waiting.copy(spawnTimer=1000.0),1.0/30,random) }
         val still=waiting.bodies.first { it.id == transport.id }
@@ -223,7 +223,7 @@ class ArcadeEncountersTest {
             damage+=3-next.convoy!!.hull
             if (next.convoy!!.status == ConvoyStatus.Lost) lost++
             println("CONVOY_UNESCORTED,seed=$seed,status=${next.convoy!!.status},hull=${next.convoy!!.hull},coreHits=${30-next.lives}")
-            assertTrue(next.bodies.size < 40); assertTrue(next.pending.size <= 18)
+            assertTrue(next.bodies.size < 40); assertTrue(next.threats.size <= 18)
         }
         assertTrue("The transport must face real danger",damage > 0)
         assertTrue("Some unescorted transports must be lost",lost > 0)
@@ -310,3 +310,5 @@ class ArcadeEncountersTest {
         assertEquals(1,prepared.bodies.count { it.kind == BodyKind.Convoy })
     }
 }
+
+private val ArcadeSession.threats get()=bodies.filter { it.kind == BodyKind.Meteor }

@@ -8,7 +8,11 @@ import kotlin.random.Random
 
 internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, control: com.xekep.space.sim.ManualFlightControl? = null, view: ThreatView? = null): ArcadeSession {
     if (input.upgradeOffer != null || input.lives <= 0 || dt <= 0.0) return input
-    val current=prepareSideEvent(prepareCampaign(prepareArcadeEncounters(input,dt,random),random),random)
+    // Old saves may still contain announced threats. Promote them once, before physics,
+    // so every direction arrow refers to a living, moving target.
+    val liveInput=if (input.pending.isEmpty()) input else input.copy(
+        bodies=input.bodies+input.pending.map { it.body }.filter { threat -> input.bodies.none { it.id == threat.id } },pending=emptyList())
+    val current=prepareSideEvent(prepareCampaign(prepareArcadeEncounters(liveInput,dt,random),random),random)
     val routed=com.xekep.space.sim.applyFlightControls(current.bodies,control,dt)
     val prepared = prepareCombat(routed, current.combat, dt, control?.bodyId,current.gunIntervalScale,current.carrier?.nodeIds.orEmpty())
     val step = SimulationEngine.stepArcade(prepared.bodies, dt,control?.bodyId,control?.depthTimeScale ?: 1.0)
@@ -20,6 +24,7 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     // so a launch after camera travel must survive outside the initial arena.
     val corePosition=combatStep.bodies.firstOrNull { it.kind == BodyKind.Core }?.position ?: Vec2(450.0,700.0)
     val convoyPosition=combatStep.bodies.firstOrNull { it.id == current.convoy?.bodyId }?.position
+    var portals=current.arrivalPortals.map { it.copy(remaining=it.remaining-dt) }.filter { it.remaining > 0.0 }
     var bodies = blast.first.filter {
         val offset=it.position-corePosition
         val escort=convoyPosition?.minus(it.position)
@@ -72,9 +77,7 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
         challenge=resolvedChallenge.copy(rewarded=true)
     }
     val elapsed = current.elapsed + dt
-    val pending = current.pending.map { it.copy(seconds = it.seconds - dt) }.toMutableList()
-    if (lives > 0) bodies = bodies + pending.filter { it.seconds <= 0 }.map { it.body }
-    pending.removeAll { it.seconds <= 0 }
+    val pending = emptyList<PendingThreat>()
     val waveDelay=campaignWaveDelay(current,bodies,pending,challenge,elapsed)
     val phase=arcadeWavePhase(elapsed-waveDelay); val cycle=phase.seconds
     val quiet=phase.resting && pending.isEmpty() && bodies.none { it.kind == BodyKind.Meteor } &&
@@ -118,16 +121,17 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
                     val point=current.carrierPosition+radial.perpendicular()*((it-.5)*90.0)
                     approach.copy(position=point,velocity=(corePosition-point).normalized()*130.0,trail=listOf(point))
                 } else distantThreat(approach,current,view,target)
-                val threat=if (transport != null) aimConvoyThreat(distant,transport,bodies,current.difficulty.warningSeconds,
+                val threat=if (transport != null) aimConvoyThreat(distant,transport,bodies,0.0,
                     current.convoy?.elapsed ?: 0.0) else distant
-                pending += PendingThreat(threat,current.difficulty.warningSeconds)
+                bodies = bodies + threat
+                arrivalPortal(threat,current,view)?.let { portals=portals+it }
             }
         }
         timer += waveSpawnDelay(wave,waveCharacter(wave,current.practice),current.difficulty) * current.difficulty.spawnDelay
     }
     if (!waveMaySpawn(wave,cycle,challenge,current.practice) && !(wave == 20 && current.carrier?.defeated == false)) timer=maxOf(timer,.25)
     val advanced=current.copy(bodies = bodies, lives = lives, elapsed = elapsed, pending = pending, spawnTimer = timer,
-        waveDelay=waveDelay,challenge=challenge,
+        waveDelay=waveDelay,challenge=challenge,arrivalPortals=portals,
         energy = (current.energy + dt * current.energyRegen + stopped * 8.0).coerceAtMost(current.maxEnergy), score = score,
         destroyed = current.destroyed + stopped, combo = combo, lastIntercept = lastIntercept, immunity = immunity,
         combat = combatStep.combat, explosions = com.xekep.space.sim.advanceExplosions(current.explosions, events, dt),

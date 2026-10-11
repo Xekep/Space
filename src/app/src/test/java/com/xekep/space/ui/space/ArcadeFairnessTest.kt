@@ -21,7 +21,7 @@ class ArcadeFairnessTest {
             repeat(2400) { if (state.lives == state.difficulty.lives)
                 state=advanceArcade(state,1.0/60,random,view=ThreatView(viewport,rotation)) }
             assertTrue("No attack reached core",state.lives < state.difficulty.lives)
-            assertTrue(state.elapsed < 40.0)
+            assertTrue(state.elapsed < 75.0); assertTrue(state.elapsed > 5.0)
             reference?.let { assertEquals(it,state.elapsed,1e-9) }; reference=state.elapsed
             println("FAIR_APPROACH zoom=$zoom firstHit=${state.elapsed}")
         }

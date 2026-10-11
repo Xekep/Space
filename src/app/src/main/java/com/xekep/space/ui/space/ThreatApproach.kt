@@ -25,9 +25,8 @@ internal fun threatDirectionMarker(point: Offset, velocity: Vec2, radius: Float,
     return ThreatDirectionMarker(position, delta / delta.getDistance())
 }
 
-/** World-space approaches are independent of zoom, panning, viewport and pilot rotation.
- * A wide camera can see distant arrivals; moving the camera cannot delay an attack.
- */
+/** World-space approaches keep their travel time regardless of zoom and camera movement.
+ * When a wide view exposes an arrival, a short-lived wormhole marks its real launch. */
 @Suppress("UNUSED_PARAMETER")
 internal fun distantThreat(body: CelestialBody, session: ArcadeSession, view: ThreatView?, target: Vec2? = null): CelestialBody {
     val center=target ?: session.bodies.firstOrNull { it.kind == com.xekep.space.sim.BodyKind.Core }?.position
@@ -42,7 +41,7 @@ internal fun distantThreat(body: CelestialBody, session: ArcadeSession, view: Th
     val outward=inward * -1.0
     val exitX=if (abs(outward.x)<1e-9) Double.POSITIVE_INFINITY else ((if (outward.x>0) maxX else minX)-aim.x)/outward.x
     val exitY=if (abs(outward.y)<1e-9) Double.POSITIVE_INFINITY else ((if (outward.y>0) maxY else minY)-aim.y)/outward.y
-    val lead=maxOf(350.0,body.velocity.magnitude()*4.0)+body.radius*2.0
+    val lead=maxOf(350.0,body.velocity.magnitude()*(4.0+session.difficulty.warningSeconds))+body.radius*2.0
     val point=aim+outward*(minOf(exitX,exitY)+lead)
     return body.copy(position=point,trail=listOf(point))
 }

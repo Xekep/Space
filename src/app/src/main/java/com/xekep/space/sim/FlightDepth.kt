@@ -34,7 +34,8 @@ internal fun returnAutopilotsToPlane(bodies: List<CelestialBody>, controlledId: 
 
 fun CelestialBody.flightSpeed(): Double = hypot(velocity.magnitude(),verticalVelocity)
 // Height changes distance to the overhead camera; attitude changes the projected hull separately.
-fun CelestialBody.flightVisualScale(): Float = (1+.65*tanh(flightHeight/maxOf(12.0,radius*1.5))).toFloat()
+fun CelestialBody.flightDepthCue(): Double = tanh(flightHeight/maxOf(160.0,radius*8.0))
+fun CelestialBody.flightVisualScale(): Float = (1+.65*flightDepthCue()).toFloat()
 
 /** Flight computer feed-forward in catalogue units; zero thrust always bypasses it. */
 internal fun flightGravity(body: CelestialBody,scene: List<CelestialBody>): DepthGravity {

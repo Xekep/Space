@@ -103,8 +103,8 @@ class ArcadeCombatTest {
             return advanceArcade(run, .01, Random(1))
         }
         val first = wave(1); val later = wave(9)
-        assertEquals(1, first.pending.size); assertEquals(4, later.pending.size)
-        assertTrue(later.pending.any { it.body.mass > 800 })
+        assertEquals(1, first.threats.size); assertEquals(4, later.threats.size)
+        assertTrue(later.threats.any { it.mass > 800 })
         assertTrue(later.spawnTimer < first.spawnTimer)
         val resting = later.copy(elapsed = 24.5, pending = emptyList(), spawnTimer = 0.0)
         assertTrue(advanceArcade(resting, .01, Random(1)).pending.isEmpty())
@@ -128,3 +128,5 @@ class ArcadeCombatTest {
         assertEquals(SimulationEngine.totalEnergy(game.bodies), game.sandbox!!.referenceEnergy, 1e-7)
     }
 }
+
+private val ArcadeSession.threats get()=bodies.filter { it.kind == BodyKind.Meteor }

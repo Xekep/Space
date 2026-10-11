@@ -226,7 +226,7 @@ class SandboxStorageTest {
 
     @Test fun arcadeRecordsAreSeparatedByDifficultyAndRulesVersion() {
         val preferences=context.getSharedPreferences("space_arcade",Context.MODE_PRIVATE)
-        preferences.edit().putString("v3_Normal","123456").putString("v4_Normal","234567").commit()
+        preferences.edit().putString("v3_Normal","123456").putString("v4_Normal","234567").putString("v5_Normal","345678").commit()
         val progress = ArcadeProgress(context)
         progress.saveBestScore(999999.0)
         assertEquals(0.0, progress.records.getValue(com.xekep.space.ui.space.ArcadeDifficulty.Normal), 0.0)
@@ -237,7 +237,8 @@ class SandboxStorageTest {
         assertEquals(300.0, progress.records.getValue(com.xekep.space.ui.space.ArcadeDifficulty.Hard), 0.0)
         assertEquals("123456",preferences.getString("v3_Normal",null))
         assertEquals("234567",preferences.getString("v4_Normal",null))
-        assertEquals("300.0",preferences.getString("v5_Hard",null))
+        assertEquals("345678",preferences.getString("v5_Normal",null))
+        assertEquals("300.0",preferences.getString("v6_Hard",null))
     }
 
     @Test fun musicPreferencePersistsIndependentlyOfSoundEffects() {

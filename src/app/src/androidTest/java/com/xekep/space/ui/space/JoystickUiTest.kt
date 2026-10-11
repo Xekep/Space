@@ -48,10 +48,14 @@ class JoystickUiTest {
         compose.mainClock.advanceTimeBy(48)
         for (mode in AppMode.entries) for (kind in listOf(BodyKind.Ship,BodyKind.Rocket)) {
             compose.runOnIdle {
-                if (mode == AppMode.Arcade) game.startArcade() else game.startSandbox(SandboxPresetKind.Empty)
+                when (mode) {
+                    AppMode.Arcade -> game.startArcade()
+                    AppMode.Strategy -> { game.startStrategy(); game.toggleTactics() }
+                    AppMode.Sandbox -> game.startSandbox(SandboxPresetKind.Empty)
+                }
             }
             compose.mainClock.advanceTimeBy(48)
-            val tag=if (mode == AppMode.Arcade) "arcade-motion-control" else "sandbox-motion-control"
+            val tag=if (mode == AppMode.Sandbox) "sandbox-motion-control" else "arcade-motion-control"
             compose.onNodeWithTag(tag).assertIsOff().performClick()
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle {

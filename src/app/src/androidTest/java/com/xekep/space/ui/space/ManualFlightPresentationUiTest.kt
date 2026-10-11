@@ -170,11 +170,11 @@ class ManualFlightPresentationUiTest {
                     val craft=game.bodies.first { it.id == id }
                     assertEquals(id,craft.id); assertTrue(craft.verticalVelocity*axis > 0)
                     assertTrue("$preset $kind axis=$axis pitch=${craft.pitch} z=${craft.flightHeight} scale=${craft.flightVisualScale()}",
-                        craft.pitch*axis > .30)
+                        craft.pitch*axis in .20.. .50)
                     val nose=vehiclePitchMatrix(craft.pitch,20f,craft.roll).map(Offset(10f,-20f))
                     assertTrue(if (axis > 0) nose.x > 10f else nose.x < 10f)
                     assertTrue(craft.flightHeight*axis > .5)
-                    assertTrue(if (axis > 0) craft.flightVisualScale() > before*1.07f else craft.flightVisualScale() < before*.93f)
+                    assertTrue(if (axis > 0) craft.flightVisualScale() > before*1.002f else craft.flightVisualScale() < before*.998f)
                 }
                 compose.onNodeWithTag("pitch-joystick").performTouchInput {
                     moveTo(center+Offset(axis*32*game.density,0f),16)

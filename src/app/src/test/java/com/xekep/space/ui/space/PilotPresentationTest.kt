@@ -25,7 +25,10 @@ class PilotPresentationTest {
             assertEquals(2*pilotScreenRadius(solar,1f,3f,true),pilotScreenRadius(solar,2f,3f,true),0f)
             assertTrue(bodyScreenRadius(solar,1000f,3f,false) > bodyScreenRadius(solar,100f,3f,false))
             assertTrue(bodyScreenRadius(solar,1000f,3f,true) > bodyScreenRadius(solar,100f,3f,true))
-            val up=solar.copy(flightHeight=100.0); val down=solar.copy(flightHeight=-100.0)
+            val intermediate=solar.copy(flightHeight=100.0)
+            val base=pilotScreenRadius(solar,1f,3f,true)
+            assertTrue(pilotScreenRadius(intermediate,1f,3f,true)/base in 1.25f..1.45f)
+            val up=solar.copy(flightHeight=320.0); val down=solar.copy(flightHeight=-320.0)
             assertTrue(pilotScreenRadius(up,1f,3f,true) > pilotScreenRadius(solar,1f,3f,true)*1.5f)
             assertTrue(pilotScreenRadius(down,1f,3f,true) < pilotScreenRadius(solar,1f,3f,true)*.5f)
         }

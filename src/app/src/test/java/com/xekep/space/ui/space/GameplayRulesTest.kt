@@ -53,10 +53,10 @@ class GameplayRulesTest {
         assertEquals(3, next.lives); assertEquals(0.0, next.score, 0.0); assertEquals(0, next.destroyed)
         assertEquals(core.position, next.bodies.single().position); assertEquals(core.mass, next.bodies.single().mass, 0.0)
     }
-    @Test fun pendingWarningsPrecedeMeteorEntryAndRestingStopsSpawns() {
+    @Test fun arrowsReferToLiveMeteorApproachesAndRestingStopsSpawns() {
         val game = game().apply { startArcade(ArcadeDifficulty.Easy) }
         repeat(181) { game.update(1.0 / 60) }
-        assertTrue(game.arcade!!.pending.isNotEmpty()); assertTrue(game.bodies.none { it.kind == BodyKind.Meteor })
+        assertTrue(game.arcade!!.pending.isEmpty()); assertTrue(game.bodies.any { it.kind == BodyKind.Meteor })
         repeat(100) { game.update(1.0 / 60) }
         assertTrue(game.bodies.any { it.kind == BodyKind.Meteor })
         val run = game.arcade!!.copy(elapsed = 24.5, pending = emptyList(), spawnTimer = 0.0)

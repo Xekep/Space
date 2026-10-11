@@ -36,7 +36,7 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
             if (target == 0.0) return@map body.copy(pilotThrottle=0.0)
             val desiredPitch = control.pitch.coerceIn(-1.0,1.0)*MAX_FLIGHT_PITCH
             // Stabilized Mode 2: deflection commands an angle, neutral commands level flight.
-            val pitch = if (control.stabilizedAttitude) manualAttitude(body.pitch,control.pitch,STABILIZED_FLIGHT_PITCH,body.vehicleTurnScale,attitudeSeconds)
+            val pitch = if (control.stabilizedAttitude) manualAttitude(body.pitch,control.pitch,STABILIZED_FLIGHT_PITCH,body.vehicleTurnScale,attitudeSeconds,response=.18)
                 else body.pitch+(desiredPitch-body.pitch)*(1-exp(-flightSeconds/.16))
             val roll = if (control.stabilizedAttitude) manualAttitude(body.roll,control.roll,STABILIZED_FLIGHT_ROLL,body.vehicleTurnScale,attitudeSeconds)
                 else body.roll*(exp(-flightSeconds/.16))
@@ -55,11 +55,11 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
                 val powered=minOf(flightSeconds,body.fuelRemaining/((.12+1.38*throttle)*body.fuelConsumptionScale*body.vehicleFuelBurnScale))
                 val change=difference.normalized()*minOf(difference.magnitude(),acceleration*powered)
                 val pull=if (body.physicalScale) flightGravity(body,bodies) else DepthGravity(Vec2.Zero,0.0)
-                // Direct lift command starts with the input; the visible hull catches up smoothly.
+                // Vertical motion follows the actual hull angle, not an instantaneous full-stick angle.
                 val depthSeconds=powered
-                val depthAngle=if (control.stabilizedAttitude && control.pitch != 0.0) control.pitch.coerceIn(-1.0,1.0)*STABILIZED_FLIGHT_PITCH else pitch
-                val lift=if (control.stabilizedAttitude) (180+900*throttle)*body.vehicleAccelerationScale*(limit/900) else acceleration
-                val vertical=body.verticalVelocity+(target*sin(depthAngle)-body.verticalVelocity).coerceIn(-lift*depthSeconds,lift*depthSeconds)-pull.vertical*depthSeconds
+                val lift=acceleration
+                val depthChange=(target*sin(pitch)-body.verticalVelocity)*(1-exp(-depthSeconds/.18))
+                val vertical=body.verticalVelocity+depthChange.coerceIn(-lift*depthSeconds,lift*depthSeconds)-pull.vertical*depthSeconds
                 return@map body.copy(heading=heading,pitch=pitch,roll=roll,verticalVelocity=vertical,velocity=body.velocity+change-pull.planarCorrection*powered,pilotThrottle=throttle,pilotTargetSpeed=target)
             }
             val speed = body.velocity.magnitude().coerceAtLeast(70.0)
@@ -75,8 +75,8 @@ fun steerManually(bodies: List<CelestialBody>, control: ManualFlightControl?, se
     }
 }
 
-private fun manualAttitude(angle: Double, input: Double, limit: Double, turnScale: Double, seconds: Double): Double {
+private fun manualAttitude(angle: Double, input: Double, limit: Double, turnScale: Double, seconds: Double, response: Double = .055): Double {
     val target=input.coerceIn(-1.0,1.0)*limit
-    val next=target+(angle-target)*exp(-seconds*turnScale/(if (input == 0.0) .28 else .055))
+    val next=target+(angle-target)*exp(-seconds*turnScale/(if (input == 0.0) .28 else response))
     return if (input == 0.0 && abs(next) < .001) 0.0 else next
 }

@@ -36,7 +36,7 @@ data class ArcadeSession(
     val waveDelay: Double = 0.0,
     val planetId: Long? = null, val convoy: ArcadeConvoy? = null, val endless: Boolean = false,
     val sideEvent: ArcadeSideEvent? = null, val nextEventWave: Int = 4, val eventsCompleted: Int = 0, val eventRandomState: Long? = null,
-    val strategy: StrategyBattle? = null,
+    val strategy: StrategyBattle? = null, val arrivalPortals: List<ThreatPortal> = emptyList(),
     val carrier: ArcadeCarrier? = null, val salvage: ArcadeSalvage? = null, val salvageCollected: Int = 0,
 ) {
     val waveTime: Double get() = (elapsed-waveDelay).coerceAtLeast(0.0)

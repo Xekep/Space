@@ -322,7 +322,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                 }
             }
             if (game.mode == AppMode.Sandbox) drawSolarOrbits(bodies, viewport, renderCamera.center, renderCamera.zoom, game.hiddenSolarOrbits)
-            else { drawArcadeEncounterRoutes(game,renderCamera); drawCampaignObjects(game,renderCamera); drawStrategy(game,renderCamera) }
+            else { drawArrivalPortals(game,renderCamera); drawArcadeEncounterRoutes(game,renderCamera); drawCampaignObjects(game,renderCamera); drawStrategy(game,renderCamera) }
             bodies.filter { it.waypoints.isNotEmpty() }.forEach { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,it.color,it.routePath,it.routeDistance) }
             candidate?.takeIf { it.waypoints.isNotEmpty() }?.let { drawFlightRoute(it.position,it.waypoints,viewport,renderCamera.center,renderCamera.zoom,accent,it.routePath,showMarkers=true) }
             val trailBodies=visibleTrailBodies(bodies,viewport,renderCamera,game.cameraRotation,density,game.selectedBodyId,controlledId)

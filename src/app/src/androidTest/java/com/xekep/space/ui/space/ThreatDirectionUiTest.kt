@@ -7,6 +7,7 @@ import androidx.compose.runtime.MutableDoubleState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
@@ -37,7 +38,7 @@ class ThreatDirectionUiTest {
         (field.get(game) as MutableDoubleState).doubleValue = rotation
     }
 
-    @Test fun incomingMissedAndPendingThreatsPointOutwardAtEveryScreenEdge() {
+    @Test fun onlyLiveThreatsPointOutwardAtEveryScreenEdgeAndOldQueuedWarningsStayInvisible() {
         val game = SpaceGameState().apply { resize(IntSize(825, 1100)); startArcade() }
         compose.setContent {
             Canvas(Modifier.size(300.dp, 400.dp).onSizeChanged(game::resize).testTag("indicators")) {
@@ -73,6 +74,7 @@ class ThreatDirectionUiTest {
                     count++; minX = minOf(minX, x); maxX = maxOf(maxX, x); minY = minOf(minY, y); maxY = maxOf(maxY, y)
                 }
             }
+            if (pending) { assertEquals("Queued warning must not draw an arrow or timer",0,count); continue }
             assertTrue("Missing indicator: rotation=$rotation side=$side pending=$pending incoming=$incoming", count > 20)
             val mx = 24 * compose.density.density
             val my = minOf(160 * compose.density.density, h * .28f)
@@ -86,30 +88,71 @@ class ThreatDirectionUiTest {
             }
         }
     }
-    @Test fun wideViewShowsPendingArrivalUntilTheBodyIsReleased() {
+    @Test fun wideViewShowsAWormholeForALiveArrivalThenRemovesOnlyTheWormhole() {
         val game=SpaceGameState().apply { resize(IntSize(825,1100)); startArcade() }
         val core=game.bodies.first { it.kind == BodyKind.Core }
-        val threat=core.copy(id=999,kind=BodyKind.Meteor,mass=90.0,radius=10f,
-            position=core.position+Vec2(1000.0,0.0),velocity=Vec2(-100.0,0.0))
-        replace(game,game.arcade!!.copy(camera=SpaceCamera(core.position,.15f),bodies=listOf(core),
-            pending=listOf(PendingThreat(threat,.9))))
+        replace(game,game.arcade!!.copy(camera=SpaceCamera(core.position,.08f),bodies=listOf(core),spawnTimer=0.0))
         compose.setContent {
             Canvas(Modifier.size(300.dp,400.dp).onSizeChanged(game::resize).testTag("indicators")) {
-                drawRect(Color.Black); drawSpaceIndicators(game)
+                drawRect(Color.Black);drawArrivalPortals(game);drawSpaceIndicators(game)
+                game.bodies.filter { it.kind==BodyKind.Meteor }.forEach { drawBody(it,game.viewport,game.camera.center,game.camera.zoom) }
             }
         }
-        fun warningPixels(): Int {
+        compose.runOnIdle { replace(game,advanceArcade(game.arcade!!,.01,kotlin.random.Random(17),view=ThreatView(game.viewport))) }
+        val id=game.bodies.single { it.kind==BodyKind.Meteor }.id
+        assertTrue(game.arcade!!.pending.isEmpty());assertEquals(1,game.arcade!!.arrivalPortals.size)
+        fun portalPixels(): Int {
             val image=compose.onNodeWithTag("indicators").captureToImage().asAndroidBitmap()
             var count=0
             for (y in 0 until image.height) for (x in 0 until image.width) {
                 val pixel=image.getPixel(x,y)
-                if (android.graphics.Color.red(pixel) >= 170) count++
+                val r=android.graphics.Color.red(pixel);val g=android.graphics.Color.green(pixel);val b=android.graphics.Color.blue(pixel)
+                if (b>=120 && b>r*.9 && b>g*1.15 && r>=60) count++
             }
             return count
         }
-        assertTrue("Visible pending threat has no warning",warningPixels() > 20)
-        compose.runOnIdle { replace(game,game.arcade!!.copy(bodies=listOf(core,threat),pending=emptyList())) }
-        assertEquals("Warning stayed after release",0,warningPixels())
+        assertTrue("Visible live arrival has no wormhole",portalPixels()>20)
+        val context=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        java.io.File(context.externalCacheDir,"arrival-wormhole.png").outputStream().use {
+            compose.onNodeWithTag("indicators").captureToImage().asAndroidBitmap().compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)
+        }
+        compose.runOnIdle {
+            var run=game.arcade!!.copy(spawnTimer=1000.0)
+            repeat(60) { run=advanceArcade(run,1.0/60,kotlin.random.Random(17),view=ThreatView(game.viewport)) }
+            replace(game,run)
+        }
+        assertTrue(game.bodies.any { it.id==id });assertTrue(game.arcade!!.arrivalPortals.isEmpty())
+        assertEquals("Wormhole stayed after the arrival",0,portalPixels())
+    }
+
+    @Test fun wormholeStaysOnTheLaunchSiteWhenThePilotCameraRotates() {
+        val game=SpaceGameState().apply { resize(IntSize(825,1100));startArcade() }
+        val core=game.bodies.first { it.kind==BodyKind.Core }
+        val position=core.position+Vec2(220.0,80.0)
+        replace(game,game.arcade!!.copy(camera=SpaceCamera(core.position,.5f),bodies=listOf(core),
+            arrivalPortals=listOf(ThreatPortal(position,10f))))
+        rotateCamera(game,1.1)
+        compose.setContent {
+            Canvas(Modifier.size(300.dp,400.dp).onSizeChanged(game::resize).testTag("portal-rotation")) {
+                drawRect(Color.Black)
+                // Same world-canvas transform as SpaceScene, applied exactly once.
+                rotate((game.cameraRotation*180/Math.PI).toFloat()) {
+                    drawArrivalPortals(game)
+                }
+            }
+        }
+        val image=compose.onNodeWithTag("portal-rotation").captureToImage().asAndroidBitmap()
+        var left=image.width;var right=0;var top=image.height;var bottom=0;var count=0
+        for (y in 0 until image.height) for (x in 0 until image.width) {
+            val p=image.getPixel(x,y);val r=android.graphics.Color.red(p);val g=android.graphics.Color.green(p);val b=android.graphics.Color.blue(p)
+            if (b>=120 && b>r*.9 && b>g*1.15 && r>=60) {
+                count++;left=minOf(left,x);right=maxOf(right,x);top=minOf(top,y);bottom=maxOf(bottom,y)
+            }
+        }
+        assertTrue(count>20)
+        val expected=worldToScreen(position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+        assertEquals(expected.x,(left+right)/2f,6*game.density)
+        assertEquals(expected.y,(top+bottom)/2f,6*game.density)
     }
 
 }

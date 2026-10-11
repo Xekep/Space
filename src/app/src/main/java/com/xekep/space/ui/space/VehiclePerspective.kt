@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.geometry.Offset
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tanh
+import com.xekep.space.sim.flightDepthCue
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.CelestialBody
 import com.xekep.space.sim.Vec2
@@ -13,7 +13,7 @@ import com.xekep.space.sim.isVehicle
 /** Small oblique-view parallax reveals altitude immediately without moving the world plane. */
 internal fun flightRenderPosition(body: CelestialBody,position: Vec2,viewport: IntSize,zoom: Float,rotation: Double): Vec2 {
     if (!body.isVehicle || body.flightHeight == 0.0) return position
-    val pixels=-minOf(viewport.width,viewport.height)*.055*tanh(body.flightHeight/maxOf(12.0,body.radius*1.5))
+    val pixels=-minOf(viewport.width,viewport.height)*.055*body.flightDepthCue()
     return position+rotateVector(Vec2(0.0,pixels/zoom.coerceAtLeast(.000001f)),-rotation)
 }
 
