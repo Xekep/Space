@@ -17,14 +17,28 @@ internal object NumericIntegrator {
         var gravityValid=false
     }
     // Tests and gameplay can run on different threads; never share mutable RK4 buffers.
-    private val buffers = ThreadLocal<Buffers>()
+    private val buffers = ThreadLocal<LinkedHashMap<Int,Buffers>>()
 
     fun advance(bodies: List<CelestialBody>, seconds: Double, limit: Double, fixedCore: Boolean = false,
         recordTrail: Boolean = true, alignRockets: Boolean = true, controlledId: Long? = null,
         approximateGravity: Boolean = true, cacheGravity: Boolean = true, manualDepthScale: Double = 1.0): List<CelestialBody> {
         if (bodies.isEmpty() || seconds <= 0.0) return bodies
+        if (bodies.any { it.explorationRegion!=null }) {
+            val groups=explorationGravityGroups(bodies,fixedCore)
+            if (groups.size>1) {
+                val advanced=groups.flatMap { group -> advance(group,seconds,limit,fixedCore,recordTrail,alignRockets,
+                    controlledId,approximateGravity,cacheGravity,manualDepthScale) }.associateBy { it.id }
+                return bodies.map { advanced.getValue(it.id) }
+            }
+        }
         val count = bodies.size
-        val workspace = buffers.get()?.takeIf { it.masses.size == count } ?: Buffers(count,buffers.get()?.tree ?: BarnesHutGravity()).also { buffers.set(it) }
+        // Regional domains alternate small body counts: reuse a bounded set of workspaces
+        // instead of rebuilding every RK4 array on each domain switch.
+        val cache=buffers.get() ?: LinkedHashMap<Int,Buffers>().also { buffers.set(it) }
+        val workspace=cache[count] ?: Buffers(count,cache.values.lastOrNull()?.tree ?: BarnesHutGravity()).also {
+            if (cache.size>=8) cache.remove(cache.keys.first())
+            cache[count]=it
+        }
         val values = workspace.values; val masses = workspace.masses; val fixed = workspace.fixed; val smoothing = workspace.smoothing
         val headings = workspace.headings
         val hasVehicles = bodies.any { it.isVehicle }

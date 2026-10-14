@@ -73,10 +73,10 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             root.optBoolean("flightPractice"),root.optBoolean("practiceJoystick"),root.optJSONObject("practiceHeading")?.let(::readVec) ?: Vec2(0.0,-1.0),
             root.optDouble("practiceSpeed",0.0).also { require(it in 0.0..5000.0) },strategy)
     }
-    private fun bodyScene(bodies: List<CelestialBody>, camera: SpaceCamera = SpaceCamera()): JSONObject =
-        JSONObject(scenes.encode(SandboxSnapshot(bodies,camera.center,camera.zoom,0.0,0L,preset=SandboxPresetKind.Empty)))
+    private fun bodyScene(bodies: List<CelestialBody>, camera: SpaceCamera = SpaceCamera(), exploration: com.xekep.space.sim.ExplorationState? = null): JSONObject =
+        JSONObject(scenes.encode(SandboxSnapshot(bodies,camera.center,camera.zoom,0.0,0L,preset=SandboxPresetKind.Empty,exploration=exploration)))
     private fun encodeArcade(run: ArcadeSession): JSONObject {
-        val result=JSONObject().put("scene",bodyScene(run.bodies,run.camera))
+        val result=JSONObject().put("scene",bodyScene(run.bodies,run.camera,run.exploration))
             .put("arenaWidth",run.arena.width).put("arenaHeight",run.arena.height)
             .put("pendingScene",bodyScene(run.pending.map { it.body }))
             .put("pendingSeconds",JSONArray(run.pending.map { it.seconds }))
@@ -96,7 +96,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         result.put("nextEventWave",run.nextEventWave).put("eventsCompleted",run.eventsCompleted)
         result.put("salvageCollected",run.salvageCollected)
         run.salvage?.let { result.put("salvage",JSONObject().put("wave",it.wave).put("position",vec(it.position))
-            .put("remaining",it.remaining).put("status",it.status.name).put("rewarded",it.rewarded)) }
+            .put("remaining",it.remaining).put("status",it.status.name).put("rewarded",it.rewarded).put("appearance",it.appearance.name)) }
         run.carrier?.let { result.put("carrier",JSONObject().put("ids",JSONArray(it.nodeIds.toList()))
             .put("angle",it.angle).put("elapsed",it.elapsed).put("defeated",it.defeated)) }
         result.put("shots",JSONArray().also { array -> run.combat.projectiles.forEach { shot -> array.put(JSONObject()
@@ -122,7 +122,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             it.getDouble("elapsed").also { x -> require(x in 0.0..1e8) },ConvoyStatus.valueOf(it.getString("status")),it.getBoolean("bonusAwarded")) }
         val salvage=root.optJSONObject("salvage")?.let { ArcadeSalvage(it.getInt("wave").also { w -> require(w in listOf(7,13)) },
             readVec(it.getJSONObject("position")),it.getDouble("remaining").also { t -> require(t in 0.0..32.0) },
-            SalvageStatus.valueOf(it.getString("status")),it.getBoolean("rewarded")) }
+            SalvageStatus.valueOf(it.getString("status")),it.getBoolean("rewarded"),LootAppearance.valueOf(it.optString("appearance","Container"))) }
         val carrier=root.optJSONObject("carrier")?.let { ArcadeCarrier(it.getJSONArray("ids").longSet().also { ids -> require(ids.size == 3) },
             it.getDouble("angle").also { angle -> require(angle in 0.0..(2*kotlin.math.PI)) },
             it.getDouble("elapsed").also { t -> require(t in 0.0..101.0) },it.getBoolean("defeated")) }
@@ -149,7 +149,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             sideEvent=root.optJSONObject("sideEvent")?.let(::decodeSideEvent),nextEventWave=root.optInt("nextEventWave",4).also { require(it in 1..10000000) },
             eventRandomState=if (root.isNull("eventRandomState")) null else root.getLong("eventRandomState").also { require(it != 0L) },
             eventsCompleted=root.optInt("eventsCompleted",0).also { require(it in 0..10000000) },
-            carrier=carrier,salvage=salvage,salvageCollected=root.optInt("salvageCollected",0).also { require(it in 0..2) })
+            exploration=scene.exploration,carrier=carrier,salvage=salvage,salvageCollected=root.optInt("salvageCollected",0).also { require(it in 0..2) })
         require(run.energy <= run.maxEnergy && run.waveDelay <= run.elapsed)
         carrier?.let { boss ->
             val nodes=run.bodies.filter { it.id in boss.nodeIds }; require(nodes.all { it.kind == BodyKind.Meteor })

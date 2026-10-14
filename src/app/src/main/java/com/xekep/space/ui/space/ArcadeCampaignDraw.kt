@@ -11,16 +11,10 @@ import com.xekep.space.sim.*
 import kotlin.math.*
 
 /** Vector artwork follows world scale and works with the existing retro canvas. */
-internal fun DrawScope.drawCampaignObjects(game: SpaceGameState, camera: SpaceCamera) {
+internal fun DrawScope.drawCampaignObjects(game: SpaceGameState, camera: SpaceCamera, animateLoot: Boolean = true) {
     val run=game.arcade ?: return
     run.salvage?.takeIf { it.status == SalvageStatus.Available }?.let { salvage ->
-        val point=worldToScreen(salvage.position,game.viewport,camera.center,camera.zoom)
-        val radius=(55*camera.zoom).coerceAtLeast(12.dp.toPx())
-        drawCircle(Color(0xFF9EF8FF).copy(alpha=.12f),radius,point)
-        drawCircle(Color(0xFF9EF8FF).copy(alpha=.55f),radius,point,style=Stroke(1.dp.toPx()))
-        drawDiamond(point,8.dp.toPx(),Color(0xFF9EF8FF))
-        drawArc(Color(0xFF9EF8FF),-90f,(salvage.remaining/32*360).toFloat(),false,
-            point-Offset(radius,radius),androidx.compose.ui.geometry.Size(radius*2,radius*2),style=Stroke(2.dp.toPx()))
+        drawWorldLoot(salvage.appearance,salvage.position,game,camera,run.elapsed,animateLoot)
     }
     run.carrier?.takeUnless { it.defeated }?.let { carrier ->
         val center=worldToScreen(run.carrierPosition,game.viewport,camera.center,camera.zoom)

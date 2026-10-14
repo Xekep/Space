@@ -5,9 +5,11 @@ import com.xekep.space.sim.*
 import kotlin.math.*
 import kotlin.random.Random
 
+enum class LootAppearance { Container, Module, Capsule }
+
 enum class SalvageStatus { Available, Collected, Expired }
 data class ArcadeSalvage(val wave: Int, val position: Vec2, val remaining: Double = 32.0,
-    val status: SalvageStatus = SalvageStatus.Available, val rewarded: Boolean = false)
+    val status: SalvageStatus = SalvageStatus.Available, val rewarded: Boolean = false, val appearance: LootAppearance = LootAppearance.Container)
 data class ArcadeCarrier(val nodeIds: Set<Long>, val angle: Double, val elapsed: Double = 0.0,
     val defeated: Boolean = false)
 
@@ -36,7 +38,7 @@ internal fun prepareCampaign(run: ArcadeSession, random: Random): ArcadeSession 
         val phase=random.nextDouble(2*PI)
         val position=(0 until 12).map { i -> core.position+Vec2(cos(phase+i*PI/6),sin(phase+i*PI/6))*620.0 }
             .maxBy { point -> run.bodies.minOfOrNull { (it.position-point).magnitude()-it.radius } ?: 0.0 }
-        next=next.copy(salvage=ArcadeSalvage(run.wave,position))
+        next=next.copy(salvage=ArcadeSalvage(run.wave,position,appearance=LootAppearance.entries[(phase/(2*PI)*3).toInt().coerceAtMost(2)]))
     }
     if (run.wave == 20 && run.carrier == null) {
         val carrier=ArcadeCarrier(List(3) { SimulationEngine.newBodyId() }.toSet(),random.nextDouble(2*PI))
@@ -97,12 +99,13 @@ internal fun positionCarrierNodes(run: ArcadeSession): ArcadeSession {
 internal fun finishCampaign(before: ArcadeSession, after: ArcadeSession, dt: Double, controlledId: Long?): ArcadeSession {
     var next=after
     after.salvage?.takeIf { it.status == SalvageStatus.Available }?.let { salvage ->
-        // A deliberate route or manual sortie is required. Core patrol cannot collect it passively.
+        val position=salvage.position+lootDriftVelocity(salvage.wave)*minOf(dt,salvage.remaining)
+        // Sweep relative motion: both the visitor and the loot drift.
         val collected=after.bodies.any { body ->
             val old=before.bodies.firstOrNull { it.id == body.id } ?: body
             val intentional=body.id == controlledId || body.waypoints.isNotEmpty() || old.waypoints.isNotEmpty()
             if (!body.isVehicle || !intentional) false else {
-                val contact=firstSphereContact(old.position-salvage.position,body.position-salvage.position,
+                val contact=firstSphereContact(old.position-salvage.position,body.position-position,
                     old.flightHeight,body.flightHeight,body.radius+55.0)
                 contact != null && contact*dt <= salvage.remaining
             }
@@ -110,7 +113,7 @@ internal fun finishCampaign(before: ArcadeSession, after: ArcadeSession, dt: Dou
         val remaining=(salvage.remaining-dt).coerceAtLeast(0.0)
         val status=when { collected -> SalvageStatus.Collected
             remaining <= 0.0 -> SalvageStatus.Expired; else -> SalvageStatus.Available }
-        next=next.copy(salvage=salvage.copy(remaining=remaining,status=status),
+        next=next.copy(salvage=salvage.copy(position=position,remaining=remaining,status=status),
             salvageCollected=next.salvageCollected+if (status == SalvageStatus.Collected) 1 else 0)
     }
     after.carrier?.takeUnless { it.defeated }?.let { carrier ->

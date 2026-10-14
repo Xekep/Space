@@ -88,6 +88,7 @@ data class CelestialBody(
     val verticalVelocity: Double = 0.0,
     val pitch: Double = 0.0, // Radians; positive climbs toward the viewer.
     val roll: Double = 0.0, // Radians; positive banks to the craft's right.
+    val explorationRegion: Long? = null,
 )
 
 data class CollisionEvent(
@@ -426,7 +427,7 @@ object SimulationEngine {
             dt = dt,
             collisionsEnabled = collisionsEnabled,
             // A powered scene is an open energy system; correcting to its launch energy cancels thrust.
-            energyReference = if (collisionsEnabled || bodies.size >= BARNES_HUT_THRESHOLD || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale }) null else referenceEnergy,
+            energyReference = if (collisionsEnabled || bodies.size >= BARNES_HUT_THRESHOLD || bodies.any { it.isVehicle || it.kind == BodyKind.BlackHole || it.physicalScale || it.explorationRegion != null }) null else referenceEnergy,
             substepLimit = if (bodies.size >= BARNES_HUT_THRESHOLD) sandboxStepLimit(bodies) else if (bodies.any { it.physicalScale }) min(
                 if (collisionsEnabled || bodies.size < 40) sandboxSubstep else 1.0/30.0,sandboxStepLimit(bodies))
                 else if (collisionsEnabled || bodies.size < 40) sandboxSubstep else sandboxStepLimit(bodies),

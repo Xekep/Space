@@ -65,6 +65,17 @@ fun DrawScope.drawBody(
         drawVehicle(body, center, zoom, piloted, largeVehicleIcons,renderHeading,pilotVisualZoom)
         return
     }
+    if (body.explorationRegion != null && body.isDebris) {
+        val r=(body.radius*zoom).coerceAtLeast(1.2f*density)
+        rotate((kotlin.math.atan2(renderHeading.y,renderHeading.x)*180/Math.PI).toFloat(),center) {
+            val panel=Path().apply { moveTo(center.x-r,center.y-r*.6f);lineTo(center.x+r*.65f,center.y-r)
+                lineTo(center.x+r,center.y+r*.45f);lineTo(center.x-r*.7f,center.y+r*.7f);close() }
+            drawPath(panel,body.color)
+            drawLine(Color(0xFFE0E9EE).copy(alpha=.65f),center-Offset(r*.8f,r*.55f),center+Offset(r*.55f,-r*.8f),maxOf(.7f,r*.18f))
+            if (r>3*density) drawLine(Color(0xFF426D87),center-Offset(r*.4f,0f),center+Offset(r*.5f,r*.2f),r*.27f)
+        }
+        return
+    }
     if (simple && body.solar == null && body.kind in listOf(BodyKind.Ambient,BodyKind.Player)) {
         val radius=if (body.galaxySystemId != null) bodyScreenRadius(body,zoom,density) else (body.radius*zoom).coerceIn(2.5f,38f)
         if (body.orbitParentId == body.galaxySystemId && body.galaxySystemId != null && body.mass > 60 && zoom > .12f) {

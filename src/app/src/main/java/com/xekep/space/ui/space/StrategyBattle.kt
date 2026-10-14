@@ -54,7 +54,7 @@ internal fun upgradeStation(run: ArcadeSession, id: Long): ArcadeSession {
 internal fun issueFleetOrder(run: ArcadeSession, ids: Set<Long>, command: FleetCommand, position: Vec2, targetId: Long? = null): ArcadeSession {
     val battle=run.strategy ?: return run
     if (!position.x.isFinite() || !position.y.isFinite() || run.lives <= 0 || battle.victory) return run
-    val craft=run.bodies.filter { it.isVehicle && it.id in ids }.sortedBy { it.id }
+    val craft=run.bodies.filter { it.isVehicle && it.id in ids && !(command == FleetCommand.Guard && it.id == targetId) }.sortedBy { it.id }
     val count=craft.size
     val orders=craft.mapIndexed { index,body ->
         // Distinct slots keep the fleet from converging on the same point.
@@ -62,14 +62,14 @@ internal fun issueFleetOrder(run: ArcadeSession, ids: Set<Long>, command: FleetC
         body.id to FleetOrder(command,position+if (command == FleetCommand.Move) offset else Vec2.Zero,targetId)
     }.toMap()
     return run.copy(strategy=battle.copy(orders=battle.orders+orders),bodies=run.bodies.map {
-        if (it.id in ids && it.isVehicle) it.copy(waypoints=emptyList(),routePath=null,routeAvoiding=false,pilotTargetSpeed=null) else it })
+        if (it.id in orders && it.isVehicle) it.copy(waypoints=emptyList(),routePath=null,routeAvoiding=false,pilotTargetSpeed=null) else it })
 }
 
 /** Tactical commands override pursuit, while manual input and existing authored routes win. */
 internal fun fleetVelocity(body: CelestialBody, order: FleetOrder, scene: List<CelestialBody>, stations: List<OrbitalStation>, eventPosition: Vec2? = null): Vec2? {
     if (order.command == FleetCommand.Attack) return if (body.shipClass == ShipClass.Guardian && body.kind == BodyKind.Ship)
         scene.firstOrNull { it.id == order.targetId }?.let { (it.position-body.position).normalized()*220.0 } else null
-    val target=scene.firstOrNull { it.id == order.targetId }
+    val target=scene.firstOrNull { it.id == order.targetId && it.id != body.id }
     val anchor=(if (order.targetId == -1L) eventPosition else null) ?: target?.position ?: stations.firstOrNull { it.id == order.targetId }?.position ?: order.position
     val anchorVelocity=target?.velocity ?: Vec2.Zero
     val offset=anchor-body.position
@@ -187,14 +187,14 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
         if (hull <= 0) { stationHits+=CollisionEvent(BodyKind.ArcadePlanet,BodyKind.Meteor,station.position,vehicleExplosion=true); null }
         else station.copy(hull=hull)
     }
-    val impacts=advanceProjectiles(advanceWaypoints(prepared.bodies,live),prepared.combat,dt)
+    val impacts=advanceProjectiles(advanceWaypoints(prepared.bodies,live),prepared.combat,dt,baseIds)
     val events=step.collisions+stationHits+impacts.events
     val hit=events.any { it.secondKind == BodyKind.Core && it.firstKind == BodyKind.Meteor }
     val lives=if (hit && input.immunity <= 0) maxOf(0,input.lives-1) else input.lives
     val ids=impacts.bodies.map { it.id }.toSet()
     val enemiesAlive=enemies.filter { (id,status) -> id in ids && status.age < 100.0 }
     val ended=enemies.keys-enemiesAlive.keys
-    val stopped=events.mapNotNull { it.meteorId }.distinct().size
+    val stopped=events.filter { it.secondKind != BodyKind.Core }.mapNotNull { it.meteorId }.distinct().size
     val aliveBases=bases.filter { it.id in ids }
     val next=input.copy(bodies=impacts.bodies.filterNot { it.id in ended },energy=minOf(input.maxEnergy,energy+stopped*4),elapsed=input.elapsed+dt,
         lives=lives,launches=launches,immunity=if (hit && input.immunity <= 0) .6 else maxOf(0.0,input.immunity-dt),

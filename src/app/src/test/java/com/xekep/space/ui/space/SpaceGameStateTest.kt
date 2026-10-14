@@ -22,7 +22,7 @@ class SpaceGameStateTest {
         assertEquals(before.launches,game.arcade!!.launches)
         game.clearSelection(); assertNull(game.selectedBody)
     }
-    private fun game() = SpaceGameState(random = Random(73)).apply { resize(IntSize(1080, 1920)) }
+    private fun game(proceduralWorlds: Boolean = true) = SpaceGameState(proceduralWorlds=proceduralWorlds,random = Random(73)).apply { resize(IntSize(1080, 1920)) }
 
     @Test fun switchingModesKeepsBothWorldsAndTheirCameras() {
         val game = game()
@@ -116,11 +116,11 @@ class SpaceGameStateTest {
         first.startArcade()
         second.startArcade()
         second.transformCamera(Offset(400f, 500f), Offset(10000f, 5000f), 0.2f)
-        repeat(40) { first.update(0.05); second.update(0.05) }
+        repeat(100) { first.update(0.05); second.update(0.05) }
         assertEquals(first.arcade!!.score, second.arcade!!.score, 0.0)
         assertEquals(first.arcade!!.lives, second.arcade!!.lives)
-        assertEquals(first.bodies.map { it.position }, second.bodies.map { it.position })
-        assertEquals(first.bodies.map { it.velocity }, second.bodies.map { it.velocity })
+        assertEquals(first.bodies.map { it.position }, second.bodies.filter { it.explorationRegion==null }.map { it.position })
+        assertEquals(first.bodies.map { it.velocity }, second.bodies.filter { it.explorationRegion==null }.map { it.velocity })
     }
 
     @Test fun menuFreezesBothSessionsAndPersistsBestScore() {
@@ -141,14 +141,14 @@ class SpaceGameStateTest {
         for (mode in AppMode.entries) {
             for (zoomChange in listOf(0.3f, 1f, 3f)) {
                 for (direction in listOf(Offset(-1f, -1f), Offset(-1f, 1f), Offset(1f, -1f), Offset(1f, 1f))) {
-                    val game = game()
-                    if (mode == AppMode.Arcade) game.startArcade() else game.startSandbox(SandboxPresetKind.Empty)
+                    val game = game(proceduralWorlds=false)
+                    when (mode) { AppMode.Arcade -> game.startArcade(); AppMode.Strategy -> { game.startStrategy();game.toggleTactics() }; AppMode.Sandbox -> game.startSandbox(SandboxPresetKind.Empty) }
                     val screenPoint = Offset(540f, 960f)
                     game.transformCamera(screenPoint, direction * 5000f, 1f)
                     game.transformCamera(screenPoint, Offset.Zero, zoomChange)
                     val expected = game.worldAt(screenPoint)
                     game.finishGesture(game.previewAt(screenPoint, screenPoint, 0), 0.0)
-                    val created = game.bodies.last()
+                    val created = game.bodies.last { it.explorationRegion==null }
                     assertEquals(expected, created.position)
                     repeat(60) { game.update(1.0 / 60.0) }
                     assertTrue("$mode at $expected lost the created body", game.bodies.any { it.id == created.id })

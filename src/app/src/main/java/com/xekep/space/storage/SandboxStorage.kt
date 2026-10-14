@@ -3,6 +3,8 @@ package com.xekep.space.storage
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.xekep.space.sim.ExplorationState
+import com.xekep.space.sim.validRegionKey
 import com.xekep.space.sim.MAX_SANDBOX_BODIES
 import com.xekep.space.sim.BodyKind
 import com.xekep.space.sim.CelestialBody
@@ -27,6 +29,7 @@ data class SandboxSnapshot(
     val preset: SandboxPresetKind = SandboxPresetKind.SolarSystem,
     val name: String = preset.title,
     val collisionMode: SandboxCollisionMode = SandboxCollisionMode.Merge,
+    val exploration: ExplorationState? = null,
 )
 
 data class SandboxSlotSummary(
@@ -72,6 +75,7 @@ class SandboxStorage(context: Context) {
         root.put("paused", snapshot.paused)
         root.put("collisionsEnabled", snapshot.collisionsEnabled)
         root.put("collisionMode",snapshot.collisionMode.name)
+        snapshot.exploration?.let { root.put("exploration",encodeExploration(it)) }
         root.put("preset", snapshot.preset.name)
         root.put("name", snapshot.name)
         root.put(
@@ -98,6 +102,7 @@ class SandboxStorage(context: Context) {
                     .put("solarOrbitScale", body.solarOrbitScale)
                     .put("orbitalDetail", body.orbitalDetail?.name ?: "")
                     .put("isDebris",body.isDebris)
+                    .put("explorationRegion",body.explorationRegion)
                     .put("galaxyParticle",body.galaxyParticle)
                     .put("galaxySystemId",body.galaxySystemId)
                     .put("orbitParentId",body.orbitParentId)
@@ -220,6 +225,7 @@ class SandboxStorage(context: Context) {
                         waypoints = points, routeSpeed = routeSpeed, routeTolerance = routeTolerance,
                         pilotThrottle = pilotThrottle,
                         pilotTargetSpeed=targetSpeed,isDebris=body.optBoolean("isDebris",false),
+                        explorationRegion=if (body.isNull("explorationRegion") || !body.has("explorationRegion")) null else body.getLong("explorationRegion").also { require(validRegionKey(it)) },
                         shipClass=shipClass,fuelConsumptionScale=fuelScale,
                         galaxyParticle=body.optBoolean("galaxyParticle",false),
                         galaxySystemId=systemId,orbitParentId=parentId,
@@ -232,6 +238,8 @@ class SandboxStorage(context: Context) {
                 )
             }
         }
+        val exploration=root.optJSONObject("exploration")?.let(::decodeExploration)
+        require(bodies.filter { it.explorationRegion!=null }.all { it.explorationRegion in exploration?.visited.orEmpty() })
         require(bodies.map { it.id }.distinct().size == bodies.size)
         require(camera.getDouble("x") in -1e9..1e9 && camera.getDouble("y") in -1e9..1e9 && root.getDouble("zoom") in 0.001..5000.0)
         require(root.getDouble("referenceEnergy").isFinite())
@@ -249,6 +257,7 @@ class SandboxStorage(context: Context) {
             }.getOrDefault(SandboxPresetKind.SolarSystem),
             name = root.optString("name", "Universe").take(40),
             collisionMode=runCatching { SandboxCollisionMode.valueOf(root.optString("collisionMode","Merge")) }.getOrDefault(SandboxCollisionMode.Merge),
+            exploration=exploration,
         )
     }
 

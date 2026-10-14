@@ -30,6 +30,7 @@ internal fun advanceSideEvent(before: ArcadeSession, run: ArcadeSession, dt: Dou
     val old=before.bodies.associateBy { it.id }
     val visitors=run.bodies.filter { it.isVehicle && (run.strategy != null || it.id == controlledId || it.waypoints.isNotEmpty() || old[it.id]?.waypoints?.isNotEmpty() == true) }
     var position=event.position
+    if (event.kind != SideEventKind.Rescue) position+=lootDriftVelocity(event.kind.ordinal+40)*minOf(dt,event.remaining)
     val completed: Boolean
     if (event.kind == SideEventKind.Rescue) {
         if (visitors.any { (it.position-position).magnitude() <= 250.0 && abs(it.flightHeight) < 80.0 })
@@ -37,7 +38,7 @@ internal fun advanceSideEvent(before: ArcadeSession, run: ArcadeSession, dt: Dou
         completed=(position-core.position).magnitude() < core.radius+100.0
     } else completed=visitors.any { body ->
         val previous=old[body.id] ?: body
-        val contact=firstSphereContact(previous.position-position,body.position-position,previous.flightHeight,body.flightHeight,body.radius+55.0)
+        val contact=firstSphereContact(previous.position-event.position,body.position-position,previous.flightHeight,body.flightHeight,body.radius+55.0)
         contact != null && contact*dt <= event.remaining
     }
     val hit=event.kind == SideEventKind.Rescue && run.bodies.any { it.kind == BodyKind.Meteor && (it.position-position).magnitude() < it.radius+25.0 }

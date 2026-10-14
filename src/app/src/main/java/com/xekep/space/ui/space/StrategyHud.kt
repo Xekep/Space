@@ -109,15 +109,11 @@ internal fun StrategyHud(game: SpaceGameState) {
     }
 }
 
-internal fun DrawScope.drawStrategy(game: SpaceGameState, camera: SpaceCamera) {
+internal fun DrawScope.drawStrategy(game: SpaceGameState, camera: SpaceCamera, animateLoot: Boolean = true) {
     val run=game.arcade ?: return
     val event=run.sideEvent?.takeIf { it.status == SideEventStatus.Active }
     event?.let {
-        val p=worldToScreen(it.position,game.viewport,camera.center,camera.zoom)
-        val r=10.dp.toPx()
-        val path=Path().apply { moveTo(p.x,p.y-r);lineTo(p.x+r,p.y);lineTo(p.x,p.y+r);lineTo(p.x-r,p.y);close() }
-        drawPath(path,Color(0xFF80FFDF),style=Stroke(2.dp.toPx()))
-        drawCircle(Color(0xFF80FFDF).copy(alpha=.25f),maxOf(25f,55*camera.zoom),p,style=Stroke(1.dp.toPx()))
+        drawWorldLoot(it.kind.lootModel(),it.position,game,camera,run.elapsed,animateLoot)
     }
     val battle=run.strategy ?: return
     for (station in battle.stations) {

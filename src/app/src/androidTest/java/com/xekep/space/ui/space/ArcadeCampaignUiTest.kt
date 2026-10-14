@@ -51,7 +51,7 @@ class ArcadeCampaignUiTest {
         val game=game(7);show(game)
         compose.onNodeWithTag("find-salvage").assertIsDisplayed().performClick()
         compose.mainClock.advanceTimeBy(48)
-        assertEquals(game.arcade!!.salvage!!.position,game.camera.center)
+        assertTrue("Focus must remain close to the slowly drifting trophy",(game.arcade!!.salvage!!.position-game.camera.center).magnitude()<1.0)
         screenshot("campaign-salvage.png")
         compose.onNodeWithTag("arcade-spawn-Ship").performClick();compose.mainClock.advanceTimeByFrame()
         val point=game.arcade!!.salvage!!.position

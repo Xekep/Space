@@ -175,7 +175,7 @@ internal fun prepareCombat(bodies: List<CelestialBody>, current: ArcadeCombat, d
     return CombatResult(next, ArcadeCombat(shots, statuses), events)
 }
 
-internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeCombat, dt: Double): CombatResult {
+internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeCombat, dt: Double, anchoredTargets: Set<Long> = emptySet()): CombatResult {
     val targets = bodies.toMutableList()
     val shots = mutableListOf<SpaceProjectile>()
     val events = mutableListOf<CollisionEvent>()
@@ -209,7 +209,8 @@ internal fun advanceProjectiles(bodies: List<CelestialBody>, combat: ArcadeComba
                 targets.removeAt(hitIndex)
                 events += CollisionEvent(BodyKind.Meteor, BodyKind.Ship, meteor.position, meteor.id, shot.ownerId,
                     vehicleExplosion = true, seed = meteor.id.toInt())
-            } else targets[hitIndex] = meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), color = Color(0xFFFFB76B))
+            } else targets[hitIndex] = if (meteor.id in anchoredTargets) meteor.copy(mass=mass)
+                else meteor.copy(mass = mass, radius = SimulationEngine.radiusForMass(mass), color = Color(0xFFFFB76B))
         } else if (shot.remaining > dt) shots += shot.copy(position = shot.position + travel, height=shot.height+shot.verticalVelocity*dt,remaining = shot.remaining - dt)
     }
     val liveIds = targets.filter { it.isVehicle }.map { it.id }.toSet()
