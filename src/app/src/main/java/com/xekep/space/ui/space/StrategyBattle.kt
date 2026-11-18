@@ -9,16 +9,29 @@ enum class FleetCommand { Move, Guard, Attack }
 data class FleetOrder(val command: FleetCommand, val position: Vec2, val targetId: Long? = null)
 enum class StationKind { Factory, Service, Bastion }
 enum class FactoryProduct { Off, Rocket, Interceptor, Guardian }
+enum class StrategyTraining { Factory, Fleet, Order }
 data class OrbitalStation(val id: Long, val position: Vec2, val kind: StationKind, val level: Int = 1,
     val hull: Int = 3, val product: FactoryProduct = FactoryProduct.Off, val remaining: Double = if (kind == StationKind.Bastion) .2 else 18.0)
 data class EnemyBase(val id: Long, val position: Vec2, val remaining: Double = 25.0, val launches: Int = 0)
 data class EnemyCraft(val kind: BodyKind, val cooldown: Double = 3.0, val age: Double = 0.0)
 data class StrategyBattle(val bases: List<EnemyBase>, val stations: List<OrbitalStation> = emptyList(),
-    val orders: Map<Long,FleetOrder> = emptyMap(), val enemies: Map<Long,EnemyCraft> = emptyMap(), val victory: Boolean = false)
+    val orders: Map<Long,FleetOrder> = emptyMap(), val enemies: Map<Long,EnemyCraft> = emptyMap(), val victory: Boolean = false,
+    val training: StrategyTraining? = null)
 
-internal fun createStrategyBattle(run: ArcadeSession): ArcadeSession {
+internal val ArcadeDifficulty.strategyBaseHull: Int get() = when (this) {
+    ArcadeDifficulty.Easy -> 3000
+    ArcadeDifficulty.Normal -> 4200
+    ArcadeDifficulty.Hard -> 5600
+}
+internal val ArcadeDifficulty.strategyReinforcementSeconds: Int get() = when (this) {
+    ArcadeDifficulty.Easy -> 12
+    ArcadeDifficulty.Normal -> 10
+    ArcadeDifficulty.Hard -> 8
+}
+
+internal fun createStrategyBattle(run: ArcadeSession, training: StrategyTraining? = null): ArcadeSession {
     val core=run.bodies.first { it.kind == BodyKind.Core }
-    val hull=when (run.difficulty) { ArcadeDifficulty.Easy -> 3000.0; ArcadeDifficulty.Normal -> 4200.0; ArcadeDifficulty.Hard -> 5600.0 }
+    val hull=run.difficulty.strategyBaseHull.toDouble()
     val bases=(0..2).map { index ->
         val angle=-PI/2+index*2*PI/3
         EnemyBase(SimulationEngine.newBodyId(),core.position+Vec2(cos(angle),sin(angle))*1200.0,12.0+index*4)
@@ -26,8 +39,34 @@ internal fun createStrategyBattle(run: ArcadeSession): ArcadeSession {
     val nodes=bases.map { CelestialBody(it.id,it.position,Vec2.Zero,hull,38f,Color(0xFFFF8275),BodyKind.Meteor) }
     val home=OrbitalStation(SimulationEngine.newBodyId(),core.position+Vec2(240.0,200.0),StationKind.Factory,
         product=FactoryProduct.Interceptor,remaining=3.0)
-    return run.copy(bodies=run.bodies+nodes,strategy=StrategyBattle(bases,listOf(home)))
+    return run.copy(bodies=run.bodies+nodes,strategy=StrategyBattle(bases,listOf(home),training=training))
 }
+
+internal enum class FactoryStatus { Building, NeedsEnergy, FleetFull, ExitBlocked, Ready }
+internal data class FactoryOutput(val kind: BodyKind, val mass: Double, val shipClass: ShipClass) {
+    val cost: Double get() = launchCost(kind, mass, shipClass)
+    val requiredEnergy: Int get() = ceil(cost + EnergyReserve).toInt()
+
+    fun status(remaining: Double, bodies: List<CelestialBody>, energy: Double, limit: Int, exit: Vec2): FactoryStatus = when {
+        remaining > 0 -> FactoryStatus.Building
+        energy < cost + EnergyReserve -> FactoryStatus.NeedsEnergy
+        bodies.count { it.kind == kind } >= limit -> FactoryStatus.FleetFull
+        bodies.any { (it.position-exit).magnitude() < it.radius+35.0 } -> FactoryStatus.ExitBlocked
+        else -> FactoryStatus.Ready
+    }
+
+    private companion object { const val EnergyReserve = 20.0 }
+}
+
+internal fun OrbitalStation.factoryOutput(): FactoryOutput? {
+    if (kind != StationKind.Factory || product == FactoryProduct.Off) return null
+    val kind = if (product == FactoryProduct.Rocket) BodyKind.Rocket else BodyKind.Ship
+    val mass = if (kind == BodyKind.Rocket) (if (level == 2) 24.0 else 18.0) else (if (level == 2) 60.0 else 36.0)
+    val shipClass = if (product == FactoryProduct.Guardian) ShipClass.Guardian else ShipClass.Interceptor
+    return FactoryOutput(kind, mass, shipClass)
+}
+
+internal fun OrbitalStation.factoryExit(core: Vec2): Vec2 = position + (position - core).normalized() * 75.0
 
 internal fun stationCost(kind: StationKind)=when(kind) { StationKind.Factory -> 65.0; StationKind.Service -> 55.0; StationKind.Bastion -> 70.0 }
 internal fun canBuildStation(run: ArcadeSession, kind: StationKind, position: Vec2): Boolean {
@@ -61,7 +100,8 @@ internal fun issueFleetOrder(run: ArcadeSession, ids: Set<Long>, command: FleetC
         val offset=if (count <= 1) Vec2.Zero else Vec2(cos(index*2*PI/count),sin(index*2*PI/count))*maxOf(70.0,count*12.0)
         body.id to FleetOrder(command,position+if (command == FleetCommand.Move) offset else Vec2.Zero,targetId)
     }.toMap()
-    return run.copy(strategy=battle.copy(orders=battle.orders+orders),bodies=run.bodies.map {
+    val training = if (battle.training == StrategyTraining.Order && orders.isNotEmpty()) null else battle.training
+    return run.copy(strategy=battle.copy(orders=battle.orders+orders,training=training),bodies=run.bodies.map {
         if (it.id in orders && it.isVehicle) it.copy(waypoints=emptyList(),routePath=null,routeAvoiding=false,pilotTargetSpeed=null) else it })
 }
 
@@ -92,6 +132,7 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
     var enemies=battle.enemies.toMutableMap()
     var launches=input.launches
     val bases=battle.bases.map { base ->
+        if (battle.training != null) return@map base
         if (bodies.none { it.id == base.id }) return@map base
         val remaining=base.remaining-dt
         if (remaining > 0 || enemies.size >= 24) return@map base.copy(remaining=maxOf(0.0,remaining))
@@ -102,7 +143,7 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
         val mass=if (kind == BodyKind.Ship) 180.0 else 100.0
         bodies=bodies+CelestialBody(id,position,direction*140.0,mass,SimulationEngine.radiusForMass(mass),Color(0xFFFF8275),BodyKind.Meteor,heading=direction)
         enemies[id]=EnemyCraft(kind)
-        base.copy(remaining=when(input.difficulty) { ArcadeDifficulty.Easy -> 12.0; ArcadeDifficulty.Normal -> 10.0; ArcadeDifficulty.Hard -> 8.0 },launches=base.launches+1)
+        base.copy(remaining=input.difficulty.strategyReinforcementSeconds.toDouble(),launches=base.launches+1)
     }
     var stationShots=input.combat.projectiles
     val targeting by lazy { ArcadeTargeting(bodies,baseIds) }
@@ -116,20 +157,17 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
             if (enemy != null) stationShots=stationShots+SpaceProjectile(enemy.origin,enemy.velocity,station.id,damage=90.0,height=enemy.height,verticalVelocity=enemy.verticalVelocity)
             return@map station.copy(remaining=if (enemy == null) .2 else if (station.level == 2) .9 else 1.2)
         }
-        if (station.kind != StationKind.Factory || station.product == FactoryProduct.Off) return@map station
+        val output = station.factoryOutput() ?: return@map station
         val remaining=maxOf(0.0,station.remaining-dt)
         if (remaining > 0) return@map station.copy(remaining=remaining)
-        val kind=if (station.product == FactoryProduct.Rocket) BodyKind.Rocket else BodyKind.Ship
-        val mass=if (kind == BodyKind.Rocket) (if (station.level == 2) 24.0 else 18.0) else (if (station.level == 2) 60.0 else 36.0)
-        val shipClass=if (station.product == FactoryProduct.Guardian) ShipClass.Guardian else ShipClass.Interceptor
-        val cost=launchCost(kind,mass,shipClass)
-        if (energy < cost+20 || bodies.count { it.kind == kind } >= input.launchLimit(kind)) return@map station.copy(remaining=0.0)
+        val (kind, mass, shipClass) = output
+        val point = station.factoryExit(core.position)
+        if (output.status(remaining,bodies,energy,input.launchLimit(kind),point) != FactoryStatus.Ready)
+            return@map station.copy(remaining=0.0)
         val direction=(station.position-core.position).normalized()
-        val point=station.position+direction*75.0
-        if (bodies.any { (it.position-point).magnitude() < it.radius+35.0 }) return@map station.copy(remaining=0.0)
         val craft=CelestialBody(SimulationEngine.newBodyId(),point,direction*120.0,mass,SimulationEngine.radiusForMass(mass),
             if (kind == BodyKind.Rocket) Color(0xFFFFB36B) else Color(0xFF8BD3FF),kind,heading=direction,shipClass=shipClass,fuelConsumptionScale=input.fuelScale)
-        bodies=bodies+craft; energy-=cost; launches++
+        bodies=bodies+craft; energy-=output.cost; launches++
         station.copy(remaining=if (station.level == 2) 10.0 else 18.0)
     }
     bodies=bodies.map { body ->
@@ -158,7 +196,10 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
         enemies[body.id]=enemy.copy(cooldown=cooldown,age=enemy.age+dt)
         body.copy(velocity=velocity,heading=heading)
     }
-    val prepared=prepareCombat(bodies,input.combat.copy(projectiles=enemyShots),dt,control?.bodyId,input.gunIntervalScale,baseIds,battle.orders,stations,input.sideEvent?.position)
+    // Keep idle trainees available to select while the player reads the instructions.
+    val orders = if (battle.training == null) battle.orders else bodies.filter { it.isVehicle }
+        .associate { it.id to FleetOrder(FleetCommand.Guard, core.position, core.id) } + battle.orders
+    val prepared=prepareCombat(bodies,input.combat.copy(projectiles=enemyShots),dt,control?.bodyId,input.gunIntervalScale,baseIds,orders,stations,input.sideEvent?.position)
     val step=SimulationEngine.stepArcade(prepared.bodies.filterNot { it.id in baseIds },dt,control?.bodyId,control?.depthTimeScale ?: 1.0)
     // Include anchored bases only for swept contacts/projectiles, never for gravity integration.
     val stationHits=mutableListOf<CollisionEvent>()
@@ -196,12 +237,13 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
     val ended=enemies.keys-enemiesAlive.keys
     val stopped=events.filter { it.secondKind != BodyKind.Core }.mapNotNull { it.meteorId }.distinct().size
     val aliveBases=bases.filter { it.id in ids }
-    val next=input.copy(bodies=impacts.bodies.filterNot { it.id in ended },energy=minOf(input.maxEnergy,energy+stopped*4),elapsed=input.elapsed+dt,
+    val next=input.copy(bodies=impacts.bodies.filterNot { it.id in ended },energy=minOf(input.maxEnergy,energy+stopped*4),
+        elapsed=if (battle.training == null) input.elapsed+dt else input.elapsed,
         lives=lives,launches=launches,immunity=if (hit && input.immunity <= 0) .6 else maxOf(0.0,input.immunity-dt),
         hitFlash=if (hit) 1.0 else maxOf(0.0,input.hitFlash-dt*1.8),destroyed=input.destroyed+stopped,
         score=input.score+stopped*100*input.difficulty.scoreFactor,combat=impacts.combat,
         explosions=advanceExplosions(input.explosions,events,dt),
         strategy=battle.copy(bases=aliveBases,stations=stations,enemies=enemiesAlive,
             orders=battle.orders.filter { (id,order) -> id in ids && (order.command != FleetCommand.Attack || order.targetId in ids) },victory=aliveBases.isEmpty() && lives > 0))
-    return advanceSideEvent(input,prepareSideEvent(next,random),dt,control?.bodyId)
+    return if (battle.training == null) advanceSideEvent(input,prepareSideEvent(next,random),dt,control?.bodyId) else next
 }

@@ -96,8 +96,9 @@ class GameplayAnalysisTest {
         val values = listOf(0.25f, 1f, 4f).map { zoom ->
             val game = SpaceGameState().apply { resize(IntSize(1080, 1920)); startSandbox(SandboxPresetKind.Empty) }
             game.transformCamera(Offset(540f, 960f), Offset.Zero, zoom)
+            val generated = game.bodies.map { it.id }.toSet()
             game.launch(game.previewAt(Offset(500f, 900f), Offset(580f, 900f), 0), 0.0)
-            val speed = game.bodies.single().velocity.magnitude()
+            val speed = game.bodies.single { it.id !in generated }.velocity.magnitude()
             println("DRAG,$zoom,80,$speed")
             speed
         }

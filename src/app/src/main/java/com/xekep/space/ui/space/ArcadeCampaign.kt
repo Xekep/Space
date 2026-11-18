@@ -5,6 +5,24 @@ import com.xekep.space.sim.*
 import kotlin.math.*
 import kotlin.random.Random
 
+internal const val OrbitCleanupSeconds = 45.0
+
+/** Estimate closest approach in the core's gravity, with clearance for local perturbations. */
+internal fun onSafeBoundOrbit(meteor: CelestialBody, core: CelestialBody): Boolean {
+    val offset = meteor.position - core.position
+    val velocity = meteor.velocity - core.velocity
+    val distance = offset.magnitude()
+    val clearance = core.radius + meteor.radius + 80.0
+    if (distance <= clearance) return false
+    val gravity = SimulationEngine.gravitationalConstant * core.gravityMass
+    val energy = (velocity.x * velocity.x + velocity.y * velocity.y) / 2.0 - gravity / distance
+    if (energy >= 0.0 || gravity <= 0.0) return false
+    val momentum = offset.x * velocity.y - offset.y * velocity.x
+    val eccentricity = sqrt(max(0.0, 1.0 + 2.0 * energy * momentum * momentum / (gravity * gravity)))
+    val periapsis = momentum * momentum / (gravity * (1.0 + eccentricity))
+    return periapsis > clearance
+}
+
 enum class LootAppearance { Container, Module, Capsule }
 
 enum class SalvageStatus { Available, Collected, Expired }

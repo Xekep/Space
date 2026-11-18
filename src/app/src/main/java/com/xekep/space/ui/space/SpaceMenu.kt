@@ -79,14 +79,17 @@ fun SpaceMenu(
         }
     }
     val newSession: () -> Unit = {
-        confirmation=if (selectedMode != AppMode.Sandbox)
+        confirmation=if (selectedMode == AppMode.Strategy)
+            MenuConfirmation(context.getString(R.string.strategy_replay),context.getString(R.string.strategy_replace),startNew)
+        else if (selectedMode == AppMode.Arcade)
             MenuConfirmation(context.getString(R.string.new_run_question),context.getString(R.string.new_run_confirmation),startNew)
         else MenuConfirmation(context.getString(R.string.new_universe_question),context.getString(R.string.new_universe_confirmation),startNew)
     }
     val practice: () -> Unit = {
         panel=null
-        val action={ if (selectedMode == AppMode.Strategy) game.startStrategy(ArcadeDifficulty.Easy) else game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) }
-        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action)
+        val action={ game.beginTutorial(selectedMode,context.getString(R.string.empty_space)) }
+        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),
+            context.getString(if (selectedMode == AppMode.Strategy) R.string.strategy_replace else R.string.practice_confirmation),action)
         else action()
     }
 
@@ -190,6 +193,8 @@ fun SpaceMenu(
                     Text(context.getString(if (selectedMode != AppMode.Sandbox) R.string.new_game else R.string.new_world))
                 }
                 if (selectedMode == AppMode.Arcade) TextButton(onClick={ goals=true },modifier=Modifier.fillMaxWidth().testTag("open-goals")) { Text(context.getString(R.string.arcade_goals)) }
+                if (selectedMode == AppMode.Strategy) TextButton(onClick=practice, enabled=!game.recoveryLoading,
+                    modifier=Modifier.fillMaxWidth().testTag("strategy-training")) { Text(context.getString(R.string.strategy_training)) }
                 LanguageMenuButton(Modifier.fillMaxWidth().padding(bottom=8.dp))
     }
     BoxWithConstraints(Modifier.fillMaxSize().background(if (orbitPhase != null) Color(0x2802040B) else Color(0xEA02040B)).safeDrawingPadding().padding(16.dp),contentAlignment=Alignment.Center) {
@@ -231,13 +236,14 @@ fun SpaceMenu(
                             context.getString(R.string.large_vehicle_icons_description)) { settings.largeVehicleIcons=it; settings.save() }
                     }
                     HorizontalDivider(color=Color.White.copy(alpha=.08f))
-                    TextButton(onClick=practice,modifier=Modifier.fillMaxWidth().testTag("practice-controls")) {
+                    TextButton(onClick=practice,enabled=!game.recoveryLoading,modifier=Modifier.fillMaxWidth().testTag("practice-controls")) {
                         Text(context.getString(R.string.how_to_play))
                     }
                     TextButton(onClick={
-                        val action={ game.beginFlightPractice(options?.flightControl == com.xekep.space.input.FlightControlMode.Joystick,context.getString(R.string.practice_flight)); panel=null }
-                        if (hasSelectedSession) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action) else action()
-                    },modifier=Modifier.fillMaxWidth().testTag("flight-practice")) { Text(context.getString(R.string.practice_flight)) }
+                        panel=null
+                        val action={ game.beginFlightPractice(options?.flightControl == com.xekep.space.input.FlightControlMode.Joystick,context.getString(R.string.practice_flight)) }
+                        if (game.sandbox != null) confirmation=MenuConfirmation(context.getString(R.string.practice_question),context.getString(R.string.practice_confirmation),action) else action()
+                    },enabled=!game.recoveryLoading,modifier=Modifier.fillMaxWidth().testTag("flight-practice")) { Text(context.getString(R.string.practice_flight)) }
                     TextButton(onClick={ roles=true },modifier=Modifier.fillMaxWidth()) { Text(context.getString(R.string.fleet_roles)) }
                     TextButton(onClick={ privacy=true },modifier=Modifier.fillMaxWidth().testTag("open-privacy")) { Text(context.getString(R.string.privacy_policy)) }
                     TextButton(onClick={ uriHandler.openUri("https://github.com/Xekep/Space/issues") },modifier=Modifier.fillMaxWidth()) { Text(context.getString(R.string.support)) }
@@ -284,8 +290,12 @@ fun SpaceMenu(
     })
     if (info) AlertDialog(onDismissRequest={ info=false },
         title={ Text(context.getString(if (selectedMode != AppMode.Sandbox) difficulty.labelId() else preset.labelId())) },
-        text={ Text(if (selectedMode != AppMode.Sandbox) context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
-            else context.getString(preset.descriptionId())) },confirmButton={ TextButton(onClick={ info=false }) { Text(context.getString(R.string.close)) } })
+        text={ Text(when (selectedMode) {
+            AppMode.Strategy -> context.getString(R.string.strategy_difficulty, difficulty.lives,
+                difficulty.strategyBaseHull, difficulty.strategyReinforcementSeconds)
+            AppMode.Arcade -> context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
+            AppMode.Sandbox -> context.getString(preset.descriptionId())
+        }) },confirmButton={ TextButton(onClick={ info=false }) { Text(context.getString(R.string.close)) } })
     confirmation?.let { pending ->
         AlertDialog(onDismissRequest={ confirmation=null },title={ Text(pending.title) },text={ Text(pending.message) },
             confirmButton={ TextButton(onClick={ confirmation=null; pending.action() },modifier=Modifier.testTag("confirm-action")) { Text(context.getString(R.string.confirm)) } },

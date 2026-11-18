@@ -60,23 +60,35 @@ internal fun StrategyHud(game: SpaceGameState) {
                 TacticalButton(R.string.tactical_mode,"▣","tactical-toggle",game.tacticalMode,action=game::toggleTactics)
                 if (game.tacticalMode) TacticalButton(R.string.select_fleet,"⋮⋮","fleet-all",action=game::selectFleet)
                 Text(stringResource(R.string.strategy_status,run.bodies.count { it.isVehicle },battle.bases.size),Modifier.weight(1f),style=MaterialTheme.typography.labelMedium)
-                TacticalButton(R.string.enemy_bases,"◎","enemy-focus",enabled=game.controlledVehicleId == null,action=game::focusEnemyBase)
+                TacticalButton(R.string.strategy_next_base,"◎","enemy-focus",
+                    enabled=game.controlledVehicleId == null && battle.bases.isNotEmpty(),action=game::focusEnemyBase)
             }
             if (game.tacticalMode) {
                 val station=battle.stations.firstOrNull { it.id == game.selectedStationId }
                 when {
                     station != null -> {
                         Text(stringResource(station.kind.labelId())+" · ${station.level} · ♥${station.hull}",style=MaterialTheme.typography.labelMedium)
+                        val output = station.factoryOutput()
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             if (station.kind == StationKind.Factory) TextButton(onClick=game::cycleStationProduct,modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("factory-product")) {
-                                val kind=if (station.product == FactoryProduct.Rocket) BodyKind.Rocket else BodyKind.Ship
-                                val mass=if (kind == BodyKind.Rocket) (if (station.level == 2) 24.0 else 18.0) else (if (station.level == 2) 60.0 else 36.0)
-                                val cost=launchCost(kind,mass,if (station.product == FactoryProduct.Guardian) ShipClass.Guardian else ShipClass.Interceptor).toInt()
-                                Text(stringResource(station.product.labelId())+if (station.product == FactoryProduct.Off) "" else " · $cost",maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                val price = output?.let { " · ${ceil(it.cost).toInt()}" }.orEmpty()
+                                Text(stringResource(station.product.labelId()) + price, maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                             }
                             TextButton(onClick=game::upgradeSelectedStation,enabled=station.level < 2 && run.energy >= 45,
                                 modifier=Modifier.heightIn(min=48.dp).testTag("station-upgrade")) { Text("↑ 45") }
                             TacticalButton(R.string.close,"×","fleet-clear",action=game::clearFleet)
+                        }
+                        val core = run.bodies.firstOrNull { it.kind == BodyKind.Core }
+                        if (output != null && core != null) {
+                            val status = output.status(station.remaining, run.bodies, run.energy, run.launchLimit(output.kind), station.factoryExit(core.position))
+                            val label = when (status) {
+                                FactoryStatus.Building -> stringResource(R.string.factory_countdown, ceil(station.remaining).toInt())
+                                FactoryStatus.NeedsEnergy -> stringResource(R.string.factory_energy_required, output.requiredEnergy)
+                                FactoryStatus.FleetFull -> stringResource(R.string.factory_fleet_full)
+                                FactoryStatus.ExitBlocked -> stringResource(R.string.factory_exit_blocked)
+                                FactoryStatus.Ready -> stringResource(R.string.factory_ready)
+                            }
+                            Text(label, Modifier.testTag("factory-status"), style=MaterialTheme.typography.labelSmall)
                         }
                     }
                     selection.isNotEmpty() -> {
@@ -89,7 +101,8 @@ internal fun StrategyHud(game: SpaceGameState) {
                             TacticalButton(R.string.craft_manual,"✈","fleet-pilot",enabled=selection.size == 1,action=game::pilotSelectedCraft)
                             TacticalButton(R.string.close,"×","fleet-clear",action=game::clearFleet)
                         }
-                        Text(stringResource(R.string.order_target),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (battle.training == null)
+                            Text(stringResource(R.string.order_target),style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     else -> {
                         Row(verticalAlignment=Alignment.CenterVertically) {
@@ -100,8 +113,9 @@ internal fun StrategyHud(game: SpaceGameState) {
                             TextButton(onClick={ game.chooseBuilding(StationKind.Bastion) },enabled=battle.stations.size < 4 && run.energy >= 70,
                                 contentPadding=PaddingValues(horizontal=4.dp,vertical=8.dp),modifier=Modifier.weight(1f).heightIn(min=48.dp).testTag("build-bastion").semantics { selected=game.buildingKind == StationKind.Bastion }) { Column(horizontalAlignment=Alignment.CenterHorizontally) { Text(stringResource(R.string.station_bastion),style=MaterialTheme.typography.labelMedium,maxLines=1,overflow=androidx.compose.ui.text.style.TextOverflow.Ellipsis);Text("70",style=MaterialTheme.typography.labelSmall) } }
                         }
-                        Text(stringResource(if (game.buildingKind != null) R.string.build_place else R.string.fleet_select_help),
-                            style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (game.buildingKind != null || battle.training == null)
+                            Text(stringResource(if (game.buildingKind != null) R.string.build_place else R.string.fleet_select_help),
+                                style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -130,6 +144,8 @@ internal fun DrawScope.drawStrategy(game: SpaceGameState, camera: SpaceCamera, a
             drawLine(color,p-Offset(0f,r*.4f),p+Offset(0f,r*.4f),3.dp.toPx())
         }
         if (station.id == game.selectedStationId) drawCircle(Color.White,r+5.dp.toPx(),p,style=Stroke(1.dp.toPx()))
+        if (battle.training == StrategyTraining.Factory && station.kind == StationKind.Factory)
+            drawCircle(Color(0xFFFFD36B), r + 9.dp.toPx(), p, style=Stroke(2.dp.toPx()))
         if (station.kind == StationKind.Factory && station.product != FactoryProduct.Off) drawArc(color,-90f,
             (360*(1-station.remaining/(if (station.level == 2) 10.0 else 18.0))).toFloat().coerceIn(0f,360f),false,
             p-Offset(r*1.3f,r*1.3f),androidx.compose.ui.geometry.Size(r*2.6f,r*2.6f),style=Stroke(2.dp.toPx()))
@@ -145,7 +161,7 @@ internal fun DrawScope.drawStrategy(game: SpaceGameState, camera: SpaceCamera, a
             drawLine(Color(0xFFFF8275),p+v*(r*.4f),p+v*r,4.dp.toPx())
         }
         drawCircle(Color(0xFFFFD6A0),r*.35f,p)
-        val maximum=when (run.difficulty) { ArcadeDifficulty.Easy -> 3000; ArcadeDifficulty.Normal -> 4200; ArcadeDifficulty.Hard -> 5600 }
+        val maximum=run.difficulty.strategyBaseHull
         drawArc(Color(0xFFFF8275),-90f,(360*body.mass/maximum).toFloat(),false,p-Offset(r*1.3f,r*1.3f),androidx.compose.ui.geometry.Size(r*2.6f,r*2.6f),style=Stroke(3.dp.toPx()))
     }
     run.bodies.filter { it.id in game.fleetSelection }.forEach { body ->

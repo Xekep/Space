@@ -32,6 +32,13 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
             (escort != null && escort.x*it.velocity.x+escort.y*it.velocity.y > 0) ||
             (it.position.x in -CullMargin..(current.arena.width + CullMargin) &&
                 it.position.y in -CullMargin..(current.arena.height + CullMargin)) }
+    val orbitCleanup = if (!current.practice && current.wavePhase.resting && !current.threatsCleared &&
+        current.carrier?.defeated != false && current.convoy?.status != ConvoyStatus.Approaching)
+        (current.orbitCleanup + dt).coerceAtMost(OrbitCleanupSeconds) else 0.0
+    if (orbitCleanup >= OrbitCleanupSeconds) {
+        val core = bodies.firstOrNull { it.kind == BodyKind.Core }
+        if (core != null) bodies = bodies.filterNot { it.kind == BodyKind.Meteor && onSafeBoundOrbit(it, core) }
+    }
     var challenge=current.challenge
     if (challenge != null && challenge.ids.isNotEmpty()) {
         val outcomes=events.filter { it.meteorId in challenge!!.ids }.distinctBy { it.meteorId }
@@ -131,7 +138,7 @@ internal fun advanceArcade(input: ArcadeSession, dt: Double, random: Random, con
     }
     if (!waveMaySpawn(wave,cycle,challenge,current.practice) && !(wave == 20 && current.carrier?.defeated == false)) timer=maxOf(timer,.25)
     val advanced=current.copy(bodies = bodies, lives = lives, elapsed = elapsed, pending = pending, spawnTimer = timer,
-        waveDelay=waveDelay,challenge=challenge,arrivalPortals=portals,
+        waveDelay=waveDelay,challenge=challenge,arrivalPortals=portals,orbitCleanup=orbitCleanup,
         energy = (current.energy + dt * current.energyRegen + stopped * 8.0).coerceAtMost(current.maxEnergy), score = score,
         destroyed = current.destroyed + stopped, combo = combo, lastIntercept = lastIntercept, immunity = immunity,
         combat = combatStep.combat, explosions = com.xekep.space.sim.advanceExplosions(current.explosions, events, dt),

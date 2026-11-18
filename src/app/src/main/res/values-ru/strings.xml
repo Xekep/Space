@@ -317,7 +317,6 @@
     <string name="strategy">"Стратегия"</string>
     <string name="strategy_help">"Построй флот и уничтожь три вражеские базы."</string>
     <string name="strategy_status">"Флот %1$d · базы %2$d/3"</string>
-    <string name="enemy_bases">"Вражеские базы"</string>
     <string name="strategy_victory">"Сектор освобождён"</string>
     <string name="strategy_victory_help">"Все вражеские базы уничтожены. Ядро уцелело."</string>
     <string name="strategy_replay">"Новая схватка"</string>
@@ -346,4 +345,17 @@
     <string name="strategy_energy">"Энергия"</string>
     <string name="strategy_defeat">"Ядро потеряно"</string>
     <string name="strategy_defeat_help">"Осталось вражеских баз: %1$d. Сочетай производство с обороной."</string>
+    <string name="strategy_training">"Учебная схватка"</string>
+    <string name="strategy_training_factory">"Нажми на подсвеченный завод."</string>
+    <string name="strategy_training_wait">"Дождись первого корабля. Противник ждёт."</string>
+    <string name="strategy_training_fleet">"Выбери корабль или нажми «Выбрать весь флот»."</string>
+    <string name="strategy_training_order">"Нажми на свободную точку, чтобы отправить туда флот."</string>
+    <string name="strategy_replace">"Запуск заменит текущую схватку."</string>
+    <string name="strategy_difficulty">"Прочность ядра: %1$d · Прочность базы: %2$d · Подкрепления каждые %3$d с"</string>
+    <string name="strategy_next_base">"Следующая вражеская база"</string>
+    <string name="factory_countdown">"Выпуск через %1$d с"</string>
+    <string name="factory_energy_required">"Энергия с учётом резерва: %1$d"</string>
+    <string name="factory_fleet_full">"Лимит флота достигнут"</string>
+    <string name="factory_exit_blocked">"Освободи зону выпуска"</string>
+    <string name="factory_ready">"Готов к выпуску"</string>
 </resources>

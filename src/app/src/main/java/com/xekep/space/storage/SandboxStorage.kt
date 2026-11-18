@@ -146,7 +146,9 @@ class SandboxStorage(context: Context) {
                 val velocity = Vec2(body.getDouble("vx"), body.getDouble("vy"))
                 val id = body.getLong("id")
                 require(id in 1..Long.MAX_VALUE - MAX_SANDBOX_BODIES - 1)
-                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 && body.getDouble("mass") in 1e-30..100000000.0)
+                // Merges can combine the masses of every body in an editable scene.
+                require(position.x in -1e9..1e9 && position.y in -1e9..1e9 &&
+                    body.getDouble("mass") in 1e-30..(MAX_SANDBOX_BODIES * 100_000_000.0))
                 require(velocity.magnitude() <= 5000.0 && body.getDouble("radius") in 1e-20..10000.0)
                 fun optionalId(key: String): Long? = if (!body.has(key) || body.isNull(key)) null else body.getLong(key).also {
                     require(it in 1..Long.MAX_VALUE-MAX_SANDBOX_BODIES-1)

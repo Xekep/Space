@@ -317,7 +317,6 @@
     <string name="strategy">"Strategy"</string>
     <string name="strategy_help">"Build a fleet and destroy three enemy bases."</string>
     <string name="strategy_status">"Fleet %1$d · bases %2$d/3"</string>
-    <string name="enemy_bases">"Enemy bases"</string>
     <string name="strategy_victory">"Sector secured"</string>
     <string name="strategy_victory_help">"All enemy bases are destroyed. Your core survived."</string>
     <string name="strategy_replay">"New battle"</string>
@@ -346,4 +345,17 @@
     <string name="strategy_energy">"Energy"</string>
     <string name="strategy_defeat">"Core lost"</string>
     <string name="strategy_defeat_help">"Enemy bases remaining: %1$d. Balance production with defense."</string>
+    <string name="strategy_training">"Training battle"</string>
+    <string name="strategy_training_factory">"Tap the highlighted factory."</string>
+    <string name="strategy_training_wait">"Wait for the first ship. The enemy is standing by."</string>
+    <string name="strategy_training_fleet">"Select a ship or tap Select entire fleet."</string>
+    <string name="strategy_training_order">"Tap an empty point to order the fleet to move."</string>
+    <string name="strategy_replace">"Starting will replace your current battle."</string>
+    <string name="strategy_difficulty">"Core hull: %1$d · Base hull: %2$d · Reinforcements every %3$d s"</string>
+    <string name="strategy_next_base">"Focus next enemy base"</string>
+    <string name="factory_countdown">"Launch in %1$d s"</string>
+    <string name="factory_energy_required">"Energy with reserve: %1$d"</string>
+    <string name="factory_fleet_full">"Fleet limit reached"</string>
+    <string name="factory_exit_blocked">"Clear the launch area"</string>
+    <string name="factory_ready">"Ready to launch"</string>
 </resources>

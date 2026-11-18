@@ -43,11 +43,45 @@ class StrategyUiTest {
         tap(game,core.position+Vec2(-350.0,150.0))
         assertEquals(2,game.arcade!!.strategy!!.stations.size);assertEquals(55.0,game.arcade!!.energy,1.0)
         compose.onNodeWithTag("factory-product").assertIsDisplayed().performClick()
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithTag("factory-status").assertIsDisplayed()
         assertEquals(FactoryProduct.Rocket,game.arcade!!.strategy!!.stations.last().product)
         compose.onNodeWithTag("station-upgrade").performClick();assertEquals(2,game.arcade!!.strategy!!.stations.last().level)
         shot("strategy-factory.png")
         compose.onNodeWithTag("tactical-toggle").performClick();compose.mainClock.advanceTimeBy(32)
         assertFalse(game.tacticalMode);compose.onNodeWithTag("arcade-spawn-panel").assertExists()
+    }
+    @Test fun trainingFromMenuWaitsForTheFirstOrderAndBaseFocusCycles() {
+        val game = SpaceGameState()
+        show(game)
+        compose.onNodeWithTag("mode-Strategy").performClick()
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithTag("strategy-training").performScrollTo().performClick()
+        compose.mainClock.advanceTimeBy(48)
+        val start = game.strategyRun!!.strategy!!
+        assertEquals(StrategyTraining.Factory,start.training)
+        shot("strategy-training.png")
+        tap(game,start.stations.first().position)
+        assertEquals(StrategyTraining.Fleet,game.strategyRun!!.strategy!!.training)
+        compose.runOnIdle { repeat(300) { game.update(1.0/60) } }
+        val firstShip = game.bodies.single { it.isVehicle }.id
+        compose.runOnIdle { repeat(840) { game.update(1.0/60) } }
+        assertTrue(game.bodies.any { it.id == firstShip })
+        assertEquals(start.bases,game.strategyRun!!.strategy!!.bases)
+        assertEquals(0.0,game.strategyRun!!.elapsed,0.0)
+        compose.mainClock.advanceTimeBy(32)
+        compose.onNodeWithTag("fleet-all").performClick()
+        assertEquals(StrategyTraining.Order,game.strategyRun!!.strategy!!.training)
+        val core = game.bodies.first { it.kind == BodyKind.Core }
+        tap(game,core.position+Vec2(-450.0,220.0))
+        assertNull(game.strategyRun!!.strategy!!.training)
+        assertTrue(game.strategyRun!!.strategy!!.orders.isNotEmpty())
+        compose.runOnIdle { game.update(.05) }
+        assertTrue(game.strategyRun!!.elapsed > 0.0)
+        for (base in start.bases + start.bases.first()) {
+            compose.onNodeWithTag("enemy-focus").performClick()
+            assertEquals(base.position,game.camera.center)
+        }
     }
     @Test fun rectangleSelectionMoveAttackAndPinchNeverLaunchAnExtraCraft() {
         val game=game();val core=game.bodies.first { it.kind == BodyKind.Core }

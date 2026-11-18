@@ -51,6 +51,20 @@ class StrategyBattleTest {
         val full=run.copy(bodies=run.bodies+(0 until 24).map { ship(Vec2(3000.0+it*100,3000.0),BodyKind.Rocket) })
         assertEquals(0,advanceStrategy(full,.01,Random(17)).launches)
     }
+    @Test fun factoryExplainsAllLaunchGates() {
+        val run = run()
+        val station = run.strategy!!.stations.first()
+        val output = station.factoryOutput()!!
+        val exit = station.factoryExit(run.bodies.first { it.kind == BodyKind.Core }.position)
+        val limit = run.launchLimit(output.kind)
+        val blocked = run.bodies + ship(exit).copy(kind = BodyKind.Ambient)
+        val full = run.bodies + List(limit) { ship(Vec2(3000.0 + 100 * it,3000.0)) }
+        assertEquals(FactoryStatus.Building,output.status(1.0,run.bodies,120.0,limit,exit))
+        assertEquals(FactoryStatus.NeedsEnergy,output.status(0.0,run.bodies,output.requiredEnergy-1.0,limit,exit))
+        assertEquals(FactoryStatus.FleetFull,output.status(0.0,full,120.0,limit,exit))
+        assertEquals(FactoryStatus.ExitBlocked,output.status(0.0,blocked,120.0,limit,exit))
+        assertEquals(FactoryStatus.Ready,output.status(0.0,run.bodies,output.requiredEnergy.toDouble(),limit,exit))
+    }
     @Test fun serviceRefuelsOnlyNearbyLivingCraftAndDoesNotExceedCapacity() {
         val run=inert(run());val core=run.bodies.first { it.kind == BodyKind.Core }
         val p=core.position+Vec2(-500.0,0.0)

@@ -295,7 +295,6 @@
     <string name="strategy">"Stratégie"</string>
     <string name="strategy_help">"Construisez une flotte et détruisez trois bases ennemies."</string>
     <string name="strategy_status">"Flotte %1$d · bases %2$d/3"</string>
-    <string name="enemy_bases">"Bases ennemies"</string>
     <string name="strategy_victory">"Secteur sécurisé"</string>
     <string name="strategy_victory_help">"Toutes les bases ennemies sont détruites. Votre noyau a survécu."</string>
     <string name="strategy_replay">"Nouvelle bataille"</string>
@@ -324,4 +323,17 @@
     <string name="strategy_energy">"Énergie"</string>
     <string name="strategy_defeat">"Noyau perdu"</string>
     <string name="strategy_defeat_help">"Bases ennemies restantes : %1$d. Équilibrez production et défense."</string>
+    <string name="strategy_training">"Bataille d’entraînement"</string>
+    <string name="strategy_training_factory">"Touchez l’usine en surbrillance."</string>
+    <string name="strategy_training_wait">"Attendez le premier vaisseau. L’ennemi reste en attente."</string>
+    <string name="strategy_training_fleet">"Sélectionnez un vaisseau ou toute la flotte."</string>
+    <string name="strategy_training_order">"Touchez un point libre pour y déplacer la flotte."</string>
+    <string name="strategy_replace">"Le lancement remplacera la bataille en cours."</string>
+    <string name="strategy_difficulty">"Résistance du noyau : %1$d · Résistance d’une base : %2$d · Renforts toutes les %3$d s"</string>
+    <string name="strategy_next_base">"Centrer sur la prochaine base ennemie"</string>
+    <string name="factory_countdown">"Sortie dans %1$d s"</string>
+    <string name="factory_energy_required">"Énergie requise avec réserve : %1$d"</string>
+    <string name="factory_fleet_full">"Limite de la flotte atteinte"</string>
+    <string name="factory_exit_blocked">"Dégagez la zone de sortie"</string>
+    <string name="factory_ready">"Prêt pour la sortie"</string>
 </resources>

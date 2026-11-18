@@ -406,7 +406,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).onGloballyPositioned { game.arcadeHudBottom=it.boundsInRoot() }.verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         game.tutorialText?.let { message ->
-                            androidx.compose.material3.Surface(shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                            androidx.compose.material3.Surface(modifier=Modifier.blockWorldTouches(), shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(context.getString(message), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                                     TextButton(onClick = game::skipTutorial) { Text(context.getString(R.string.skip)) }

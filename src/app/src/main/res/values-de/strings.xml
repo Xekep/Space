@@ -295,7 +295,6 @@
     <string name="strategy">"Strategie"</string>
     <string name="strategy_help">"Baue eine Flotte und zerstöre drei feindliche Basen."</string>
     <string name="strategy_status">"Flotte %1$d · Basen %2$d/3"</string>
-    <string name="enemy_bases">"Feindbasen"</string>
     <string name="strategy_victory">"Sektor gesichert"</string>
     <string name="strategy_victory_help">"Alle feindlichen Basen sind zerstört. Dein Kern hat überlebt."</string>
     <string name="strategy_replay">"Neue Schlacht"</string>
@@ -324,4 +323,17 @@
     <string name="strategy_energy">"Energie"</string>
     <string name="strategy_defeat">"Kern verloren"</string>
     <string name="strategy_defeat_help">"Verbleibende Feindbasen: %1$d. Halte Produktion und Verteidigung im Gleichgewicht."</string>
+    <string name="strategy_training">"Übungsschlacht"</string>
+    <string name="strategy_training_factory">"Tippe auf die markierte Fabrik."</string>
+    <string name="strategy_training_wait">"Warte auf das erste Schiff. Der Gegner wartet."</string>
+    <string name="strategy_training_fleet">"Wähle ein Schiff oder die gesamte Flotte aus."</string>
+    <string name="strategy_training_order">"Tippe auf eine freie Stelle, um die Flotte dorthin zu bewegen."</string>
+    <string name="strategy_replace">"Beim Start wird die laufende Schlacht ersetzt."</string>
+    <string name="strategy_difficulty">"Kernstruktur: %1$d · Basisstruktur: %2$d · Verstärkung alle %3$d s"</string>
+    <string name="strategy_next_base">"Nächste Feindbasis anzeigen"</string>
+    <string name="factory_countdown">"Start in %1$d s"</string>
+    <string name="factory_energy_required">"Benötigte Energie mit Reserve: %1$d"</string>
+    <string name="factory_fleet_full">"Flottenlimit erreicht"</string>
+    <string name="factory_exit_blocked">"Startbereich freimachen"</string>
+    <string name="factory_ready">"Startbereit"</string>
 </resources>

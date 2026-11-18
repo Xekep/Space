@@ -17,6 +17,8 @@ data class RecoverySnapshot(
     val tutorialStep: Int, val presentationAge: Double, val hiddenOrbits: Set<Long>,
     val randomState: Long?, val flightPractice: Boolean = false, val practiceJoystick: Boolean = false,
     val practiceHeading: Vec2 = Vec2(0.0,-1.0), val practiceSpeed: Double = 0.0, val strategy: ArcadeSession? = null,
+    val sandboxTutorialStep: Int = if (mode == AppMode.Sandbox) tutorialStep else -1,
+    val movedCameraInTutorial: Boolean = false,
 )
 
 class SessionRecovery(context: Context, file: File = File(context.filesDir,"session-recovery.json")) {
@@ -24,6 +26,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
     private val scenes = SandboxStorage(context)
     var readFailed: Boolean = false; private set
     fun load(): RecoverySnapshot? {
+        readFailed = false
         if (!file.baseFile.exists() && !File(file.baseFile.path+".bak").exists()) return null
         return runCatching {
             val bytes = file.openRead().use { input ->
@@ -44,6 +47,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         val payload=JSONObject().put("mode",snapshot.mode.name).put("dirty",snapshot.dirty)
             .put("spawnKind",snapshot.spawnKind.name).put("shipClass",snapshot.shipClass.name)
             .put("tutorialStep",snapshot.tutorialStep).put("presentationAge",snapshot.presentationAge)
+            .put("sandboxTutorialStep",snapshot.sandboxTutorialStep).put("movedCameraInTutorial",snapshot.movedCameraInTutorial)
             .put("hiddenOrbits",JSONArray(snapshot.hiddenOrbits.toList())).put("randomState",snapshot.randomState)
             .put("flightPractice",snapshot.flightPractice).put("practiceJoystick",snapshot.practiceJoystick)
             .put("practiceHeading",vec(snapshot.practiceHeading)).put("practiceSpeed",snapshot.practiceSpeed)
@@ -58,20 +62,27 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
         val envelope=JSONObject(raw); require(envelope.getInt("version") == 1)
         val content=envelope.getString("payload"); require(hash(content) == envelope.getString("sha256"))
         val root=JSONObject(content)
-        val sandbox=root.optJSONObject("sandbox")?.let { scenes.decode(it.toString()) }
-        val arcade=root.optJSONObject("arcade")?.let(::decodeArcade)
-        val strategy=root.optJSONObject("strategyRun")?.let(::decodeArcade)
-        require(strategy == null || strategy.strategy != null)
-        val mode=AppMode.valueOf(root.getString("mode"))
-        require(when(mode) { AppMode.Arcade -> arcade != null; AppMode.Strategy -> strategy != null; AppMode.Sandbox -> sandbox != null })
+        fun <T> section(key: String, read: (JSONObject) -> T): T? {
+            if (root.isNull(key)) return null
+            return runCatching { read(root.getJSONObject(key)) }.onFailure { readFailed = true }.getOrNull()
+        }
+        val sandbox = section("sandbox") { scenes.decode(it.toString()) }
+        val arcade = section("arcade") { decodeArcade(it).also { run -> require(run.strategy == null) } }
+        val strategy = section("strategyRun") { decodeArcade(it).also { run -> require(run.strategy != null) } }
+        val savedMode = AppMode.valueOf(root.getString("mode"))
+        val available = listOfNotNull(arcade?.let { AppMode.Arcade }, strategy?.let { AppMode.Strategy }, sandbox?.let { AppMode.Sandbox })
+        require(available.isNotEmpty())
+        val mode = if (savedMode in available) savedMode else available.first().also { readFailed = true }
         val step=root.getInt("tutorialStep"); require(step in -1..2)
+        val sandboxStep = root.optInt("sandboxTutorialStep", if (savedMode == AppMode.Sandbox) step else -1)
+        require(sandboxStep in -1..2)
         val age=root.getDouble("presentationAge"); require(age in 0.0..60.0)
         val hidden=root.getJSONArray("hiddenOrbits").longSet()
         val random=if (root.isNull("randomState")) null else root.getLong("randomState").also { require(it != 0L) }
         return RecoverySnapshot(mode,arcade,sandbox,root.getBoolean("dirty"),BodyKind.valueOf(root.getString("spawnKind")),
             ShipClass.valueOf(root.getString("shipClass")),step,age,hidden,random,
             root.optBoolean("flightPractice"),root.optBoolean("practiceJoystick"),root.optJSONObject("practiceHeading")?.let(::readVec) ?: Vec2(0.0,-1.0),
-            root.optDouble("practiceSpeed",0.0).also { require(it in 0.0..5000.0) },strategy)
+            root.optDouble("practiceSpeed",0.0).also { require(it in 0.0..5000.0) },strategy,sandboxStep,root.optBoolean("movedCameraInTutorial"))
     }
     private fun bodyScene(bodies: List<CelestialBody>, camera: SpaceCamera = SpaceCamera(), exploration: com.xekep.space.sim.ExplorationState? = null): JSONObject =
         JSONObject(scenes.encode(SandboxSnapshot(bodies,camera.center,camera.zoom,0.0,0L,preset=SandboxPresetKind.Empty,exploration=exploration)))
@@ -85,6 +96,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             .put("immunity",run.immunity).put("lastIntercept",run.lastIntercept).put("launches",run.launches)
             .put("successfulLaunches",JSONArray(run.successfulLaunches.toList())).put("practice",run.practice)
             .put("waveDelay",run.waveDelay).put("planetId",run.planetId).put("endless",run.endless)
+            .put("orbitCleanup",run.orbitCleanup)
             .put("offered",JSONArray(run.offeredUpgradeWaves.toList())).put("chosen",JSONArray(run.chosenUpgradeWaves.toList()))
         val upgrades=JSONObject(); run.upgrades.forEach { (kind,level) -> upgrades.put(kind.name,level) }; result.put("upgrades",upgrades)
         run.upgradeOffer?.let { result.put("offer",JSONObject().put("wave",it.wave).put("choices",JSONArray(it.choices.map { x -> x.name })).put("bonus",it.convoyBonus).put("salvageBonus",it.salvageBonus)) }
@@ -145,6 +157,7 @@ class SessionRecovery(context: Context, file: File = File(context.filesDir,"sess
             launches=root.getInt("launches").also { require(it >= 0) },successfulLaunches=root.getJSONArray("successfulLaunches").longSet(),practice=root.getBoolean("practice"),
             combat=ArcadeCombat(projectiles,craft),upgrades=upgrades,offeredUpgradeWaves=root.getJSONArray("offered").intSet(),chosenUpgradeWaves=root.getJSONArray("chosen").intSet(),
             upgradeOffer=offer,challenge=challenge,waveDelay=value("waveDelay",0.0..1e8),planetId=if (root.isNull("planetId")) null else root.getLong("planetId"),convoy=convoy,endless=root.getBoolean("endless"),
+            orbitCleanup=root.optDouble("orbitCleanup",0.0).also { require(it in 0.0..OrbitCleanupSeconds) },
             strategy=root.optJSONObject("strategyBattle")?.let { decodeStrategy(it,scene.bodies) },
             sideEvent=root.optJSONObject("sideEvent")?.let(::decodeSideEvent),nextEventWave=root.optInt("nextEventWave",4).also { require(it in 1..10000000) },
             eventRandomState=if (root.isNull("eventRandomState")) null else root.getLong("eventRandomState").also { require(it != 0L) },

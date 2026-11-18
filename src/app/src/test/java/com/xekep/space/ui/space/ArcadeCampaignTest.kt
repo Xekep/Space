@@ -28,6 +28,23 @@ class ArcadeCampaignTest {
         state=advanceArcade(state,1.0/60,Random(17));assertEquals(3,state.wave)
     }
 
+    @Test fun prolongedCleanupReleasesSafeOrbitsAndKeepsIncomingThreats() {
+        val initial = run(1,24.0)
+        val core = initial.bodies.first { it.kind == BodyKind.Core }
+        val point = core.position+Vec2(250.0,0.0)
+        val orbiting = ship(point).copy(kind=BodyKind.Meteor,velocity=SimulationEngine.orbitVelocity(core,point))
+        val incoming = orbiting.copy(velocity=Vec2(-100.0,0.0))
+        fun step(meteor: CelestialBody, waited: Double): ArcadeSession = advanceArcade(
+            initial.copy(bodies=listOf(core,meteor),orbitCleanup=waited),.02,Random(17))
+
+        assertFalse(step(orbiting,OrbitCleanupSeconds-1).resting)
+        val quiet = step(orbiting,OrbitCleanupSeconds-.01)
+        assertTrue(quiet.resting)
+        assertEquals(0,quiet.destroyed)
+        assertFalse(quiet.bodies.any { it.id == orbiting.id })
+        assertTrue(step(incoming,OrbitCleanupSeconds-.01).bodies.any { it.id == incoming.id })
+    }
+
     @Test fun salvageNeedsAnIntentionalSortieAndRouteCanFinishAtThePickup() {
         val base=prepareCampaign(run(7),Random(4)); val salvage=base.salvage!!
         val body=ship(salvage.position)

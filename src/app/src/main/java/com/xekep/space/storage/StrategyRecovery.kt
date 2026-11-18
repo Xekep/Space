@@ -11,6 +11,7 @@ private fun JSONObject.id()=getLong("id").also { require(it in 1..Long.MAX_VALUE
 private fun JSONArray.items(limit: Int): List<JSONObject> { require(length() <= limit); return List(length()) { getJSONObject(it) } }
 internal fun encodeStrategy(battle: StrategyBattle)=JSONObject()
     .put("victory",battle.victory)
+    .put("training",battle.training?.name)
     .put("bases",JSONArray(battle.bases.map { JSONObject().put("id",it.id).put("position",point(it.position)).put("remaining",it.remaining).put("launches",it.launches) }))
     .put("stations",JSONArray(battle.stations.map { JSONObject().put("id",it.id).put("position",point(it.position)).put("kind",it.kind.name).put("level",it.level).put("hull",it.hull).put("product",it.product.name).put("remaining",it.remaining) }))
     .put("orders",JSONArray(battle.orders.map { (id,order) -> JSONObject().put("id",id).put("position",point(order.position)).put("command",order.command.name).put("target",order.targetId) }))
@@ -27,7 +28,8 @@ internal fun decodeStrategy(obj: JSONObject, bodies: List<CelestialBody>): Strat
         EnemyCraft(BodyKind.valueOf(x.getString("kind")).also { require(it in listOf(BodyKind.Ship,BodyKind.Rocket)) },x.getDouble("cooldown").also { require(it in 0.0..3.0) },x.getDouble("age").also { require(it in 0.0..100.0) }) }
     require(stations.map { it.id }.distinct().size == stations.size && bases.map { it.id }.distinct().size == bases.size)
     val victory=obj.getBoolean("victory"); require(!victory || bases.isEmpty())
-    return StrategyBattle(bases,stations,orders,enemies,victory)
+    val training = if (obj.isNull("training")) null else StrategyTraining.valueOf(obj.getString("training"))
+    return StrategyBattle(bases,stations,orders,enemies,victory,training)
 }
 internal fun encodeSideEvent(event: ArcadeSideEvent)=JSONObject().put("kind",event.kind.name).put("position",point(event.position)).put("remaining",event.remaining).put("status",event.status.name)
 internal fun decodeSideEvent(obj: JSONObject)=ArcadeSideEvent(SideEventKind.valueOf(obj.getString("kind")),obj.position(),obj.getDouble("remaining").also { require(it in 0.0..40.0) },SideEventStatus.valueOf(obj.getString("status")))

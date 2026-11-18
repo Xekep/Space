@@ -10,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.IntSize
 import androidx.test.platform.app.InstrumentationRegistry
 import com.xekep.space.input.FlightControlMode
+import com.xekep.space.sim.SandboxPresetKind
 import com.xekep.space.ui.theme.SpaceTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -48,6 +49,9 @@ class CommercialUiTest {
         compose.onNodeWithTag("menu-primary").performClick();compose.mainClock.advanceTimeBy(48)
         compose.onNodeWithTag("welcome-learn").performClick();compose.mainClock.advanceTimeBy(48)
         assertEquals(0,game.tutorialStep);assertTrue(game.arcade!!.practice)
+        compose.runOnIdle { game.openMenu() };compose.mainClock.advanceTimeBy(48)
+        compose.onNodeWithTag("menu-primary").performClick();compose.mainClock.advanceTimeBy(48)
+        assertEquals(0,game.tutorialStep);assertNotNull(game.tutorialText)
         compose.runOnIdle { game.skipTutorial() };assertFalse(game.arcade!!.practice)
     }
     @Test fun privacyAndQualityAreReachableInSettings() {
@@ -78,5 +82,19 @@ class CommercialUiTest {
         assertTrue(game.flightPractice);assertNotNull(game.controlledVehicleId)
         compose.onNodeWithTag("flight-joystick").assertIsDisplayed()
         compose.onNodeWithTag("pitch-joystick").assertIsDisplayed()
+    }
+
+    @Test fun flightPracticeFromStrategyRequiresConfirmationForTheActiveWorld() {
+        val game = SpaceGameState().apply { startSandbox(SandboxPresetKind.BinaryStars,"Existing world"); openMenu() }
+        scene(game)
+        compose.onNodeWithTag("mode-Strategy").performClick()
+        compose.onNodeWithTag("open-settings").performClick(); compose.mainClock.advanceTimeBy(500)
+        compose.mainClock.autoAdvance = true
+        compose.onNodeWithTag("flight-practice").performScrollTo().performClick()
+        assertEquals("Existing world",game.sandbox!!.name)
+        assertFalse(game.flightPractice)
+        compose.onNodeWithTag("confirm-action").assertIsDisplayed().performClick()
+        assertTrue(game.flightPractice)
+        assertEquals(1,game.bodies.size)
     }
 }

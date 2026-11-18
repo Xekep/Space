@@ -89,6 +89,48 @@ class SessionRecoveryTest {
         assertThrows(IllegalArgumentException::class.java) { storage.decode(JSONObject(storage.encode(good)).put("version",999).toString()) }
         storage.save(good);assertEquals(good,storage.load())
     }
+
+    @Test fun mergedSandboxMassRoundTripsInManualAndAutomaticSaves() {
+        val game = SpaceGameState().apply {
+            resize(IntSize(1080,2340))
+            startSandbox(SandboxPresetKind.Empty)
+            setCollisions(true)
+        }
+        for (x in listOf(-100.0,100.0)) {
+            val point = Vec2(x,0.0)
+            game.launch(TouchPreview(point,point,0),0.0)
+            game.selectBody(game.bodies.last().id)
+            game.editSelected(60_000_000.0,Vec2.Zero)
+        }
+        game.update(1.0/30)
+        val expected = game.bodies.single()
+        assertEquals(120_000_000.0,expected.mass,1e-6)
+        val slots = SandboxStorage(context)
+        slots.save(1,game.snapshot(0)!!)
+        storage.save(game.recoverySnapshot(0)!!)
+        assertEquals(expected.mass,slots.load(1)!!.bodies.single().mass,0.0)
+        assertEquals(expected.mass,storage.load()!!.sandbox!!.bodies.single().mass,0.0)
+        assertFalse(storage.readFailed)
+    }
+
+    @Test fun invalidActiveSceneLeavesOtherModesAndTrainingRecoverable() {
+        val game = SpaceGameState().apply {
+            resize(IntSize(1080,2340))
+            startArcade()
+            beginTutorial(AppMode.Strategy)
+            startSandbox(SandboxPresetKind.BinaryStars)
+        }
+        val saved = game.recoverySnapshot(0)!!
+        val badSandbox = saved.sandbox!!.copy(bodies = saved.sandbox!!.bodies.map { it.copy(mass = -1.0) })
+        storage.save(saved.copy(sandbox = badSandbox))
+        val restored = storage.load()!!
+        assertTrue(storage.readFailed)
+        assertEquals(AppMode.Arcade,restored.mode)
+        assertNull(restored.sandbox)
+        assertEquals(saved.arcade,restored.arcade)
+        assertEquals(saved.strategy,restored.strategy)
+        assertEquals(StrategyTraining.Factory,restored.strategy!!.strategy!!.training)
+    }
     @Test fun restoredRandomKeepsFutureWaveChoicesAndEndlessAcknowledgement() {
         val saved=snapshot().copy(arcade=snapshot().arcade!!.copy(elapsed=560.0,endless=true,upgradeOffer=null))
         val random=SessionRandom(73);random.restore(saved.randomState!!)
