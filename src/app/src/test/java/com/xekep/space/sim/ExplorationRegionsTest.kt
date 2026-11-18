@@ -27,7 +27,7 @@ class ExplorationRegionsTest {
         val generated=exploreRegions(emptyList(),initial,focus,view)
         assertTrue(generated.added);assertEquals(1,generated.state.visited.size)
         var state=generated.state;var bodies=generated.bodies
-        repeat(10) { val next=exploreRegions(bodies,state,focus,view);bodies=next.bodies;state=next.state }
+        repeat(120) { val next=exploreRegions(bodies,state,focus,view);bodies=next.bodies;state=next.state }
         val keys=state.visited
         val emptied=exploreRegions(emptyList(),state,focus,view)
         assertFalse(emptied.added);assertEquals(keys,emptied.state.visited)
@@ -66,11 +66,39 @@ class ExplorationRegionsTest {
         assertTrue(checked>0)
     }
 
-    @Test fun leavingHomeImmediatelyDiscoversContentWithoutAnEmptyBandOrBodiesInTheArena() {
-        val origin=Vec2(450.0,700.0);val state=ExplorationState(17,origin)
-        val found=exploreRegions(emptyList(),state,origin+Vec2(4200.0,0.0),Vec2(540.0,1200.0))
-        assertTrue(found.added);assertTrue(found.bodies.isNotEmpty())
-        assertTrue(found.bodies.all { (it.position-origin).magnitude()>2500 })
+    @Test fun newRegionsStayOutsideCameraAtEveryZoomAndRotation() {
+        val origin=Vec2(450.0,700.0)
+        for (seed in listOf(17L,73L)) for (halfView in listOf(Vec2(540.0,1200.0),Vec2(3600.0,7800.0),Vec2(108000.0,234000.0)))
+            for (angle in listOf(0.0,.7,Math.PI)) {
+                val focus=origin+Vec2(4200.0,0.0);var state=ExplorationState(seed,origin);var bodies=emptyList<CelestialBody>()
+                repeat(8) {
+                    val found=exploreRegions(bodies,state,focus,halfView,angle)
+                    assertTrue(found.added)
+                    for (body in found.bodies.drop(bodies.size)) {
+                        val delta=body.position-focus;val x=delta.x*kotlin.math.cos(angle)-delta.y*kotlin.math.sin(angle)
+                        val y=delta.x*kotlin.math.sin(angle)+delta.y*kotlin.math.cos(angle)
+                        val halo=body.radius*(if(body.kind==BodyKind.Star) 3.4 else 1.0)
+                        assertTrue("body=${body.id} view=$halfView angle=$angle",kotlin.math.abs(x)>halfView.x+halo || kotlin.math.abs(y)>halfView.y+halo)
+                    }
+                    bodies=found.bodies;state=found.state
+                }
+            }
     }
-
+    @Test fun regionEnvelopeContainsPlanetsMoonsJunkAndGlows() {
+        for(seed in 1L..100L) for (key in listOf(regionKey(1,0),regionKey(2,2))) {
+            val state=ExplorationState(seed,Vec2.Zero);val center=explorationRegionCenter(state,key)
+            assertTrue(createExplorationRegion(state,key).all {
+                (it.position-center).magnitude()+it.radius*(if(it.kind==BodyKind.Star) 3.4 else 1.0)<1200
+            })
+        }
+    }
+    @Test fun systemsArePreloadedBeforeCameraArrivesAndRevisitingDoesNotDuplicateThem() {
+        val origin=Vec2(450.0,700.0);val state=ExplorationState(17,origin);val view=Vec2(540.0,1200.0)
+        val found=exploreRegions(emptyList(),state,origin+Vec2(2000.0,0.0),view)
+        assertTrue(found.added);assertTrue(found.bodies.all { (it.position-origin).magnitude()>2500 })
+        val center=explorationRegionCenter(state,found.state.visited.single())
+        val arrived=exploreRegions(found.bodies,found.state,center,view)
+        assertTrue(arrived.bodies.containsAll(found.bodies))
+        assertEquals(arrived.bodies.size,arrived.bodies.map { it.id }.distinct().size)
+    }
 }

@@ -98,7 +98,11 @@ class LootAndExplorationUiTest {
             val game=SpaceGameState(random=random).apply { resize(androidx.compose.ui.unit.IntSize(1080,2340))
                 when(mode) { AppMode.Arcade -> startArcade();AppMode.Strategy -> startStrategy();AppMode.Sandbox -> startSandbox(SandboxPresetKind.Empty) } }
             val state=random.state;val limit=game.spawnLimitFor(BodyKind.Ship);val energy=game.arcade?.energy
-            repeat(6) { game.transformCamera(Offset(540f,1000f),Offset(-900f,0f),1f) }
+            repeat(6) {
+                val before=game.bodies.map { it.id }.toSet()
+                game.transformCamera(Offset(540f,1000f),Offset(-900f,0f),1f)
+                assertNewBodiesOutsideViewport(game,before)
+            }
             assertTrue(game.bodies.any { it.explorationRegion!=null })
             assertEquals(state,random.state);assertEquals(limit,game.spawnLimitFor(BodyKind.Ship))
             if (mode!=AppMode.Sandbox) assertEquals(energy,game.arcade?.energy)
@@ -106,6 +110,26 @@ class LootAndExplorationUiTest {
             val decoded=codec.decode(codec.encode(saved))
             if (mode==AppMode.Sandbox) assertEquals(saved.sandbox!!.exploration,decoded.sandbox!!.exploration)
             else assertEquals(game.arcade!!.exploration,(if (mode==AppMode.Strategy) decoded.strategy else decoded.arcade)!!.exploration)
+        }
+    }
+    private fun assertNewBodiesOutsideViewport(game: SpaceGameState,before: Set<Long>) {
+        for(body in game.bodies.filter { it.id !in before }) {
+            val point=worldToScreen(body.position,game.viewport,game.camera.center,game.camera.zoom,game.cameraRotation)
+            val halo=body.radius*game.camera.zoom*(if(body.kind==BodyKind.Star) 3.4f else 1f)
+            assertTrue("New body ${body.id} appeared in the viewport at $point",
+                point.x+halo<0 || point.y+halo<0 || point.x-halo>game.viewport.width || point.y-halo>game.viewport.height)
+        }
+    }
+    @Test fun zoomingOutPreloadsOnlyOutsideTheNewViewportInEveryMode() {
+        for(mode in AppMode.entries) {
+            val game=SpaceGameState(random=SessionRandom(17)).apply {
+                resize(androidx.compose.ui.unit.IntSize(1080,2340))
+                when(mode) { AppMode.Arcade -> startArcade();AppMode.Strategy -> startStrategy();AppMode.Sandbox -> startSandbox(SandboxPresetKind.Empty) }
+            }
+            val before=game.bodies.map { it.id }.toSet()
+            game.transformCamera(Offset(540f,1170f),Offset.Zero,.2f)
+            assertTrue(game.bodies.size>before.size)
+            assertNewBodiesOutsideViewport(game,before)
         }
     }
 }

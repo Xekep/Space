@@ -53,7 +53,7 @@ class StrategyUiTest {
         val game=game();val core=game.bodies.first { it.kind == BodyKind.Core }
         val a=ship(core.position+Vec2(-300.0,-100.0));val b=ship(core.position+Vec2(-120.0,-230.0))
         replace(game,game.arcade!!.copy(bodies=game.bodies+listOf(a,b)));show(game)
-        val count=game.bodies.size
+        val count=game.bodies.count { it.explorationRegion==null }
         compose.onNodeWithTag("space-scene").performTouchInput {
             down(worldToScreen(core.position+Vec2(-360.0,-300.0),game.viewport,game.camera.center,game.camera.zoom))
             moveTo(worldToScreen(core.position+Vec2(-60.0,-60.0),game.viewport,game.camera.center,game.camera.zoom));up()
@@ -69,7 +69,7 @@ class StrategyUiTest {
             down(0,center+Offset(-100f,0f));down(1,center+Offset(100f,0f))
             moveTo(0,center+Offset(-170f,30f));moveTo(1,center+Offset(170f,30f));up(1);up(0)
         }
-        compose.mainClock.advanceTimeBy(32);assertEquals(count,game.bodies.size);assertEquals(0,game.arcade!!.launches)
+        compose.mainClock.advanceTimeBy(32);assertEquals(count,game.bodies.count { it.explorationRegion==null });assertEquals(0,game.arcade!!.launches)
         shot("strategy-orders.png")
     }
     @Test fun menuOffersStrategySeparatelyAndBothCombatSessionsRecoverTogether() {

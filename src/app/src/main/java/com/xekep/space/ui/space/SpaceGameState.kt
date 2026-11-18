@@ -568,11 +568,10 @@ class SpaceGameState(
         if (mode != AppMode.Sandbox && (arcade?.practice == true || (arcade?.lives ?: 0) <= 0 || arcadeCompletionPending)) return
         val old=if (mode == AppMode.Sandbox) sandbox?.exploration else arcade?.exploration
         val origin=old?.origin ?: if (mode == AppMode.Sandbox) Vec2.Zero else bodies.firstOrNull { it.kind == BodyKind.Core }?.position ?: Vec2.Zero
-        if ((camera.center-origin).magnitude()<3600) return
         val seed=((random as? SessionRandom)?.state ?: 73L) xor ((bodies.firstOrNull()?.id ?: sceneGeneration.toLong())*-7046029254386353131L)
         val state=old ?: ExplorationState(seed,origin)
-        val generated=exploreRegions(bodies,state,camera.center,Vec2(viewport.width/(2.0*camera.zoom),viewport.height/(2.0*camera.zoom)))
-        if (generated.state == old && !generated.added) return
+        val generated=exploreRegions(bodies,state,camera.center,Vec2(viewport.width/(2.0*camera.zoom),viewport.height/(2.0*camera.zoom)),cameraRotation)
+        if (generated.state == state && !generated.added) return
         if (mode == AppMode.Sandbox) {
             sandboxRevision++;sandbox=sandbox?.copy(bodies=generated.bodies,exploration=generated.state,
                 referenceEnergy=if (generated.added) SimulationEngine.totalEnergy(generated.bodies) else sandbox!!.referenceEnergy);dirty=true

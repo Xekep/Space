@@ -18,21 +18,44 @@ internal fun regionCoordinates(key: Long)=Pair((key shr 32).toInt(),key.toInt())
 internal fun validRegionKey(key: Long)=regionCoordinates(key).let { (x,y) -> x in -65536..65536 && y in -65536..65536 }
 private fun regionCenter(key: Long,origin: Vec2)=regionCoordinates(key).let { (x,y) -> origin+Vec2(x*EXPLORATION_REGION_SIZE,y*EXPLORATION_REGION_SIZE) }
 
-/** Separate coordinate-seeded RNG: exploring never consumes the combat random stream. */
-internal fun exploreRegions(bodies: List<CelestialBody>,state: ExplorationState,focus: Vec2,halfView: Vec2): ExplorationResult {
-    if (!focus.x.isFinite() || !focus.y.isFinite() || (focus-state.origin).magnitude()<3600 ||
+// Covers every orbit, metal cluster and stellar halo; test the bound when changing layouts.
+private const val RegionFootprintRadius=1200.0
+private fun regionRandom(state: ExplorationState,key: Long)=Random(state.seed xor (key*-7046029254386353131L))
+private fun regionAnchor(state: ExplorationState,key: Long): Vec2 {
+    val nominal=regionCenter(key,state.origin);val radial=nominal-state.origin
+    return if (radial.magnitude()<3800) state.origin+radial.normalized()*3800.0 else nominal
+}
+internal fun explorationRegionCenter(state: ExplorationState,key: Long): Vec2 {
+    val random=regionRandom(state,key)
+    return regionAnchor(state,key)+Vec2(random.nextDouble(-280.0,280.0),random.nextDouble(-280.0,280.0))
+}
+private fun cameraDistance(point: Vec2,focus: Vec2,halfView: Vec2,rotation: Double): Double {
+    val delta=point-focus;val c=cos(rotation);val s=sin(rotation)
+    return hypot(max(0.0,abs(delta.x*c-delta.y*s)-halfView.x),max(0.0,abs(delta.x*s+delta.y*c)-halfView.y))
+}
+
+/** Preload entire regions outside the rotated viewport, never materialize them on screen.
+ * Visible unvisited cells stay unvisited: moving away can safely preload them for a return. */
+internal fun exploreRegions(bodies: List<CelestialBody>,state: ExplorationState,focus: Vec2,halfView: Vec2,rotation: Double=0.0): ExplorationResult {
+    if (!focus.x.isFinite() || !focus.y.isFinite() || !halfView.x.isFinite() || !halfView.y.isFinite() ||
+        halfView.x<=0 || halfView.y<=0 || !rotation.isFinite() ||
+        (focus-state.origin).magnitude()+halfView.magnitude()<2400 ||
         state.visited.size>=MAX_EXPLORATION_REGIONS || bodies.size>MAX_SANDBOX_BODIES-20 ||
         bodies.count { it.explorationRegion!=null }>MAX_STORED_EXPLORATION_BODIES-20) return ExplorationResult(bodies,state)
-    val local=focus-state.origin
-    val x=floor(local.x/EXPLORATION_REGION_SIZE+.5).toInt();val y=floor(local.y/EXPLORATION_REGION_SIZE+.5).toInt()
-    if (x !in -65535..65535 || y !in -65535..65535) return ExplorationResult(bodies,state)
-    val candidates=(-1..1).flatMap { dx -> (-1..1).map { dy -> regionKey(x+dx,y+dy) } }
-        .filter { it !in state.visited }.sortedBy { (regionCenter(it,state.origin)-focus).magnitude() }
-    val key=candidates.firstOrNull {
-        val center=regionCenter(it,state.origin);val delta=center-focus
-        (center-state.origin).magnitude()>2700 && abs(delta.x)<halfView.x.coerceIn(800.0,4800.0)+900 &&
-            abs(delta.y)<halfView.y.coerceIn(800.0,4800.0)+900
-    } ?: return ExplorationResult(bodies,state)
+    val margin=max(200.0,min(halfView.x,halfView.y)*.15)
+    val reach=halfView+Vec2(RegionFootprintRadius+margin,RegionFootprintRadius+margin)
+    val candidates=mutableSetOf<Long>();val c=cos(rotation);val s=sin(rotation)
+    for (dx in -1..1) for (dy in -1..1) if (dx!=0 || dy!=0) {
+        val screen=Vec2(dx*reach.x,dy*reach.y)
+        val local=focus+Vec2(screen.x*c+screen.y*s,-screen.x*s+screen.y*c)-state.origin
+        val x=floor(local.x/EXPLORATION_REGION_SIZE+.5).toInt();val y=floor(local.y/EXPLORATION_REGION_SIZE+.5).toInt()
+        if (x in -65535..65535 && y in -65535..65535)
+            for (ox in -1..1) for (oy in -1..1) candidates+=regionKey(x+ox,y+oy)
+    }
+    val key=candidates.asSequence().filter { it !in state.visited && (regionCenter(it,state.origin)-state.origin).magnitude()>2700 }
+        .map { it to cameraDistance(explorationRegionCenter(state,it),focus,halfView,rotation) }
+        .filter { it.second>RegionFootprintRadius+margin && it.second<RegionFootprintRadius+margin+EXPLORATION_REGION_SIZE*1.5 }
+        .minByOrNull { it.second }?.first ?: return ExplorationResult(bodies,state)
     val generated=createExplorationRegion(state,key)
     if (generated.any { new -> bodies.any { (it.position-new.position).magnitude()<it.radius+new.radius+10 } })
         return ExplorationResult(bodies,state.copy(visited=state.visited+key))
@@ -41,13 +64,8 @@ internal fun exploreRegions(bodies: List<CelestialBody>,state: ExplorationState,
 
 /** Real, varied bodies: compact planetary systems and loose fields of metal fragments. */
 internal fun createExplorationRegion(state: ExplorationState,key: Long): List<CelestialBody> {
-    val random=Random(state.seed xor (key*-7046029254386353131L))
-    val nominal=regionCenter(key,state.origin)
-    // First ring is visible as soon as the camera leaves home, but its content remains
-    // outside the defensive arena rather than leaving an empty discovery band.
-    val radial=nominal-state.origin
-    val anchor=if (radial.magnitude()<3800) state.origin+radial.normalized()*3800.0 else nominal
-    val center=anchor+Vec2(random.nextDouble(-280.0,280.0),random.nextDouble(-280.0,280.0))
+    val random=regionRandom(state,key)
+    val center=regionAnchor(state,key)+Vec2(random.nextDouble(-280.0,280.0),random.nextDouble(-280.0,280.0))
     val bodies=mutableListOf<CelestialBody>()
     fun body(position: Vec2,velocity: Vec2,mass: Double,radius: Float,color: Color,kind: BodyKind=BodyKind.Ambient,debris: Boolean=false,parent: Long?=null): CelestialBody {
         val angle=random.nextDouble(2*PI)

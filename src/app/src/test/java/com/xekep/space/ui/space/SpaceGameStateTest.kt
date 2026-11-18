@@ -11,6 +11,12 @@ import org.junit.Test
 import kotlin.random.Random
 
 class SpaceGameStateTest {
+    @Test fun homeCameraWithoutAnyDiscoveryDoesNotMarkTheSandboxAsChanged() {
+        val game=game().apply { startSandbox(SandboxPresetKind.Empty) }
+        game.updateSandboxPresentation(.016)
+        assertFalse(game.dirty);assertNull(game.sandbox!!.exploration)
+    }
+
     @Test fun tappingAnArcadeObjectSelectsItsActualMassWithoutSpendingEnergyOrLaunching() {
         val game=SpaceGameState().apply { resize(androidx.compose.ui.unit.IntSize(1080,1920)); startArcade() }
         val core=game.bodies.first { it.kind == BodyKind.Core }
