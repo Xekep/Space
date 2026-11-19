@@ -12,17 +12,26 @@ import kotlin.math.*
 
 /** Legal inputs with exact-state observation. These comparisons are not human win rates. */
 class StrategyAuditProbeTest {
-    private enum class Policy { Passive, Factories, Rockets, Combined }
+    private enum class Policy(val priority: EnemyBaseRole? = null) {
+        Passive, Factories, Rockets, Combined,
+        SiloFirst(EnemyBaseRole.Silo), ShipyardFirst(EnemyBaseRole.Shipyard), CitadelFirst(EnemyBaseRole.Citadel);
+
+        val mixed: Boolean get() = this == Combined || priority != null
+    }
     @Test fun compareStrategicChoicesOnAllDifficulties() {
         assumeTrue(System.getProperty("strategyAudit") == "true")
-        val output=mutableListOf("policy,difficulty,seed,seconds,lives,bases,launches,stations,victory,maxEnemies,maxFleet,energyCapPercent,events")
+        val output=mutableListOf("policy,difficulty,seed,seconds,lives,bases,launches,stations,victory,maxEnemies,maxFleet,energyCapPercent,events,layout,firstDestroyed,firstDestroyedSeconds")
         val field=SimulationEngine::class.java.getDeclaredField("idSource").apply { isAccessible=true }
         val ids=field.get(SimulationEngine) as AtomicLong
         val previous=ids.get()
         try {
             for (policy in Policy.entries) for (difficulty in ArcadeDifficulty.entries) for (seed in listOf(17L,73L)) {
+                if (policy.priority != null && difficulty != ArcadeDifficulty.Normal) continue
                 ids.set(1) // Identifiers alone: stable patrol slots, never extra resources or damage.
                 val game=SpaceGameState(random=SessionRandom(seed)).apply { resize(IntSize(1080,2340));startStrategy(difficulty) }
+                val initialBases = game.arcade!!.strategy!!.bases
+                var firstDestroyed: EnemyBase? = null
+                var firstDestroyedSeconds: Double? = null
                 var time=0.0;var decision=0.0;var cap=0.0;var maxEnemies=0;var maxFleet=0
                 while (time<300 && game.arcade!!.lives>0 && !game.arcadeCompletionPending) {
                     val run=game.arcade!!;val battle=run.strategy!!;val core=run.bodies.first { it.kind==BodyKind.Core }
@@ -30,28 +39,28 @@ class StrategyAuditProbeTest {
                     if (decision<=0 && policy!=Policy.Passive) {
                         val factories=battle.stations.count { it.kind==StationKind.Factory }
                         when {
-                            policy==Policy.Combined && battle.stations.none { it.kind==StationKind.Bastion } && run.energy>=70 -> {
+                            policy.mixed && battle.stations.none { it.kind==StationKind.Bastion } && run.energy>=70 -> {
                                 build(game,StationKind.Bastion,core.position+Vec2(-200.0,-220.0))
                             }
-                            (policy==Policy.Factories && factories<3 || policy==Policy.Combined && factories<2 && time>3) && run.energy>=65 -> {
+                            (policy==Policy.Factories && factories<3 || policy.mixed && factories<2 && time>3) && run.energy>=65 -> {
                                 val point=core.position+if (factories==1) Vec2(-280.0,220.0) else Vec2(0.0,-330.0)
                                 build(game,StationKind.Factory,point)
                                 if (game.selectedStationId!=null) { game.cycleStationProduct();game.cycleStationProduct() }
                                 game.clearFleet()
                             }
-                            (policy==Policy.Rockets || policy==Policy.Combined) && run.energy>=60 -> {
+                            (policy==Policy.Rockets || policy.mixed) && run.energy>=60 -> {
                                 val guards=run.bodies.count { it.kind==BodyKind.Ship && it.shipClass==ShipClass.Guardian }
-                                val kind=if (policy==Policy.Combined && guards<2) BodyKind.Ship else BodyKind.Rocket
+                                val kind=if (policy.mixed && guards<2) BodyKind.Ship else BodyKind.Rocket
                                 if (game.spawnCountFor(kind)<game.spawnLimitFor(kind)) {
                                     game.chooseSpawnKind(kind)
                                     if (kind==BodyKind.Ship) game.chooseArcadeShipClass(ShipClass.Guardian)
-                                    val target=battle.bases.firstOrNull()
+                                    val target=battle.bases.firstOrNull { it.role == policy.priority } ?: battle.bases.firstOrNull()
                                     val radial=Vec2(cos(time*.7),sin(time*.7));val point=core.position+radial*250.0
                                     val aim=if (kind==BodyKind.Ship) radial.perpendicular() else (target?.position ?: core.position)-point
                                     val before=game.bodies.filter { it.isVehicle }.map { it.id }.toSet()
                                     game.launch(TouchPreview(point,point+aim.normalized()*130.0,0,Offset(80f,0f)),if (kind==BodyKind.Rocket) .65 else .30)
                                     val craft=game.bodies.firstOrNull { it.isVehicle && it.id !in before }
-                                    if (policy==Policy.Combined && craft?.kind==BodyKind.Rocket && target!=null) {
+                                    if (policy.mixed && craft?.kind==BodyKind.Rocket && target!=null) {
                                         game.clearFleet();game.chooseFleetCommand(FleetCommand.Move)
                                         game.finishGesture(TouchPreview(craft.position,craft.position,0,tapBodyId=craft.id),.01)
                                         game.chooseFleetCommand(FleetCommand.Attack)
@@ -65,18 +74,24 @@ class StrategyAuditProbeTest {
                     }
                     if (run.energy>=119) cap+=1.0/30
                     game.update(1.0/30);time+=1.0/30
+                    if (firstDestroyed == null) {
+                        val live = game.arcade!!.strategy!!.bases
+                        firstDestroyed = initialBases.firstOrNull { base -> live.none { it.id == base.id } }
+                        if (firstDestroyed != null) firstDestroyedSeconds = time
+                    }
                     maxEnemies=maxOf(maxEnemies,game.arcade!!.strategy!!.enemies.size)
                     maxFleet=maxOf(maxFleet,game.bodies.count { it.isVehicle })
                     assertTrue(game.bodies.all { it.position.x.isFinite() && it.position.y.isFinite() })
                 }
                 val run=game.arcade!!;val battle=run.strategy!!
-                val row="$policy,$difficulty,$seed,$time,${run.lives},${battle.bases.size},${run.launches},${battle.stations.size},${battle.victory},$maxEnemies,$maxFleet,${cap/time*100},${run.eventsCompleted}"
+                val layout = initialBases.joinToString("|") { it.role!!.name }
+                val row="$policy,$difficulty,$seed,$time,${run.lives},${battle.bases.size},${run.launches},${battle.stations.size},${battle.victory},$maxEnemies,$maxFleet,${cap/time*100},${run.eventsCompleted},$layout,${firstDestroyed?.role?.name.orEmpty()},${firstDestroyedSeconds ?: ""}"
                 output+=row;println(row)
             }
         } finally { ids.set(previous) }
         val folder=File(System.getProperty("strategyAuditDir") ?: "../../dist");folder.mkdirs()
         File(folder,"strategy-audit.csv").writeText(output.joinToString("\n"))
-        assertEquals(25,output.size)
+        assertEquals(31,output.size)
     }
     private fun build(game: SpaceGameState,kind: StationKind,point: Vec2) {
         game.clearFleet();game.chooseBuilding(kind);game.finishGesture(TouchPreview(point,point,0),.01)

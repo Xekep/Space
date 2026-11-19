@@ -174,7 +174,9 @@ $adb = "$env:ANDROID_HOME/platform-tools/adb.exe"
 
 **Build** запускается для push в `main`, pull request и вручную. Выполняет `:app:check`, собирает debug и release APK; debug APK и отчёты доступны в artifacts запуска. Без ключа локальная release-сборка создаёт неподписанный APK, который нельзя установить напрямую.
 
-**Release** запускается при push тега **`vMAJOR.MINOR.PATCH`**, например `v1.0.0`. Проверяет проект, собирает подписанные APK и AAB, создаёт GitHub Release с файлами `Space-<version>.apk`, `Space-<version>.aab` и `SHA256SUMS.txt`. При повторном запуске обновляет файлы существующего релиза. AAB предназначен для загрузки в магазин; на устройство устанавливается APK.
+**Release** можно запустить вручную через **Actions → Release → Run workflow**. Выберите ветку и укажите тег `vMAJOR.MINOR.PATCH`, например `v1.0.1`. После сборки APK и AAB и проверки подписи APK workflow создаёт тег на собранном коммите и публикует GitHub Release. В релизе доступны `Space-<version>.apk`, `Space-<version>.aab`, `SHA256SUMS.txt` и `package-check.json`. Для установки на устройство скачайте APK. AAB предназначен для загрузки в магазин.
+
+Push тега того же формата также запускает **Release**. Повторный запуск для того же тега и коммита обновляет файлы релиза. Если указанный вручную тег уже указывает на другой коммит, workflow завершится ошибкой.
 
 Перед первым релизом создайте постоянный ключ подписи вне репозитория:
 
@@ -191,6 +193,8 @@ keytool -genkeypair -v -keystore "$env:USERPROFILE/space-release.jks" -alias spa
 | `SPACE_KEY_ALIAS` | Псевдоним ключа, например `space` |
 | `SPACE_KEY_PASSWORD` | Пароль ключа |
 
+На вкладке **Variables** задайте `SPACE_APP_CERT_SHA256` со значением SHA-256 сертификата подписи APK. Отпечаток можно посмотреть командой `keytool -list -v -keystore <путь-к-хранилищу> -alias space`.
+
 Получить Base64 для переноса в secret можно так:
 
 ```powershell
@@ -199,11 +203,10 @@ keytool -genkeypair -v -keystore "$env:USERPROFILE/space-release.jks" -alias spa
 
 Храните резервную копию ключа и паролей: обновления приложения должны использовать тот же ключ. Workflow завершится ошибкой, если secrets отсутствуют, и удаляет временное хранилище после сборки. `GITHUB_TOKEN` выдаётся Actions автоматически, отдельный PAT не нужен.
 
-После коммита и push исходников:
+После push исходников запуск с тем же полем доступен и через GitHub CLI.
 
 ```powershell
-git tag v1.0.0
-git push origin v1.0.0
+gh workflow run release.yml --ref main -f tag=v1.0.1
 ```
 
 `versionName` берётся из тега, `versionCode` вычисляется как `MAJOR × 1000000 + MINOR × 1000 + PATCH`. Допустимые значения: major до 2099, minor и patch до 999; код должен быть положительным. Компоненты тега указываются без ведущих нулей. Для следующего релиза повышайте версию. По умолчанию локальная сборка имеет версию `1.0.0` и код `1000000`; переопределить их можно через `'-PversionName=1.0.1' '-PversionCode=1000001'` (кавычки нужны в PowerShell).

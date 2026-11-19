@@ -78,7 +78,7 @@ fun distance(first: Offset, second: Offset): Float {
 fun minimumZoom(mode: AppMode): Float {
     return when (mode) {
         AppMode.Arcade -> ArcadeMinZoom
-        AppMode.Strategy -> .08f
+        AppMode.Strategy -> .01f
         AppMode.Sandbox -> SandboxMinZoom
     }
 }

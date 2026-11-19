@@ -138,6 +138,26 @@ class SessionRecoveryTest {
         assertFalse(game.arcadeCompletionPending);assertTrue(game.arcade!!.endless)
         assertEquals(random.state,game.recoverySnapshot(0)!!.randomState)
     }
+    @Test fun oldStrategyBasesLoadWithoutChangingProductionOrPosition() {
+        val game = SpaceGameState().apply { resize(IntSize(1080,2340)); startStrategy(ArcadeDifficulty.Hard) }
+        val saved = game.recoverySnapshot(0)!!
+        val run = saved.strategy!!
+        val battle = run.strategy!!
+        val bases = battle.bases.map { it.copy(role=null,remaining=0.0,launches=1) }
+        val legacy = run.copy(
+            bodies=run.bodies.map { body ->
+                if (bases.any { it.id == body.id }) body.copy(mass=5600.0) else body
+            },
+            strategy=battle.copy(bases=bases))
+        storage.save(saved.copy(strategy=legacy))
+        val recovered = storage.load()!!.strategy!!
+        assertEquals(bases,recovered.strategy!!.bases)
+        assertEquals(listOf(5600.0,5600.0,5600.0),recovered.bodies.filter { body -> bases.any { it.id == body.id } }.map { it.mass })
+        val next = advanceStrategy(recovered,.02,kotlin.random.Random(17)).strategy!!
+        assertEquals(listOf(BodyKind.Ship,BodyKind.Ship,BodyKind.Ship),next.enemies.values.map { it.kind })
+        assertTrue(next.bases.all { it.remaining == 8.0 })
+    }
+
     @Test fun strategyOrdersStationsEnemyShotsAndRandomEventsSurviveRecovery() {
         val game=SpaceGameState().apply { resize(IntSize(1080,2340));startArcade();startStrategy() }
         var run=game.arcade!!

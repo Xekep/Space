@@ -294,7 +294,7 @@
 
     <string name="strategy">"Stratégie"</string>
     <string name="strategy_help">"Construisez une flotte et détruisez trois bases ennemies."</string>
-    <string name="strategy_status">"Flotte %1$d · bases %2$d/3"</string>
+    <string name="strategy_status">"Flotte %1$d"</string>
     <string name="strategy_victory">"Secteur sécurisé"</string>
     <string name="strategy_victory_help">"Toutes les bases ennemies sont détruites. Votre noyau a survécu."</string>
     <string name="strategy_replay">"Nouvelle bataille"</string>
@@ -329,7 +329,15 @@
     <string name="strategy_training_fleet">"Sélectionnez un vaisseau ou toute la flotte."</string>
     <string name="strategy_training_order">"Touchez un point libre pour y déplacer la flotte."</string>
     <string name="strategy_replace">"Le lancement remplacera la bataille en cours."</string>
-    <string name="strategy_difficulty">"Résistance du noyau : %1$d · Résistance d’une base : %2$d · Renforts toutes les %3$d s"</string>
+    <string name="strategy_difficulty">"Résistance du noyau : %1$d · Bases : %2$d–%3$d · Renforts toutes les %4$d–%5$d s"</string>
+    <string name="strategy_silo">"Silo à missiles"</string>
+    <string name="strategy_shipyard">"Chantier naval"</string>
+    <string name="strategy_citadel">"Citadelle"</string>
+    <string name="strategy_enemy_base">"Avant-poste ennemi"</string>
+    <string name="strategy_silo_production">"Missiles"</string>
+    <string name="strategy_shipyard_production">"Surtout des vaisseaux"</string>
+    <string name="strategy_mixed_production">"Flotte mixte"</string>
+    <string name="strategy_base_schedule">"%1$s · %2$d s"</string>
     <string name="strategy_next_base">"Centrer sur la prochaine base ennemie"</string>
     <string name="factory_countdown">"Sortie dans %1$d s"</string>
     <string name="factory_energy_required">"Énergie requise avec réserve : %1$d"</string>

@@ -316,7 +316,7 @@
 
     <string name="strategy">"Стратегия"</string>
     <string name="strategy_help">"Построй флот и уничтожь три вражеские базы."</string>
-    <string name="strategy_status">"Флот %1$d · базы %2$d/3"</string>
+    <string name="strategy_status">"Флот %1$d"</string>
     <string name="strategy_victory">"Сектор освобождён"</string>
     <string name="strategy_victory_help">"Все вражеские базы уничтожены. Ядро уцелело."</string>
     <string name="strategy_replay">"Новая схватка"</string>
@@ -351,7 +351,15 @@
     <string name="strategy_training_fleet">"Выбери корабль или нажми «Выбрать весь флот»."</string>
     <string name="strategy_training_order">"Нажми на свободную точку, чтобы отправить туда флот."</string>
     <string name="strategy_replace">"Запуск заменит текущую схватку."</string>
-    <string name="strategy_difficulty">"Прочность ядра: %1$d · Прочность базы: %2$d · Подкрепления каждые %3$d с"</string>
+    <string name="strategy_difficulty">"Прочность ядра: %1$d · Прочность баз: %2$d–%3$d · Подкрепления каждые %4$d–%5$d с"</string>
+    <string name="strategy_silo">"Ракетная шахта"</string>
+    <string name="strategy_shipyard">"Верфь"</string>
+    <string name="strategy_citadel">"Цитадель"</string>
+    <string name="strategy_enemy_base">"Вражеский форпост"</string>
+    <string name="strategy_silo_production">"Ракеты"</string>
+    <string name="strategy_shipyard_production">"Чаще корабли"</string>
+    <string name="strategy_mixed_production">"Смешанный флот"</string>
+    <string name="strategy_base_schedule">"%1$s · %2$d с"</string>
     <string name="strategy_next_base">"Следующая вражеская база"</string>
     <string name="factory_countdown">"Выпуск через %1$d с"</string>
     <string name="factory_energy_required">"Энергия с учётом резерва: %1$d"</string>

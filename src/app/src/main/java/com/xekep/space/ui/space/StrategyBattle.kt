@@ -12,31 +12,63 @@ enum class FactoryProduct { Off, Rocket, Interceptor, Guardian }
 enum class StrategyTraining { Factory, Fleet, Order }
 data class OrbitalStation(val id: Long, val position: Vec2, val kind: StationKind, val level: Int = 1,
     val hull: Int = 3, val product: FactoryProduct = FactoryProduct.Off, val remaining: Double = if (kind == StationKind.Bastion) .2 else 18.0)
-data class EnemyBase(val id: Long, val position: Vec2, val remaining: Double = 25.0, val launches: Int = 0)
+enum class EnemyBaseRole {
+    Silo, Shipyard, Citadel
+}
+data class EnemyBase(val id: Long, val position: Vec2, val remaining: Double = 25.0, val launches: Int = 0,
+    val role: EnemyBaseRole? = null)
 data class EnemyCraft(val kind: BodyKind, val cooldown: Double = 3.0, val age: Double = 0.0)
 data class StrategyBattle(val bases: List<EnemyBase>, val stations: List<OrbitalStation> = emptyList(),
     val orders: Map<Long,FleetOrder> = emptyMap(), val enemies: Map<Long,EnemyCraft> = emptyMap(), val victory: Boolean = false,
     val training: StrategyTraining? = null)
 
-internal val ArcadeDifficulty.strategyBaseHull: Int get() = when (this) {
-    ArcadeDifficulty.Easy -> 3000
-    ArcadeDifficulty.Normal -> 4200
-    ArcadeDifficulty.Hard -> 5600
-}
-internal val ArcadeDifficulty.strategyReinforcementSeconds: Int get() = when (this) {
-    ArcadeDifficulty.Easy -> 12
-    ArcadeDifficulty.Normal -> 10
-    ArcadeDifficulty.Hard -> 8
+internal fun EnemyBaseRole?.maxHull(difficulty: ArcadeDifficulty): Int {
+    val hull = when (difficulty) {
+        ArcadeDifficulty.Easy -> 3000
+        ArcadeDifficulty.Normal -> 4200
+        ArcadeDifficulty.Hard -> if (this == null) 5600 else 5000
+    }
+    return hull * when (this) {
+        EnemyBaseRole.Silo -> 85
+        EnemyBaseRole.Shipyard -> 95
+        EnemyBaseRole.Citadel -> 120
+        null -> 100
+    } / 100
 }
 
-internal fun createStrategyBattle(run: ArcadeSession, training: StrategyTraining? = null): ArcadeSession {
-    val core=run.bodies.first { it.kind == BodyKind.Core }
-    val hull=run.difficulty.strategyBaseHull.toDouble()
-    val bases=(0..2).map { index ->
-        val angle=-PI/2+index*2*PI/3
-        EnemyBase(SimulationEngine.newBodyId(),core.position+Vec2(cos(angle),sin(angle))*1200.0,12.0+index*4)
+internal fun EnemyBaseRole?.reinforcementSeconds(difficulty: ArcadeDifficulty): Int {
+    val interval = when (difficulty) {
+        ArcadeDifficulty.Easy -> 12
+        ArcadeDifficulty.Normal -> 10
+        ArcadeDifficulty.Hard -> 8
     }
-    val nodes=bases.map { CelestialBody(it.id,it.position,Vec2.Zero,hull,38f,Color(0xFFFF8275),BodyKind.Meteor) }
+    return interval + when (this) {
+        EnemyBaseRole.Silo -> -2
+        EnemyBaseRole.Shipyard -> 1
+        EnemyBaseRole.Citadel -> 2
+        null -> 0
+    }
+}
+
+internal fun EnemyBase.reinforcementKind(): BodyKind = when (role) {
+    EnemyBaseRole.Silo -> BodyKind.Rocket
+    EnemyBaseRole.Shipyard -> if (launches % 3 == 1) BodyKind.Rocket else BodyKind.Ship
+    EnemyBaseRole.Citadel, null -> if (launches % 3 == 1) BodyKind.Ship else BodyKind.Rocket
+}
+
+internal fun createStrategyBattle(run: ArcadeSession, training: StrategyTraining? = null, random: Random = Random(0)): ArcadeSession {
+    val core=run.bodies.first { it.kind == BodyKind.Core }
+    val roles = if (training == null) EnemyBaseRole.entries.shuffled(random) else EnemyBaseRole.entries
+    val bases = roles.mapIndexed { index, role ->
+        val angle = -PI / 2 + index * 2 * PI / 3 + if (training == null) random.nextDouble(-.20, .20) else 0.0
+        val distance = if (training == null) random.nextDouble(1100.0, 1300.0) else 1200.0
+        EnemyBase(SimulationEngine.newBodyId(), core.position + Vec2(cos(angle), sin(angle)) * distance,
+            remaining = 12.0 + index * 4, role = role)
+    }
+    val nodes = bases.map { base ->
+        CelestialBody(base.id, base.position, Vec2.Zero, base.role.maxHull(run.difficulty).toDouble(), 38f,
+            Color(0xFFFF8275), BodyKind.Meteor)
+    }
     val home=OrbitalStation(SimulationEngine.newBodyId(),core.position+Vec2(240.0,200.0),StationKind.Factory,
         product=FactoryProduct.Interceptor,remaining=3.0)
     return run.copy(bodies=run.bodies+nodes,strategy=StrategyBattle(bases,listOf(home),training=training))
@@ -136,14 +168,14 @@ internal fun advanceStrategy(input: ArcadeSession, dt: Double, random: Random, c
         if (bodies.none { it.id == base.id }) return@map base
         val remaining=base.remaining-dt
         if (remaining > 0 || enemies.size >= 24) return@map base.copy(remaining=maxOf(0.0,remaining))
-        val kind=if (base.launches%3 == 1) BodyKind.Ship else BodyKind.Rocket
+        val kind = base.reinforcementKind()
         val direction=(core.position-base.position).normalized()
         val position=base.position+direction*85.0
         val id=SimulationEngine.newBodyId()
         val mass=if (kind == BodyKind.Ship) 180.0 else 100.0
         bodies=bodies+CelestialBody(id,position,direction*140.0,mass,SimulationEngine.radiusForMass(mass),Color(0xFFFF8275),BodyKind.Meteor,heading=direction)
         enemies[id]=EnemyCraft(kind)
-        base.copy(remaining=input.difficulty.strategyReinforcementSeconds.toDouble(),launches=base.launches+1)
+        base.copy(remaining=base.role.reinforcementSeconds(input.difficulty).toDouble(),launches=base.launches+1)
     }
     var stationShots=input.combat.projectiles
     val targeting by lazy { ArcadeTargeting(bodies,baseIds) }

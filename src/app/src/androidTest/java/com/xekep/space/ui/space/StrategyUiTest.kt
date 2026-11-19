@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.unit.*
@@ -78,9 +79,47 @@ class StrategyUiTest {
         assertTrue(game.strategyRun!!.strategy!!.orders.isNotEmpty())
         compose.runOnIdle { game.update(.05) }
         assertTrue(game.strategyRun!!.elapsed > 0.0)
+        val selected = game.fleetSelection
         for (base in start.bases + start.bases.first()) {
             compose.onNodeWithTag("enemy-focus").performClick()
             assertEquals(base.position,game.camera.center)
+            assertEquals(selected,game.fleetSelection)
+            compose.mainClock.advanceTimeBy(32)
+            compose.onNodeWithTag("strategy-base-role").assertIsDisplayed()
+        }
+    }
+
+    @Test fun narrowTrainingOverviewKeepsBasesClearWithFactorySelected() {
+        val game = SpaceGameState().apply {
+            resize(IntSize(960,2100))
+            startStrategy(ArcadeDifficulty.Easy,training=true)
+        }
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(3f,1.5f)) {
+                SpaceTheme { Box(Modifier.requiredSize(320.dp,700.dp)) { SpaceSceneRoot(game) } }
+            }
+        }
+        compose.mainClock.advanceTimeBy(96)
+        tap(game,game.strategyRun!!.strategy!!.stations.first().position)
+        compose.mainClock.advanceTimeBy(96)
+        compose.onNodeWithTag("strategy-training-hint").assertIsDisplayed()
+        compose.onNodeWithTag("factory-status").assertIsDisplayed()
+        val viewport = game.viewport
+        val gap = game.indicatorBounds(Rect(0f,0f,viewport.width.toFloat(),viewport.height.toFloat()),0f)
+        val radius = maxOf(18f*game.density,38f*game.camera.zoom)*1.25f+game.density
+        for (base in game.strategyRun!!.strategy!!.bases) {
+            val center = worldToScreen(base.position,viewport,game.camera.center,game.camera.zoom)
+            assertTrue("Base ${base.role} fits inside ${gap}",center.x-radius >= gap.left && center.x+radius <= gap.right &&
+                center.y-radius >= gap.top && center.y+radius <= gap.bottom)
+        }
+        shot("strategy-overview-narrow.png")
+        compose.runOnIdle {
+            val center = Offset(viewport.width*.5f,viewport.height*.5f)
+            game.transformCamera(center,Offset(0f,240f),1.4f)
+            val manual = game.camera
+            game.updateStrategyOverview()
+            assertEquals(manual,game.camera)
         }
     }
     @Test fun rectangleSelectionMoveAttackAndPinchNeverLaunchAnExtraCraft() {
@@ -151,7 +190,7 @@ class StrategyUiTest {
                 assertTrue(tag+" stays inside HUD",bounds.left >= root.left-1 && bounds.right <= root.right+1)
             }
             val localized=context.createConfigurationContext(Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(locale)) })
-            val status=localized.getString(com.xekep.space.R.string.strategy_status,0,3)
+            val status=localized.getString(com.xekep.space.R.string.strategy_status,0)
             val result=mutableListOf<TextLayoutResult>()
             compose.onNodeWithText(status).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(result) }
             assertTrue(result.isNotEmpty())

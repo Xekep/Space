@@ -292,7 +292,8 @@ fun SpaceMenu(
         title={ Text(context.getString(if (selectedMode != AppMode.Sandbox) difficulty.labelId() else preset.labelId())) },
         text={ Text(when (selectedMode) {
             AppMode.Strategy -> context.getString(R.string.strategy_difficulty, difficulty.lives,
-                difficulty.strategyBaseHull, difficulty.strategyReinforcementSeconds)
+                EnemyBaseRole.Silo.maxHull(difficulty), EnemyBaseRole.Citadel.maxHull(difficulty),
+                EnemyBaseRole.Silo.reinforcementSeconds(difficulty), EnemyBaseRole.Citadel.reinforcementSeconds(difficulty))
             AppMode.Arcade -> context.getString(R.string.difficulty_details,difficulty.lives,difficulty.scoreFactor.toString())
             AppMode.Sandbox -> context.getString(preset.descriptionId())
         }) },confirmButton={ TextButton(onClick={ info=false }) { Text(context.getString(R.string.close)) } })

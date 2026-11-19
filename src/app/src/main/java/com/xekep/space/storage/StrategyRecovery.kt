@@ -12,14 +12,16 @@ private fun JSONArray.items(limit: Int): List<JSONObject> { require(length() <= 
 internal fun encodeStrategy(battle: StrategyBattle)=JSONObject()
     .put("victory",battle.victory)
     .put("training",battle.training?.name)
-    .put("bases",JSONArray(battle.bases.map { JSONObject().put("id",it.id).put("position",point(it.position)).put("remaining",it.remaining).put("launches",it.launches) }))
+    .put("bases",JSONArray(battle.bases.map { JSONObject().put("id",it.id).put("position",point(it.position))
+        .put("remaining",it.remaining).put("launches",it.launches).put("role",it.role?.name) }))
     .put("stations",JSONArray(battle.stations.map { JSONObject().put("id",it.id).put("position",point(it.position)).put("kind",it.kind.name).put("level",it.level).put("hull",it.hull).put("product",it.product.name).put("remaining",it.remaining) }))
     .put("orders",JSONArray(battle.orders.map { (id,order) -> JSONObject().put("id",id).put("position",point(order.position)).put("command",order.command.name).put("target",order.targetId) }))
     .put("enemies",JSONArray(battle.enemies.map { (id,status) -> JSONObject().put("id",id).put("kind",status.kind.name).put("cooldown",status.cooldown).put("age",status.age) }))
 internal fun decodeStrategy(obj: JSONObject, bodies: List<CelestialBody>): StrategyBattle {
     val ids=bodies.map { it.id }.toSet()
     val bases=obj.getJSONArray("bases").items(3).map { x -> EnemyBase(x.id().also { require(it in ids && bodies.first { b -> b.id == it }.kind == BodyKind.Meteor) },x.position(),
-        x.getDouble("remaining").also { require(it in 0.0..60.0) },x.getInt("launches").also { require(it >= 0) }) }
+        x.getDouble("remaining").also { require(it in 0.0..60.0) },x.getInt("launches").also { require(it >= 0) },
+        if (x.isNull("role")) null else EnemyBaseRole.valueOf(x.getString("role"))) }
     val stations=obj.getJSONArray("stations").items(4).map { x -> OrbitalStation(x.id().also { require(it !in ids) },x.position(),StationKind.valueOf(x.getString("kind")),
         x.getInt("level").also { require(it in 1..2) },x.getInt("hull").also { require(it in 1..4) },FactoryProduct.valueOf(x.getString("product")),x.getDouble("remaining").also { require(it in 0.0..18.0) }) }
     val orders=obj.getJSONArray("orders").items(36).associate { x -> x.id().also { require(it in ids && bodies.first { b -> b.id == it }.isVehicle) } to

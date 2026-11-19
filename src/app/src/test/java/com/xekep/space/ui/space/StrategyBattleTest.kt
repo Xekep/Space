@@ -23,6 +23,32 @@ class StrategyBattleTest {
         assertEquals(1,advanced.launches);assertEquals(1,advanced.bodies.count { it.isVehicle })
         assertTrue(advanced.energy in (120.0-launchCost(BodyKind.Ship,36.0))..(120.4-launchCost(BodyKind.Ship,36.0)))
     }
+    @Test fun baseRolesChangeOpeningPressureAndVaryAcrossSeeds() {
+        fun layout(seed: Long, training: StrategyTraining? = null) = createStrategyBattle(
+            ArcadeSession(SimulationEngine.arcadeBodies(Vec2(900.0,1400.0)),SpaceCamera(),IntSize(900,1400),ArcadeDifficulty.Normal),
+            training,SessionRandom(seed))
+        val first = layout(17)
+        val bases = first.strategy!!.bases
+        assertEquals(EnemyBaseRole.entries.toSet(),bases.mapNotNull { it.role }.toSet())
+        assertEquals(bases.map { it.role to it.position },layout(17).strategy!!.bases.map { it.role to it.position })
+        assertNotEquals(bases.map { it.position },layout(73).strategy!!.bases.map { it.position })
+        assertEquals(layout(17,StrategyTraining.Factory).strategy!!.bases.map { it.position },
+            layout(73,StrategyTraining.Factory).strategy!!.bases.map { it.position })
+
+        val ready = first.copy(strategy=first.strategy!!.copy(bases=bases.map { it.copy(remaining=0.0) }))
+        val next = advanceStrategy(ready,.02,Random(17))
+        val reinforced = next.strategy!!
+        assertEquals(listOf(BodyKind.Rocket,BodyKind.Rocket,BodyKind.Ship),
+            reinforced.enemies.values.map { it.kind }.sortedBy { it.name })
+        for (base in reinforced.bases) {
+            assertEquals(base.role.reinforcementSeconds(first.difficulty).toDouble(),base.remaining,0.0)
+            assertEquals(base.role.maxHull(first.difficulty).toDouble(),first.bodies.first { it.id == base.id }.mass,0.0)
+        }
+        val legacy = EnemyBase(1,Vec2.Zero,launches=1)
+        assertEquals(4200,legacy.role.maxHull(ArcadeDifficulty.Normal))
+        assertEquals(10,legacy.role.reinforcementSeconds(ArcadeDifficulty.Normal))
+        assertEquals(BodyKind.Ship,legacy.reinforcementKind())
+    }
     @Test fun buildingChecksEnergyClearanceRangeAndCapacityWithoutSpendingOnFailure() {
         var run=run();val core=run.bodies.first { it.kind == BodyKind.Core }
         assertSame(run,buildStation(run,StationKind.Factory,core.position))

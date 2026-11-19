@@ -294,7 +294,7 @@
 
     <string name="strategy">"战略"</string>
     <string name="strategy_help">"建立舰队并摧毁三座敌方基地。"</string>
-    <string name="strategy_status">"舰队 %1$d · 基地 %2$d/3"</string>
+    <string name="strategy_status">"舰队 %1$d"</string>
     <string name="strategy_victory">"星区已解放"</string>
     <string name="strategy_victory_help">"所有敌方基地已被摧毁。你的核心幸存了。"</string>
     <string name="strategy_replay">"新战斗"</string>
@@ -329,7 +329,15 @@
     <string name="strategy_training_fleet">"选择一艘飞船或选择整个舰队。"</string>
     <string name="strategy_training_order">"点击空白位置，命令舰队移动到那里。"</string>
     <string name="strategy_replace">"开始后将替换当前战斗。"</string>
-    <string name="strategy_difficulty">"核心耐久：%1$d · 基地耐久：%2$d · 增援间隔：%3$d 秒"</string>
+    <string name="strategy_difficulty">"核心耐久：%1$d · 基地耐久：%2$d–%3$d · 增援间隔：%4$d–%5$d 秒"</string>
+    <string name="strategy_silo">"导弹发射井"</string>
+    <string name="strategy_shipyard">"造船厂"</string>
+    <string name="strategy_citadel">"要塞"</string>
+    <string name="strategy_enemy_base">"敌方前哨"</string>
+    <string name="strategy_silo_production">"火箭"</string>
+    <string name="strategy_shipyard_production">"以飞船为主"</string>
+    <string name="strategy_mixed_production">"混合舰队"</string>
+    <string name="strategy_base_schedule">"%1$s · %2$d 秒"</string>
     <string name="strategy_next_base">"查看下一座敌方基地"</string>
     <string name="factory_countdown">"%1$d 秒后出厂"</string>
     <string name="factory_energy_required">"所需能量（含储备）：%1$d"</string>

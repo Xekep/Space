@@ -34,7 +34,7 @@ class JoystickUiTest {
     @Test fun settingsSelectJoystickAndRealDraggingSteersAcceleratesAndReleasesInBothModes() = withOriginalOptions {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         compose.mainClock.autoAdvance=false
-        val game=SpaceGameState().apply { resize(IntSize(1080,2340)); startArcade(); openMenu() }
+        val game=SpaceGameState(proceduralWorlds=false).apply { resize(IntSize(1080,2340)); startArcade(); openMenu() }
         compose.setContent { SpaceTheme { SpaceSceneRoot(game) } }
         compose.onNodeWithTag("open-settings").performClick()
         compose.mainClock.advanceTimeBy(48)
@@ -105,15 +105,16 @@ class JoystickUiTest {
             }
             compose.onNodeWithTag("pitch-joystick").performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
-            compose.onNodeWithTag("pilot-speed").performTouchInput {
-                down(center.copy(y=height*.8f)); moveTo(center.copy(y=height*.35f),120)
-            }
+            val speedControl=compose.onNodeWithTag("pilot-speed")
+            speedControl.performTouchInput { down(center.copy(y=height*.8f)) }
+            compose.mainClock.advanceTimeByFrame()
+            speedControl.performTouchInput { moveTo(center.copy(y=height*.35f),120) }
             compose.mainClock.advanceTimeByFrame()
             compose.runOnIdle {
-                assertEquals(585.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0)
+                assertEquals("$mode $kind speed after drag",585.0,game.bodies.first { it.id == id }.pilotTargetSpeed!!,1.0)
                 assertEquals(count,game.bodies.size)
             }
-            compose.onNodeWithTag("pilot-speed").performTouchInput { up() }
+            speedControl.performTouchInput { up() }
             compose.mainClock.advanceTimeByFrame()
             val zoom=game.camera.zoom
             compose.onNodeWithTag("space-scene").performTouchInput {
@@ -148,10 +149,12 @@ class JoystickUiTest {
             compose.onNodeWithTag("flight-joystick").performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
             // Throttle remains accessible with a cut engine; full thrust restarts it.
-            compose.onNodeWithTag("flight-joystick").performTouchInput {
-                down(center+Offset(0f,38*game.density))
-                moveTo(center-Offset(0f,38*game.density),120); up()
-            }
+            val throttle=compose.onNodeWithTag("flight-joystick")
+            throttle.performTouchInput { down(center+Offset(0f,38*game.density)) }
+            compose.mainClock.advanceTimeByFrame()
+            throttle.performTouchInput { moveTo(center-Offset(0f,38*game.density),120) }
+            compose.mainClock.advanceTimeByFrame()
+            throttle.performTouchInput { up() }
             compose.mainClock.advanceTimeBy(48)
             compose.runOnIdle {
                 val powered=game.bodies.first { it.id == id }

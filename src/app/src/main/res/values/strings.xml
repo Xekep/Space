@@ -316,7 +316,7 @@
 
     <string name="strategy">"Strategy"</string>
     <string name="strategy_help">"Build a fleet and destroy three enemy bases."</string>
-    <string name="strategy_status">"Fleet %1$d · bases %2$d/3"</string>
+    <string name="strategy_status">"Fleet %1$d"</string>
     <string name="strategy_victory">"Sector secured"</string>
     <string name="strategy_victory_help">"All enemy bases are destroyed. Your core survived."</string>
     <string name="strategy_replay">"New battle"</string>
@@ -351,7 +351,15 @@
     <string name="strategy_training_fleet">"Select a ship or tap Select entire fleet."</string>
     <string name="strategy_training_order">"Tap an empty point to order the fleet to move."</string>
     <string name="strategy_replace">"Starting will replace your current battle."</string>
-    <string name="strategy_difficulty">"Core hull: %1$d · Base hull: %2$d · Reinforcements every %3$d s"</string>
+    <string name="strategy_difficulty">"Core hull: %1$d · Base hull: %2$d–%3$d · Reinforcements every %4$d–%5$d s"</string>
+    <string name="strategy_silo">"Missile silo"</string>
+    <string name="strategy_shipyard">"Shipyard"</string>
+    <string name="strategy_citadel">"Citadel"</string>
+    <string name="strategy_enemy_base">"Enemy outpost"</string>
+    <string name="strategy_silo_production">"Rockets"</string>
+    <string name="strategy_shipyard_production">"Mostly ships"</string>
+    <string name="strategy_mixed_production">"Mixed fleet"</string>
+    <string name="strategy_base_schedule">"%1$s · %2$d s"</string>
     <string name="strategy_next_base">"Focus next enemy base"</string>
     <string name="factory_countdown">"Launch in %1$d s"</string>
     <string name="factory_energy_required">"Energy with reserve: %1$d"</string>

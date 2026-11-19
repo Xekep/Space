@@ -22,7 +22,8 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
                 style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
         }
     }
-    (game.selectedBody ?: game.orbitSource)?.let {
+    val strategyBases = game.arcade?.strategy?.bases.orEmpty()
+    (game.selectedBody ?: game.orbitSource)?.takeUnless { body -> strategyBases.any { it.id == body.id } }?.let {
             drawCircle(Color(0xFF8BD3FF), bodyScreenRadius(it, camera.zoom, density, game.largeVehicleIcons).coerceAtLeast(12f) + 8f,
                 worldToScreen(flightRenderPosition(it,renderedPosition(it),game.viewport,camera.zoom,game.cameraRotation), game.viewport, camera.center, camera.zoom, game.cameraRotation), style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
     }
@@ -53,7 +54,7 @@ fun DrawScope.drawSpaceIndicators(game: SpaceGameState,camera: SpaceCamera=game.
     val bounds = game.indicatorBounds(Rect(marginX, marginY, size.width - marginX, size.height - marginY),14.dp.toPx())
     if (bounds.width <= 0f || bounds.height <= 0f) return
     val markerScale=minOf(1f,bounds.height/(40.dp.toPx()))
-    game.bodies.filter { it.kind == BodyKind.Meteor }.forEach { body ->
+    game.bodies.filter { body -> body.kind == BodyKind.Meteor && strategyBases.none { it.id == body.id } }.forEach { body ->
         val point = worldToScreen(renderedPosition(body), game.viewport, camera.center, camera.zoom, game.cameraRotation)
         val velocity = rotateVector(body.velocity * camera.zoom.toDouble(), game.cameraRotation)
         val marker = threatDirectionMarker(point, velocity, bodyScreenRadius(body, camera.zoom, density), game.viewport, bounds)

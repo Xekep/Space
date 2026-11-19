@@ -247,6 +247,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
 
     val solarLabels = remember(game, game.sceneGeneration) { SolarLabelLayout() }
     val viewport = game.viewport
+    LaunchedEffect(game, game.mode, game.menuOpen, game.arcadeHudTop, game.arcadeHudBottom,
+        game.sceneOrigin, viewport, game.touchPreview == null) {
+        game.updateStrategyOverview()
+    }
     val camera by remember(game) { derivedStateOf { game.camera } }
     // Both sessions are retained, but only the active one contributes effects.
     val arcade = game.arcade.takeIf { game.mode != AppMode.Sandbox }
@@ -337,7 +341,10 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             }
             trailBodies.filter { !it.isVehicle || it.flightHeight == 0.0 }.forEach(::renderTrail)
             val flightTrailIds=trailBodies.filter { it.isVehicle && it.flightHeight != 0.0 }.map { it.id }.toSet()
-            drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density).filterNot { it.id in arcade?.carrier?.nodeIds.orEmpty() }.map { body ->
+            val strategyBases = arcade?.strategy?.bases.orEmpty()
+            drawWorldBodies(visibleSolarBodies(bodies,renderCamera.zoom,density).filterNot { body ->
+                body.id in arcade?.carrier?.nodeIds.orEmpty() || strategyBases.any { it.id == body.id }
+            }.map { body ->
                 val enemy=arcade?.strategy?.enemies?.get(body.id)
                 if (enemy != null) body.copy(kind=enemy.kind,fuelRemaining=com.xekep.space.sim.vehicleFuelCapacity(enemy.kind)) else body
             },viewport,renderCamera,game.cameraRotation,
@@ -383,13 +390,14 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
             DisposableEffect(game) { onDispose { game.arcadeHudTop=null; game.arcadeHudBottom=null } }
             BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding()) {
                 val compactPilot=options.flightControl == com.xekep.space.input.FlightControlMode.Joystick && game.controlledVehicleId != null
-                val toolsHeight = maxHeight * 0.60f
                 val compactHeight = maxHeight < 400.dp
+                val toolsHeight = maxHeight * if (game.mode == AppMode.Strategy && compactHeight) 0.45f else 0.60f
                 Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.onGloballyPositioned { game.arcadeHudTop=it.boundsInRoot() },verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         ArcadeTopHud(game,compactPilot)
                         if (game.mode == AppMode.Arcade) ArcadeEncounterHud(game)
+                        if (game.mode == AppMode.Strategy) StrategyTrainingHud(game)
                         SideEventHud(game)
                         arcade?.challenge?.takeIf { it.ids.isNotEmpty() }?.let { challenge ->
                             Text(if (challenge.parentId in challenge.ids) context.getString(R.string.challenge_giant) else
@@ -405,7 +413,7 @@ fun SpaceSceneRoot(state: SpaceGameState? = null) {
                     }
                     Column(Modifier.fillMaxWidth().heightIn(max = toolsHeight).onGloballyPositioned { game.arcadeHudBottom=it.boundsInRoot() }.verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        game.tutorialText?.let { message ->
+                        game.tutorialText?.takeIf { game.mode == AppMode.Arcade }?.let { message ->
                             androidx.compose.material3.Surface(modifier=Modifier.blockWorldTouches(), shape = spaceShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(context.getString(message), modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)

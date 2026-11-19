@@ -5,6 +5,7 @@ import com.xekep.space.R
 import com.xekep.space.input.ShakeImpulseDetector
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.IntSize
 import com.xekep.space.sim.*
@@ -157,6 +158,7 @@ class SpaceGameState(
         touchPreview=null; steeringInput=Vec2.Zero; pendingBoost=0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; resetFrameClock()
     }
     fun setMotionControlEnabled(value: Boolean) {
+        if (value) strategyOverview = false
         if (motionSteeringEnabled != value) { if (value) pilotZoomReference=camera.zoom; sandboxRevision++; steeringInput = Vec2.Zero; pendingBoost = 0.0; pitchInput=0.0; rollInput=0.0; fpvControl=false; motionSteeringEnabled = value; pilotCameraFollowing = value }
     }
     private fun resetMotionControl() {
@@ -212,6 +214,7 @@ class SpaceGameState(
     private val history = ArrayDeque<SandboxSession>()
     private var movedCameraInTutorial = false
     private var lastFocusedBaseId: Long? = null
+    private var strategyOverview = false
     val hasSession: Boolean get() = if (mode != AppMode.Sandbox) arcade != null else sandbox != null
     val bodies: List<CelestialBody> get() = if (mode != AppMode.Sandbox) arcade?.bodies.orEmpty() else sandbox?.bodies.orEmpty()
     val cameraTarget: CelestialBody? get() = orbitSource ?: if (following) selectedBody else if (pilotCameraFollowing && touchPreview == null)
@@ -296,10 +299,15 @@ class SpaceGameState(
         val scene=SimulationEngine.arcadeBodies(Vec2(900.0,1400.0))
         strategyRun=createStrategyBattle(ArcadeSession(scene,SpaceCamera(scene.first().position,
             minOf(viewport.width/3000f,viewport.height/3600f).coerceAtLeast(.08f)),IntSize(900,1400),difficulty),
-            if (training) StrategyTraining.Factory else null)
+            if (training) StrategyTraining.Factory else null, random)
         resetPresentation(); tacticalMode=true; spawnKind=BodyKind.Ship; menuOpen=false; feedback=null; resetFrameClock()
+        strategyOverview = true
     }
-    private fun resetTactics() { tacticalMode=false; fleetSelection=emptySet(); selectedStationId=null; buildingKind=null; fleetCommand=FleetCommand.Move; lastFocusedBaseId=null }
+    private fun resetTactics() {
+        tacticalMode=false; fleetSelection=emptySet(); selectedStationId=null; buildingKind=null; fleetCommand=FleetCommand.Move
+        lastFocusedBaseId=null
+        strategyOverview=false
+    }
     fun toggleTactics() { if (mode != AppMode.Strategy) return; tacticalMode=!tacticalMode; buildingKind=null; touchPreview=null; clearSelection(); if (tacticalMode) setMotionControlEnabled(false) }
     fun selectFleet() {
         applyFleetSelection(bodies.filter { it.isVehicle }.map { it.id }.toSet())
@@ -308,6 +316,7 @@ class SpaceGameState(
     private fun applyFleetSelection(ids: Set<Long>) {
         fleetSelection = ids
         selectedStationId = null
+        clearSelection()
         if (ids.isNotEmpty()) advanceStrategyTraining(StrategyTraining.Fleet, StrategyTraining.Order)
     }
     private fun advanceStrategyTraining(from: StrategyTraining, to: StrategyTraining?) {
@@ -318,7 +327,7 @@ class SpaceGameState(
     fun clearFleet() { fleetSelection=emptySet(); selectedStationId=null; buildingKind=null; clearSelection() }
     fun chooseFleetCommand(value: FleetCommand) { fleetCommand=value; buildingKind=null }
     fun fleetAuto() { val run=arcade ?: return; val battle=run.strategy ?: return; arcade=run.copy(strategy=battle.copy(orders=battle.orders-fleetSelection)) }
-    fun chooseBuilding(value: StationKind) { buildingKind=if (buildingKind == value) null else value; fleetSelection=emptySet(); selectedStationId=null }
+    fun chooseBuilding(value: StationKind) { buildingKind=if (buildingKind == value) null else value; fleetSelection=emptySet(); selectedStationId=null; clearSelection() }
     fun upgradeSelectedStation() { arcade=arcade?.let { upgradeStation(it,selectedStationId ?: return) } }
     fun cycleStationProduct() {
         val run=arcade ?: return; val battle=run.strategy ?: return
@@ -329,14 +338,18 @@ class SpaceGameState(
         val craft=bodies.firstOrNull { it.id in fleetSelection && it.isVehicle } ?: return
         lastArcadeVehicleId=craft.id; tacticalMode=false; buildingKind=null; fleetSelection=emptySet(); selectBody(craft.id); setMotionControlEnabled(true)
     }
-    fun focusSideEvent() { if (controlledVehicleId != null) return; arcade?.sideEvent?.let { clearSelection(); pilotCameraFollowing=false; setCamera(camera.copy(center=it.position)) } }
+    fun focusSideEvent() { if (controlledVehicleId != null) return; arcade?.sideEvent?.let { clearSelection(); pilotCameraFollowing=false; strategyOverview=false; setCamera(camera.copy(center=it.position)) } }
     fun focusEnemyBase() {
         if (controlledVehicleId != null) return
         val bases = strategyRun?.strategy?.bases?.takeIf { mode == AppMode.Strategy && it.isNotEmpty() } ?: return
         val index = (bases.indexOfFirst { it.id == lastFocusedBaseId } + 1) % bases.size
         val base = bases[index]
         lastFocusedBaseId = base.id
+        strategyOverview = false
         clearSelection()
+        selectBody(base.id)
+        selectedStationId = null
+        buildingKind = null
         pilotCameraFollowing = false
         setCamera(camera.copy(center = base.position))
     }
@@ -372,6 +385,7 @@ class SpaceGameState(
             return
         }
         if (station != null) {
+            clearSelection()
             selectedStationId = station.id
             fleetSelection = emptySet()
             if (station.kind == StationKind.Factory) advanceStrategyTraining(StrategyTraining.Factory, StrategyTraining.Fleet)
@@ -379,7 +393,9 @@ class SpaceGameState(
         }
         if (fleetSelection.isNotEmpty()) {
             val command=if (body?.kind == BodyKind.Meteor) FleetCommand.Attack else fleetCommand.takeUnless { it == FleetCommand.Attack } ?: FleetCommand.Move
-            arcade=issueFleetOrder(run,fleetSelection,command,body?.position ?: point,body?.id); return
+            arcade=issueFleetOrder(run,fleetSelection,command,body?.position ?: point,body?.id)
+            if (body != null && battle.bases.any { it.id == body.id }) selectBody(body.id)
+            return
         }
         if (body != null) selectBody(body.id) else clearSelection()
     }
@@ -604,6 +620,7 @@ class SpaceGameState(
     }
     fun transformCamera(centroid: Offset, pan: Offset, zoomChange: Float) {
         if (menuOpen || !hasSession || viewport == IntSize.Zero) return
+        strategyOverview = false
         val previous = camera
         val zoom = (previous.zoom * zoomChange).coerceIn(minimumZoom(mode), maximumZoom(mode))
         val followed = orbitSource ?: selectedBody?.takeIf { following }
@@ -643,10 +660,40 @@ class SpaceGameState(
         } else arcade=arcade?.copy(bodies=generated.bodies,exploration=generated.state)
     }
     private fun arcadeFitZoom() = minOf(viewport.width * 0.88f / 900f, viewport.height * 0.60f / 1400f).coerceAtLeast(ArcadeMinZoom)
+    internal fun updateStrategyOverview(force: Boolean = false) {
+        if (!strategyOverview || mode != AppMode.Strategy || menuOpen || touchPreview != null ||
+            viewport == IntSize.Zero || controlledVehicleId != null) return
+        val battle = strategyRun?.strategy ?: return
+        val core = bodies.firstOrNull { it.kind == BodyKind.Core } ?: return
+        val gap = indicatorBounds(Rect(0f, 0f, viewport.width.toFloat(), viewport.height.toFloat()), 0f)
+        if (gap.width <= 0f || gap.height <= 0f) return
+        val margin = minOf(28f * density, gap.width / 4, gap.height / 4)
+        val safe = gap.deflate(margin)
+        val points = listOf(core.position) + battle.bases.map { it.position } + battle.stations.map { it.position }
+        if (!force && points.all { point ->
+            val screen = worldToScreen(point,viewport,camera.center,camera.zoom,cameraRotation)
+            val radius = 62f * camera.zoom
+            screen.x-radius >= safe.left && screen.x+radius <= safe.right &&
+                screen.y-radius >= safe.top && screen.y+radius <= safe.bottom
+        }) return
+
+        val rotated = points.map { rotateVector(it, cameraRotation) }
+        val min = Vec2(rotated.minOf { it.x }, rotated.minOf { it.y })
+        val max = Vec2(rotated.maxOf { it.x }, rotated.maxOf { it.y })
+        val zoom = minOf(safe.width / (max.x-min.x+128), safe.height / (max.y-min.y+128),
+            viewport.width / 2400.0, viewport.height / 2800.0).toFloat().coerceAtLeast(minimumZoom(AppMode.Strategy))
+        val offset = (safe.center - Offset(viewport.width/2f,viewport.height/2f)) / zoom
+        val center = rotateVector((min+max)*0.5 - Vec2(offset.x.toDouble(),offset.y.toDouble()),-cameraRotation)
+        setCamera(SpaceCamera(center,zoom))
+    }
     fun fitCamera() {
         touchPreview = null; following = false; pilotCameraFollowing = false
         if (viewport == IntSize.Zero) return
-        if (mode != AppMode.Sandbox) { val core = bodies.firstOrNull { it.kind == BodyKind.Core } ?: return; setCamera(SpaceCamera(core.position, arcadeFitZoom())) }
+        if (mode == AppMode.Strategy && controlledVehicleId == null) {
+            strategyOverview = true
+            updateStrategyOverview(force = true)
+        }
+        else if (mode != AppMode.Sandbox) { val core = bodies.firstOrNull { it.kind == BodyKind.Core } ?: return; setCamera(SpaceCamera(core.position, arcadeFitZoom())) }
         else {
             if (bodies.isEmpty()) setCamera(SpaceCamera()) else {
                 val minX = bodies.minOf { it.position.x - it.radius }; val maxX = bodies.maxOf { it.position.x + it.radius }
